@@ -1,4 +1,7 @@
-local _A='''VRi9QOnJawLW3lceZSpH5IC/uq10f6kgN4vjdMy2xPob8YUTKEr7GBmtzDs+hXAF'''
+-- Fallen ECLIPZE obfuscated V3
+-- Fixed Lua string syntax.
+
+local _A='VRi9QOnJawLW3lceZSpH5IC/uq10f6kgN4vjdMy2xPob8YUTKEr7GBmtzDs+hXAF'
 local _B={[1]='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',
 [2]='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',
 [3]='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',
@@ -244,17 +247,20 @@ local _D={173,41,219,7,96,154,31,203,88,12,247,65,190,5,136,72,224}
 local _E=string
 local _F=table
 local _Gm=math
+
 local function _H(_I)
-    local _J=''
+    local _J={}
     for _K=1,#_I do
-        _J=_J.._E.char(_I[_K])
+        _J[#_J+1]=_E.char(_I[_K])
     end
-    return _J
+    return _F.concat(_J)
 end
+
 local _L={}
 for _M=1,#_A do
     _L[_E.sub(_A,_M,_M)]=_M-1
 end
+
 local function _N(_O)
     local _P={}
     local _Q=0
@@ -277,6 +283,7 @@ local function _N(_O)
     end
     return _F.concat(_P)
 end
+
 local function _W(_X)
     local _Y={}
     local _Z=77
@@ -290,19 +297,30 @@ local function _W(_X)
     end
     return _F.concat(_Y)
 end
+
 local _5={}
 for _6=1,#_C do
     _5[_6]=_B[_C[_6]]
 end
+
 local _7=_W(_N(_F.concat(_5)))
-local _8=(_G and (_G[_H({108,111,97,100,115,116,114,105,110,103})] or _G[_H({108,111,97,100})])) or loadstring or load
+local _8=nil
+if _G then
+    _8=_G[_H({108,111,97,100,115,116,114,105,110,103})] or _G[_H({108,111,97,100})]
+end
+_8=_8 or loadstring or load
+
 if not _8 then
-    if notify then notify(_H({108,111,97,100,115,116,114,105,110,103,47,108,111,97,100,32,110,111,116,32,102,111,117,110,100}),'error') else print(_H({108,111,97,100,115,116,114,105,110,103,47,108,111,97,100,32,110,111,116,32,102,111,117,110,100})) end
+    local _msg=_H({108,111,97,100,115,116,114,105,110,103,47,108,111,97,100,32,110,111,116,32,102,111,117,110,100})
+    if notify then notify(_msg,'error') else print(_msg) end
     return
 end
+
 local _9,_10=_8(_7)
 if not _9 then
-    if notify then notify(_H({100,101,99,111,100,101,47,108,111,97,100,32,101,114,114,111,114,58,32})..tostring(_10),'error') else print(_H({100,101,99,111,100,101,47,108,111,97,100,32,101,114,114,111,114,58,32})..tostring(_10)) end
+    local _msg=_H({100,101,99,111,100,101,47,108,111,97,100,32,101,114,114,111,114,58,32})..tostring(_10)
+    if notify then notify(_msg,'error') else print(_msg) end
     return
 end
+
 return _9()
