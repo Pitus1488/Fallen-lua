@@ -971,6 +971,82 @@ local function __key_valid(__x)
     for __i=1,#__HS do if __h==__HP[__HS[__i]] then return true end end
     return false
 end
+local __CACHE_PATH='C:\\blueberry\\scripts\\eclipze_auth.cache'
+local __CACHE_TRIED=false
+local function __uid()
+    local __u='0'
+    pcall(function()
+        if GetLocalPlayer then
+            local __lp=GetLocalPlayer()
+            if __lp and __lp.UserId then __u=tostring(__lp.UserId) end
+        end
+    end)
+    pcall(function()
+        if (__u=='0' or __u=='') and rbx and rbx.local_player then
+            local __lp=rbx.local_player()
+            if __lp then
+                if __lp.user_id then __u=tostring(__lp:user_id())
+                elseif __lp.get_user_id then __u=tostring(__lp:get_user_id()) end
+            end
+        end
+    end)
+    return tostring(__u or '0')
+end
+local function __hex_enc(__x)
+    __x=tostring(__x or '')
+    local __o={}
+    local __p=73
+    for __i=1,#__x do
+        local __b=__S.byte(__x,__i)
+        local __e=(__b+((__i*31+__AUTH_SALT)%251)+__p)%256
+        __o[#__o+1]=__S.format('%02X',__e)
+        __p=__e
+    end
+    return __T.concat(__o)
+end
+local function __hex_dec(__x)
+    __x=tostring(__x or '')
+    __x=__S.gsub(__x,'%s+','')
+    local __o={}
+    local __p=73
+    local __n=0
+    for __i=1,#__x,2 do
+        local __e=tonumber(__S.sub(__x,__i,__i+1),16)
+        if not __e then return nil end
+        __n=__n+1
+        local __b=(__e-((__n*31+__AUTH_SALT)%251)-__p)%256
+        __o[#__o+1]=__S.char(__b)
+        __p=__e
+    end
+    return __T.concat(__o)
+end
+local function __save_cache(__k)
+    if not write_file then return false end
+    __k=__clean_key(__k)
+    if __k=='' then return false end
+    local __raw=__k..'|'..__uid()..'|'..tostring(__key_hash(__k))
+    pcall(function() write_file(__CACHE_PATH,__hex_enc(__raw)) end)
+    return true
+end
+local function __load_cache()
+    if not read_file then return false end
+    local __data=nil
+    pcall(function() __data=read_file(__CACHE_PATH) end)
+    if not __data or __data=='' then return false end
+    local __raw=__hex_dec(__data)
+    if not __raw then return false end
+    local __k,__u,__h=__S.match(__raw,'^([^|]+)|([^|]+)|([^|]+)$')
+    if not __k or not __u or not __h then return false end
+    __k=__clean_key(__k)
+    if __u~=__uid() then return false end
+    if tostring(__key_hash(__k))~=tostring(__h) then return false end
+    if not __key_valid(__k) then return false end
+    __AUTH_IN=__k
+    __AUTH_OK=true
+    if notify then notify(__chr({75,101,121,32,108,111,97,100,101,100,32,102,114,111,109,32,99,97,99,104,101}),'success') end
+    return true
+end
+
 local function __noise_a(__x)
     local __r=0
     for __i=1,#__x do __r=(__r+__S.byte(__x,__i)*((__i%19)+1))%1000003 end
@@ -1156,6 +1232,7 @@ local function __capture()
     if __pressed(113) then __paste() end
     if __pressed(13) then
         if __key_valid(__AUTH_IN) then
+            __save_cache(__AUTH_IN)
             __AUTH_OK=true
             if notify then notify(__chr({75,101,121,32,97,99,99,101,112,116,101,100}),'success') end
         else
@@ -1194,6 +1271,10 @@ if notify then notify(__chr({69,67,76,73,80,90,69,32,97,117,116,104,32,114,101,9
 if hooks and hooks.on_render then
     hooks.on_render(function()
         if __AUTH_STARTED then return end
+        if (not __CACHE_TRIED) and (not __AUTH_OK) then
+            __CACHE_TRIED=true
+            pcall(function() __load_cache() end)
+        end
         if __AUTH_OK then __start() return end
         __capture()
         __draw_panel()
