@@ -13714,3 +13714,136 @@ ECLIPZE v35 fixed keybind popup + soft black glow
 
     if notify then notify("Eclipze v35 keybind popup fixed", "success") end
 end)()
+
+
+--[[
+ECLIPZE v36 Silent Aim Prediction Bridge
+- syncs cheat.silent_aim.prediction with your AP prediction
+- tries to attach your ap_predict_pos() as callback fields if the API supports them
+- fallback: keeps cheat.silent_aim.pred_x / pred_y synced from your current AP weapon/prediction values
+]]
+
+;(function()
+    _G.EC_SILENT_PRED_BRIDGE = true
+
+    local function ec36_clamp(v,a,b)
+        v = tonumber(v) or 0
+        if v < a then return a end
+        if v > b then return b end
+        return v
+    end
+
+    local function ec36_bool(v)
+        return v == true
+    end
+
+    local function ec36_get_cam_pos()
+        local cam = nil
+        pcall(function()
+            if aim and aim.get_camera_position then
+                cam = aim.get_camera_position()
+            end
+        end)
+        return cam
+    end
+
+    local function ec36_silent_pred_callback(target, pos, cam)
+        if not _G.EC_SILENT_PRED_BRIDGE then return pos end
+        if not ap_prediction_enabled then return pos end
+        if not pos then return nil end
+
+        cam = cam or ec36_get_cam_pos()
+
+        local ok, pred = pcall(function()
+            return ap_predict_pos(target, pos, cam)
+        end)
+
+        if ok and pred then
+            return pred
+        end
+
+        return pos
+    end
+
+    local function ec36_calc_pred_fields()
+        local speed = tonumber(AP_BULLET_SPEED or ap_manual_bullet_speed or 1000) or 1000
+        local gravity = tonumber(AP_GRAVITY or ap_manual_gravity or 35) or 35
+        local power = tonumber(ap_power or 0.54) or 0.54
+        local ping = tonumber(ap_ping_ms or 0) or 0
+        local weapon = string.lower(tostring(ap_current_weapon_name or ""))
+
+        local is_bow = string.find(weapon, "bow", 1, true) ~= nil
+            or string.find(weapon, "crossbow", 1, true) ~= nil
+            or string.find(weapon, "nail", 1, true) ~= nil
+
+        -- These are only fallback ints for the built-in silent aim API.
+        -- Real vector prediction is attempted through callback fields above.
+        local x = power * 100
+        local y = 0
+
+        if speed > 1 then
+            x = x * (1000 / speed)
+        end
+
+        if is_bow then
+            x = x * 2.35
+            y = (gravity / 35) * 12
+        else
+            x = x * 0.65
+            y = (gravity / 196.2) * 10
+        end
+
+        -- tiny ping compensation, capped
+        x = x + ec36_clamp(ping / 12, 0, 18)
+
+        if ap_drop_prediction_enabled == false then
+            y = 0
+        end
+
+        return math.floor(ec36_clamp(x, 0, 250) + 0.5),
+               math.floor(ec36_clamp(y, 0, 250) + 0.5)
+    end
+
+    local function ec36_apply_silent_bridge()
+        if not _G.EC_SILENT_PRED_BRIDGE then return end
+        if not cheat or not cheat.silent_aim then return end
+
+        local sa = cheat.silent_aim
+        local pred_enabled = ap_prediction_enabled == true
+        local px, py = ec36_calc_pred_fields()
+
+        pcall(function() sa.prediction = pred_enabled end)
+        pcall(function() sa.pred_x = px end)
+        pcall(function() sa.pred_y = py end)
+
+        -- Keep common shared options synced with your aimbot options.
+        pcall(function() sa.team_check = ap_team_check == true end)
+        pcall(function() sa.sticky_aim = ap_sticky_aim == true end)
+        pcall(function() sa.fov = tonumber(ap_fov_px or sa.fov or 250) or 250 end)
+
+        -- Try callback-style fields. If the cheat API ignores unknown fields, harmless.
+        pcall(function() sa.prediction_callback = ec36_silent_pred_callback end)
+        pcall(function() sa.predict_callback = ec36_silent_pred_callback end)
+        pcall(function() sa.target_position_callback = ec36_silent_pred_callback end)
+        pcall(function() sa.position_callback = ec36_silent_pred_callback end)
+        pcall(function() sa.get_prediction_position = ec36_silent_pred_callback end)
+        pcall(function() sa.get_target_position = ec36_silent_pred_callback end)
+    end
+
+    pcall(function()
+        if UIManager and UIManager.CreateCheckbox and UIManager.SetElementParent then
+            UIManager.CreateCheckbox("ec36_silent_pred_bridge", "Silent Use AP Prediction", true, function(v)
+                _G.EC_SILENT_PRED_BRIDGE = v == true
+                notify("Silent prediction bridge " .. (v and "ON" or "OFF"), v and "success" or "warning")
+            end)
+            UIManager.SetElementParent("ec36_silent_pred_bridge", TAB_ID)
+        end
+    end)
+
+    hooks.on_render(function()
+        pcall(ec36_apply_silent_bridge)
+    end)
+
+    pcall(ec36_apply_silent_bridge)
+    notify("Silent Aim AP Prediction Bridge loaded", "success")
+end)()
