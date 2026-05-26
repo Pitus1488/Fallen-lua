@@ -12683,3 +12683,288 @@ ECLIPZE v31 dark side panels fix
 
     if notify then notify('Eclipze v31 dark side panels loaded', 'success') end
 end)()
+
+
+--[[
+ECLIPZE v32 compact soft HUD panels
+- top overlay redesigned to be smaller/softer like the reference
+- Hotkeys / Moderator List are compact, dark, with soft side haze
+- no hard pink top stripe
+- crisp text, subtle separators
+]]
+
+;(function()
+    local PINK_R, PINK_G, PINK_B = 1.00, 0.00, 0.55
+    local PANEL_R, PANEL_G, PANEL_B = 0.010, 0.010, 0.016
+    local PANEL2_R, PANEL2_G, PANEL2_B = 0.018, 0.016, 0.028
+    local ROW_R, ROW_G, ROW_B = 0.030, 0.024, 0.040
+    local TEXT_R, TEXT_G, TEXT_B = 0.92, 0.92, 0.95
+    local DIM_R, DIM_G, DIM_B = 0.56, 0.56, 0.62
+    local WHITE_R, WHITE_G, WHITE_B = 0.92, 0.92, 0.96
+
+    __EC32 = __EC32 or {hotkeys = {}, hudAnim = 0}
+    __EC32.hotkeys = __EC32.hotkeys or {}
+
+    local function ix(v)
+        return math.floor((tonumber(v) or 0) + 0.5)
+    end
+    local function clamp(v,a,b)
+        if v<a then return a end
+        if v>b then return b end
+        return v
+    end
+    local function lerp(a,b,t)
+        t=clamp(t or 0,0,1)
+        return (a or b or 0)+((b or 0)-(a or b or 0))*t
+    end
+    local function tw(s)
+        if __ec16_text_w then
+            local ok,res=pcall(__ec16_text_w,tostring(s or ""))
+            if ok and res then return res end
+        end
+        return #(tostring(s or ""))*6
+    end
+    local function rect(x1,y1,x2,y2,r,g,b,a)
+        if Drawing and Drawing.DrawBoxFilled then
+            Drawing.DrawBoxFilled(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a)
+        end
+    end
+    local function round(x1,y1,x2,y2,r,g,b,a,rad)
+        rad = math.floor(math.min(rad or 7, (x2-x1)*0.5, (y2-y1)*0.5))
+        if rad < 1 then rect(x1,y1,x2,y2,r,g,b,a) return end
+        for yy=0,rad-1 do
+            local dy = rad - yy
+            local dx = math.floor(math.sqrt(math.max(0, rad*rad - dy*dy)) + 0.5)
+            rect(x1+rad-dx, y1+yy, x2-rad+dx, y1+yy+1, r,g,b,a)
+            rect(x1+rad-dx, y2-yy-1, x2-rad+dx, y2-yy, r,g,b,a)
+        end
+        rect(x1, y1+rad, x2, y2-rad, r,g,b,a)
+    end
+    local function txt(x,y,s,r,g,b,a)
+        s=tostring(s or "")
+        if Drawing and Drawing.DrawText then
+            Drawing.DrawText(ix(x),ix(y),s,r or TEXT_R,g or TEXT_G,b or TEXT_B,a or 1)
+        elseif Drawing and Drawing.DrawTextWithOutline then
+            Drawing.DrawTextWithOutline(ix(x+tw(s)*0.5),ix(y),s,r or TEXT_R,g or TEXT_G,b or TEXT_B,a or 1,0,0,0,0)
+        end
+    end
+    local function txtc(x,y,s,r,g,b,a)
+        txt(x-tw(s)*0.5,y,s,r,g,b,a)
+    end
+    local function panel_soft(x1,y1,x2,y2,bodyA,rad)
+        -- soft side haze / smoke
+        round(x1-9,y1+2,x1+18,y2-2,PINK_R,PINK_G,PINK_B,0.020,rad)
+        round(x2-18,y1+2,x2+9,y2-2,PINK_R,PINK_G,PINK_B,0.020,rad)
+        round(x1-5,y1+1,x1+12,y2-1,WHITE_R,WHITE_G,WHITE_B,0.030,rad)
+        round(x2-12,y1+1,x2+5,y2-1,WHITE_R,WHITE_G,WHITE_B,0.030,rad)
+        -- main shell
+        round(x1-1,y1-1,x2+1,y2+1,PINK_R,PINK_G,PINK_B,0.05,rad+1)
+        round(x1,y1,x2,y2,PANEL_R,PANEL_G,PANEL_B,bodyA,rad)
+        round(x1+1,y1+1,x2-1,y2-1,PANEL2_R,PANEL2_G,PANEL2_B,0.20,rad-1)
+    end
+    local function draw_stat_bars(x,y,a)
+        rect(x,y+8,x+1,y+13,PINK_R,PINK_G,PINK_B,0.85*a)
+        rect(x+3,y+6,x+4,y+13,PINK_R,PINK_G,PINK_B,0.85*a)
+        rect(x+6,y+3,x+7,y+13,PINK_R,PINK_G,PINK_B,0.85*a)
+    end
+    local function draw_user_dot(x,y,a)
+        if Drawing and Drawing.DrawCircleFilled then
+            Drawing.DrawCircleFilled(ix(x+4),ix(y+4),4,PINK_R,PINK_G,PINK_B,0.88*a)
+        else
+            round(x,y,x+8,y+8,PINK_R,PINK_G,PINK_B,0.88*a,4)
+        end
+    end
+    local function draw_end_dot(x,y,a)
+        if Drawing and Drawing.DrawCircleFilled then
+            Drawing.DrawCircleFilled(ix(x+5),ix(y+5),5,PINK_R,PINK_G,PINK_B,0.88*a)
+            Drawing.DrawCircleFilled(ix(x+6),ix(y+4),2,1.00,0.35,0.76,0.24*a)
+        else
+            round(x,y,x+10,y+10,PINK_R,PINK_G,PINK_B,0.88*a,5)
+        end
+    end
+    local function user_name()
+        local name=nil
+        pcall(function()
+            if rbx and rbx.local_player then
+                local lp=rbx.local_player()
+                if lp then
+                    if lp.get_name then name=lp:get_name() end
+                    if (not name or name=='') and lp.Name then name=lp.Name end
+                    if (not name or name=='') and lp.name then name=lp.name end
+                end
+            end
+        end)
+        pcall(function()
+            if (not name or name=='') and GetLocalPlayer then
+                local lp=GetLocalPlayer(); if lp and lp.Name then name=lp.Name end
+            end
+        end)
+        pcall(function()
+            if (not name or name=='') and players and players.get_local then
+                local lp=players.get_local(); if lp and lp.name then name=lp.name end
+            end
+        end)
+        return string.upper(tostring(name or 'KIZARU'))
+    end
+    local function key_down(vk)
+        if Windows and Windows.IsKeyPressed then
+            local ok,res=pcall(Windows.IsKeyPressed,vk)
+            if ok then return res==true end
+        end
+        if iskeypressed then
+            local ok,res=pcall(iskeypressed,vk)
+            if ok then return res==true end
+        end
+        return false
+    end
+    local function vk_name(vk)
+        if __ec16_vk_name then local ok,res=pcall(__ec16_vk_name,vk); if ok and res then return tostring(res) end end
+        if ap_tp_vk_name then local ok,res=pcall(ap_tp_vk_name,vk); if ok and res then return tostring(res) end end
+        if ap_vk_name then local ok,res=pcall(ap_vk_name,vk); if ok and res then return tostring(res) end end
+        vk=tonumber(vk or 0) or 0
+        if vk==0x01 then return 'Mouse1' end
+        if vk==0x02 then return 'Mouse2' end
+        if vk==0x04 then return 'Mouse3' end
+        if vk==0x06 then return 'Mouse5' end
+        if vk==0xA1 then return 'RShift' end
+        if vk>=0x41 and vk<=0x5A then return string.char(vk) end
+        return tostring(vk)
+    end
+    local function collect_hotkey_candidates()
+        local items={}
+        local function add(vk,label,enabled)
+            vk=tonumber(vk or 0) or 0
+            if vk<=0 or enabled==false then return end
+            items[#items+1]={ id=tostring(label)..'_'..tostring(vk), key=vk_name(vk), label=tostring(label or ''), down=key_down(vk) }
+        end
+        pcall(function()
+            local enabled=true
+            if UIManager and UIManager.GetCheckboxValue then
+                enabled = UIManager.GetCheckboxValue('ap_aim_enable_fixed_click')==true or UIManager.GetCheckboxValue('aimbot_enable')==true or UIManager.GetCheckboxValue('aim_enable')==true
+            end
+            add(ap_aim_vk or (__EC16 and __EC16.aimKey) or 0x02, 'Aimbot', enabled)
+        end)
+        pcall(function() add(ec_noclip_vk or 0x42, 'Noclip', true) end)
+        pcall(function()
+            add(ap_left_tp_vk, 'Left TP', ap_left_tp_enabled==true)
+            add(ap_right_tp_vk, 'Right TP', ap_right_tp_enabled==true)
+            add(ap_90_left_tp_vk, '90 Left', ap_90_left_tp_enabled==true)
+            add(ap_90_right_tp_vk, '90 Right', ap_90_right_tp_enabled==true)
+            add(ap_copter_sit_vk, 'Copter Sit', ap_copter_sit_vk and ap_copter_sit_vk>0)
+        end)
+        return items
+    end
+
+    function __ec16_draw_top_hud(mx,my,cl)
+        if not (__EC16 and __EC16.phase=='menu') then return end
+        pcall(function() if __ec16_update_fps then __ec16_update_fps() end end)
+
+        local x=__EC16.hudX or 230
+        local y=__EC16.hudY or 130
+        local fps=tostring(__EC16.fpsValue or 0)..' FPS'
+        local uname=user_name()
+        local el='EL'
+        local w=14+tw(fps)+14+10+tw(uname)+12+tw(el)+18
+        local h=18
+
+        if __ec16_in and __ec16_in(mx,my,x-3,y-3,x+w+3,y+h+3) and cl and not (__EC16.lastClick) then
+            __EC16.hudDragging=true; __EC16.hudDragX=mx-x; __EC16.hudDragY=my-y
+        end
+        if not cl then __EC16.hudDragging=false end
+        if __EC16.hudDragging then x=mx-(__EC16.hudDragX or 0); y=mx and (my-(__EC16.hudDragY or 0)) or y; __EC16.hudX=x; __EC16.hudY=y end
+
+        panel_soft(x-4,y-3,x+w+4,y+h+3,0.88,6)
+
+        local px=x+4
+        draw_stat_bars(px,y+2,1); px=px+12
+        txt(px,y+3,fps,TEXT_R,TEXT_G,TEXT_B,0.96); px=px+tw(fps)+10
+        draw_user_dot(px,y+4,1); px=px+11
+        txt(px,y+3,uname,TEXT_R,TEXT_G,TEXT_B,0.96); px=px+tw(uname)+10
+        txt(px,y+3,el,TEXT_R,TEXT_G,TEXT_B,0.96); px=px+tw(el)+8
+        draw_end_dot(px,y+4,1)
+    end
+
+    function __ec16_draw_keybinds_panel(w,h,mx,my,cl)
+        if not (__EC16 and __EC16.keybindsPanel and __EC16.phase=='menu') then return end
+        local candidates=collect_hotkey_candidates()
+        local visible, alive = {}, {}
+        for _,it in ipairs(candidates) do
+            alive[it.id]=true
+            local st=__EC32.hotkeys[it.id] or {a=0,key=it.key,label=it.label}
+            st.key=it.key; st.label=it.label; st.a=lerp(st.a or 0, it.down and 1 or 0, 0.22)
+            __EC32.hotkeys[it.id]=st
+            if st.a>0.035 then visible[#visible+1]=st end
+        end
+        for id,st in pairs(__EC32.hotkeys) do
+            if not alive[id] then
+                st.a=lerp(st.a or 0,0,0.22)
+                if st.a>0.035 then visible[#visible+1]=st else __EC32.hotkeys[id]=nil end
+            end
+        end
+        local rows=math.max(#visible,1); rows=math.min(rows,4)
+        local width, headerH, rowH = 152, 18, 18
+        local height = headerH + rows*rowH + 8
+        local x1=__EC16.keybindsX or 24
+        local y1=__EC16.keybindsY or 40
+
+        if __ec16_in and __ec16_in(mx,my,x1,y1,x1+width,y1+height) and cl and not __EC16.lastClick then
+            __EC16.keybindsDragging=true; __EC16.keybindsDragX=mx-x1; __EC16.keybindsDragY=my-y1
+        end
+        if not cl then __EC16.keybindsDragging=false end
+        if __EC16.keybindsDragging then x1=mx-(__EC16.keybindsDragX or 0); y1=my-(__EC16.keybindsDragY or 0); __EC16.keybindsX=x1; __EC16.keybindsY=y1 end
+
+        panel_soft(x1,y1,x1+width,y1+height,0.82,6)
+        -- small blue-ish icon to match ref
+        rect(x1+8,y1+6,x1+10,y1+13,0.24,0.44,1.00,0.75)
+        rect(x1+12,y1+8,x1+14,y1+13,0.24,0.44,1.00,0.75)
+        txt(x1+24,y1+5,'Hotkeys',TEXT_R,TEXT_G,TEXT_B,0.95)
+        rect(x1+8,y1+17,x1+width-8,y1+18,1,1,1,0.10)
+
+        if #visible==0 then
+            txt(x1+9,y1+26,'No active binds',DIM_R,DIM_G,DIM_B,0.92)
+            return
+        end
+        for i=1,math.min(#visible,4) do
+            local it=visible[i]
+            local a=clamp(it.a or 0,0,1)
+            local ry=y1+21+(i-1)*rowH
+            local kw=math.max(28, math.min(55, tw(it.key)+10))
+            round(x1+8,ry-1,x1+8+kw,ry+13,ROW_R,ROW_G,ROW_B,0.38*a,4)
+            txtc(x1+8+kw/2,ry+2,it.key,TEXT_R,TEXT_G,TEXT_B,0.95*a)
+            txt(x1+18+kw,ry+2,it.label,TEXT_R,TEXT_G,TEXT_B,0.94*a)
+        end
+    end
+
+    function __ec16_draw_moderator_panel(w,h,mx,my,cl)
+        if not (__EC16 and __EC16.moderatorPanel and __EC16.phase=='menu') then return end
+        local mods={}
+        pcall(function() if __ec16_get_online_moderators then mods=__ec16_get_online_moderators() or {} end end)
+        local count=math.min(#mods,4)
+        local width,height=180,18+math.max(count,1)*18+10
+        local x1,y1=__EC16.moderatorPanelX or 18,__EC16.moderatorPanelY or 122
+
+        if __ec16_in and __ec16_in(mx,my,x1,y1,x1+width,y1+height) and cl and not __EC16.lastClick then
+            __EC16.moderatorDragging=true; __EC16.moderatorDragX=mx-x1; __EC16.moderatorDragY=my-y1
+        end
+        if not cl then __EC16.moderatorDragging=false end
+        if __EC16.moderatorDragging then x1=mx-(__EC16.moderatorDragX or 0); y1=my-(__EC16.moderatorDragY or 0); __EC16.moderatorPanelX=x1; __EC16.moderatorPanelY=y1 end
+
+        panel_soft(x1,y1,x1+width,y1+height,0.82,6)
+        txt(x1+10,y1+5,'Moderator List',TEXT_R,TEXT_G,TEXT_B,0.95)
+        rect(x1+8,y1+17,x1+width-8,y1+18,1,1,1,0.10)
+        if count==0 then
+            txt(x1+10,y1+26,'Not found',DIM_R,DIM_G,DIM_B,0.92)
+            return
+        end
+        for i=1,count do
+            local mod=mods[i]
+            local ry=y1+21+(i-1)*18
+            local name=tostring(mod.name or 'Player')
+            if #name>11 then name=string.sub(name,1,11)..'...' end
+            txt(x1+10,ry+2,name,TEXT_R,TEXT_G,TEXT_B,0.94)
+            txt(x1+115,ry+2,tostring(mod.uid or '?'),DIM_R,DIM_G,DIM_B,0.88)
+        end
+    end
+
+    if notify then notify('Eclipze v32 compact soft HUD loaded', 'success') end
+end)()
