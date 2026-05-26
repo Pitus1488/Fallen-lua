@@ -13248,3 +13248,190 @@ ECLIPZE v33 reference-like soft dark HUD
 
     if notify then notify('Eclipze v33 ref panels loaded', 'success') end
 end)()
+
+
+--[[
+ECLIPZE v34 keybind popup animation return
+- restored smooth popup animation in Hotkeys
+- binds slide/fade in when pressed and fade out when released
+- panel height still adapts to visible binds
+]]
+
+;(function()
+    local PINK_R, PINK_G, PINK_B = 1.00, 0.00, 0.55
+    local PANEL_R, PANEL_G, PANEL_B = 0.010, 0.010, 0.016
+    local PANEL2_R, PANEL2_G, PANEL2_B = 0.018, 0.016, 0.028
+    local ROW_R, ROW_G, ROW_B = 0.034, 0.028, 0.046
+    local TEXT_R, TEXT_G, TEXT_B = 0.92, 0.92, 0.95
+
+    __EC34 = __EC34 or {hotkeys = {}}
+    __EC34.hotkeys = __EC34.hotkeys or {}
+
+    local function ix(v)
+        return math.floor((tonumber(v) or 0) + 0.5)
+    end
+    local function clamp(v,a,b)
+        if v<a then return a end
+        if v>b then return b end
+        return v
+    end
+    local function lerp(a,b,t)
+        t=clamp(t or 0,0,1)
+        return (a or b or 0)+((b or 0)-(a or b or 0))*t
+    end
+    local function tw(s)
+        if __ec16_text_w then
+            local ok,res=pcall(__ec16_text_w,tostring(s or ""))
+            if ok and res then return res end
+        end
+        return #(tostring(s or ""))*6
+    end
+    local function rect(x1,y1,x2,y2,r,g,b,a)
+        if Drawing and Drawing.DrawBoxFilled then
+            Drawing.DrawBoxFilled(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a)
+        end
+    end
+    local function round(x1,y1,x2,y2,r,g,b,a,rad)
+        rad = math.floor(math.min(rad or 7, (x2-x1)*0.5, (y2-y1)*0.5))
+        if rad < 1 then rect(x1,y1,x2,y2,r,g,b,a) return end
+        for yy=0,rad-1 do
+            local dy = rad - yy
+            local dx = math.floor(math.sqrt(math.max(0, rad*rad - dy*dy)) + 0.5)
+            rect(x1+rad-dx, y1+yy, x2-rad+dx, y1+yy+1, r,g,b,a)
+            rect(x1+rad-dx, y2-yy-1, x2-rad+dx, y2-yy, r,g,b,a)
+        end
+        rect(x1, y1+rad, x2, y2-rad, r,g,b,a)
+    end
+    local function txt(x,y,s,r,g,b,a)
+        s=tostring(s or "")
+        if Drawing and Drawing.DrawText then
+            Drawing.DrawText(ix(x),ix(y),s,r or TEXT_R,g or TEXT_G,b or TEXT_B,a or 1)
+        elseif Drawing and Drawing.DrawTextWithOutline then
+            Drawing.DrawTextWithOutline(ix(x+tw(s)*0.5),ix(y),s,r or TEXT_R,g or TEXT_G,b or TEXT_B,a or 1,0,0,0,0)
+        end
+    end
+    local function txtc(x,y,s,r,g,b,a)
+        txt(x-tw(s)*0.5,y,s,r,g,b,a)
+    end
+    local function panel_soft_dark(x1,y1,x2,y2,bodyA,rad)
+        round(x1-10,y1+2,x1+16,y2-2,0,0,0,0.08,rad)
+        round(x2-16,y1+2,x2+10,y2-2,0,0,0,0.08,rad)
+        round(x1-5,y1+2,x1+10,y2-2,1,1,1,0.018,rad)
+        round(x2-10,y1+2,x2+5,y2-2,1,1,1,0.018,rad)
+        round(x1-1,y1-1,x2+1,y2+1,0,0,0,0.35,rad+1)
+        round(x1,y1,x2,y2,PANEL_R,PANEL_G,PANEL_B,bodyA,rad)
+        round(x1+1,y1+1,x2-1,y2-1,PANEL2_R,PANEL2_G,PANEL2_B,0.16,math.max(1,rad-1))
+    end
+    local function key_down(vk)
+        if Windows and Windows.IsKeyPressed then
+            local ok,res=pcall(Windows.IsKeyPressed,vk)
+            if ok then return res==true end
+        end
+        if iskeypressed then
+            local ok,res=pcall(iskeypressed,vk)
+            if ok then return res==true end
+        end
+        return false
+    end
+    local function vk_name(vk)
+        if __ec16_vk_name then local ok,res=pcall(__ec16_vk_name,vk); if ok and res then return tostring(res) end end
+        if ap_tp_vk_name then local ok,res=pcall(ap_tp_vk_name,vk); if ok and res then return tostring(res) end end
+        if ap_vk_name then local ok,res=pcall(ap_vk_name,vk); if ok and res then return tostring(res) end end
+        vk=tonumber(vk or 0) or 0
+        if vk==0x01 then return 'Mouse1' end
+        if vk==0x02 then return 'Mouse2' end
+        if vk==0x04 then return 'Mouse3' end
+        if vk==0x06 then return 'Mouse5' end
+        if vk==0xA1 then return 'RShift' end
+        if vk>=0x41 and vk<=0x5A then return string.char(vk) end
+        return tostring(vk)
+    end
+    local function collect_hotkey_candidates()
+        local items={}
+        local function add(vk,label,enabled)
+            vk=tonumber(vk or 0) or 0
+            if vk<=0 or enabled==false then return end
+            items[#items+1]={ id=tostring(label)..'_'..tostring(vk), key=vk_name(vk), label=tostring(label or ''), down=key_down(vk) }
+        end
+        pcall(function()
+            local enabled=true
+            if UIManager and UIManager.GetCheckboxValue then
+                enabled = UIManager.GetCheckboxValue('ap_aim_enable_fixed_click')==true or UIManager.GetCheckboxValue('aimbot_enable')==true or UIManager.GetCheckboxValue('aim_enable')==true
+            end
+            add(ap_aim_vk or (__EC16 and __EC16.aimKey) or 0x02, 'Aimbot', enabled)
+        end)
+        pcall(function() add(ec_noclip_vk or 0x42, 'Noclip', true) end)
+        pcall(function()
+            add(ap_left_tp_vk, 'Left TP', ap_left_tp_enabled==true)
+            add(ap_right_tp_vk, 'Right TP', ap_right_tp_enabled==true)
+            add(ap_90_left_tp_vk, '90 Left', ap_90_left_tp_enabled==true)
+            add(ap_90_right_tp_vk, '90 Right', ap_90_right_tp_enabled==true)
+            add(ap_copter_sit_vk, 'Copter Sit', ap_copter_sit_vk and ap_copter_sit_vk>0)
+        end)
+        return items
+    end
+
+    function __ec16_draw_keybinds_panel(w,h,mx,my,cl)
+        if not (__EC16 and __EC16.keybindsPanel and __EC16.phase=='menu') then return end
+
+        local candidates=collect_hotkey_candidates()
+        local visible, alive = {}, {}
+
+        for _,it in ipairs(candidates) do
+            alive[it.id]=true
+            local st=__EC34.hotkeys[it.id] or {a=0,key=it.key,label=it.label, order=0}
+            st.key=it.key
+            st.label=it.label
+            st.a=lerp(st.a or 0, it.down and 1 or 0, 0.24)
+            __EC34.hotkeys[it.id]=st
+            if st.a>0.035 then visible[#visible+1]=st end
+        end
+
+        for id,st in pairs(__EC34.hotkeys) do
+            if not alive[id] then
+                st.a=lerp(st.a or 0, 0, 0.20)
+                if st.a>0.035 then visible[#visible+1]=st else __EC34.hotkeys[id]=nil end
+            end
+        end
+
+        table.sort(visible, function(a,b)
+            return tostring(a.label)..tostring(a.key) < tostring(b.label)..tostring(b.key)
+        end)
+
+        local showCount=math.min(#visible,4)
+        local width, headerH, rowH = 152, 18, 18
+        local height = 22 + showCount*rowH
+        if showCount == 0 then height = 22 end
+
+        local x1=__EC16.keybindsX or 24
+        local y1=__EC16.keybindsY or 40
+
+        if __ec16_in and __ec16_in(mx,my,x1,y1,x1+width,y1+height) and cl and not __EC16.lastClick then
+            __EC16.keybindsDragging=true; __EC16.keybindsDragX=mx-x1; __EC16.keybindsDragY=my-y1
+        end
+        if not cl then __EC16.keybindsDragging=false end
+        if __EC16.keybindsDragging then x1=mx-(__EC16.keybindsDragX or 0); y1=my-(__EC16.keybindsDragY or 0); __EC16.keybindsX=x1; __EC16.keybindsY=y1 end
+
+        panel_soft_dark(x1,y1,x1+width,y1+height,0.52,6)
+        rect(x1+8,y1+6,x1+9,y1+13,PINK_R,PINK_G,PINK_B,0.65)
+        rect(x1+11,y1+8,x1+12,y1+13,PINK_R,PINK_G,PINK_B,0.65)
+        rect(x1+14,y1+10,x1+15,y1+13,PINK_R,PINK_G,PINK_B,0.65)
+        txt(x1+24,y1+5,'Hotkeys',TEXT_R,TEXT_G,TEXT_B,0.95)
+        rect(x1+8,y1+17,x1+width-8,y1+18,1,1,1,0.08)
+
+        for i=1,showCount do
+            local it=visible[i]
+            local a=clamp(it.a or 0,0,1)
+            local ry=y1+21+(i-1)*rowH
+            local kw=math.max(28, math.min(55, tw(it.key)+10))
+            local slide=(1-a)*12
+            local rise=(1-a)*5
+
+            round(x1+8-slide, ry-1+rise, x1+8+kw-slide, ry+13+rise, ROW_R,ROW_G,ROW_B,0.26*a,4)
+            txtc(x1+8+kw/2-slide, ry+2+rise, it.key, TEXT_R,TEXT_G,TEXT_B,0.95*a)
+            txt(x1+18+kw-slide, ry+2+rise, it.label, TEXT_R,TEXT_G,TEXT_B,0.94*a)
+        end
+    end
+
+    if notify then notify('Eclipze v34 keybind popup restored', 'success') end
+end)()
