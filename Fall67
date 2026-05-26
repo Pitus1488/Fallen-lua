@@ -8809,12 +8809,14 @@ local function check(gx,gy,label,id) __ec16_check(mx,my,cl,gx,gy,label,id) end
 local function slider(gx,gy,wid,label,id,minv,maxv) __ec16_slider(mx,my,cl,gx,gy,wid,label,id,minv,maxv) end
 if __EC16.mainTab == "aim" then
 if curSection == "General" then
-group(c1,sy,colW,260,"Aimbot")
+group(c1,sy,colW,330,"Aimbot")
 check(c1+18,sy+42,"Aimbot","ap_aim_enable_fixed_click")
 check(c1+18,sy+72,"Prediction","ap_prediction_main")
 check(c1+18,sy+102,"Team Check","ap_team_main")
 check(c1+18,sy+132,"Sticky Aim","ap_sticky_main")
-__EC16.keybindsPanel = __ec16_bool_check(mx,my,cl,c1+18,sy+162,"Keybind Panel",__EC16.keybindsPanel)
+check(c1+18,sy+162,"Silent Aim","ec_silent_enabled")
+check(c1+18,sy+192,"Silent Prediction","ec36_silent_pred_bridge")
+__EC16.keybindsPanel = __ec16_bool_check(mx,my,cl,c1+18,sy+222,"Keybind Panel",__EC16.keybindsPanel)
 group(c3,sy,colW,495,"FOV")
 check(c3+18,sy+42,"FOV Enabled","ap_fov_show_main")
 __EC16.rainbowFov = __ec16_bool_check(mx,my,cl,c3+18,sy+72,"Rainbow FOV",__EC16.rainbowFov)
@@ -13846,4 +13848,335 @@ ECLIPZE v36 Silent Aim Prediction Bridge
 
     pcall(ec36_apply_silent_bridge)
     notify("Silent Aim AP Prediction Bridge loaded", "success")
+end)()
+
+
+--[[
+ECLIPZE v37 Silent Aim visible + clean side glow
+- Adds visible Silent Aim toggles into AIM > General
+- Applies cheat.silent_aim.enabled from the new checkbox
+- Keeps AP prediction bridge synced with cheat.silent_aim.prediction/pred_x/pred_y
+- Cleans Hotkeys/Moderator glow: no ugly side boxes, just soft black shadow
+]]
+
+;(function()
+    _G.EC_SILENT_PRED_BRIDGE = (_G.EC_SILENT_PRED_BRIDGE ~= false)
+
+    local PINK_R, PINK_G, PINK_B = 1.00, 0.00, 0.55
+    local PANEL_R, PANEL_G, PANEL_B = 0.010, 0.010, 0.016
+    local PANEL2_R, PANEL2_G, PANEL2_B = 0.018, 0.016, 0.028
+    local ROW_R, ROW_G, ROW_B = 0.034, 0.028, 0.046
+    local TEXT_R, TEXT_G, TEXT_B = 0.92, 0.92, 0.95
+    local DIM_R, DIM_G, DIM_B = 0.56, 0.56, 0.62
+
+    __EC37 = __EC37 or {hotkeys = {}, panelH = 22}
+    __EC37.hotkeys = __EC37.hotkeys or {}
+
+    local function ix(v) return math.floor((tonumber(v) or 0) + 0.5) end
+    local function clamp(v,a,b) if v<a then return a end if v>b then return b end return v end
+    local function lerp(a,b,t) t=clamp(t or 0,0,1); return (a or b or 0)+((b or 0)-(a or b or 0))*t end
+
+    local function tw(s)
+        if __ec16_text_w then
+            local ok,res=pcall(__ec16_text_w,tostring(s or ""))
+            if ok and res then return res end
+        end
+        return #(tostring(s or ""))*6
+    end
+
+    local function rect(x1,y1,x2,y2,r,g,b,a)
+        if Drawing and Drawing.DrawBoxFilled then
+            Drawing.DrawBoxFilled(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a)
+        end
+    end
+
+    local function round(x1,y1,x2,y2,r,g,b,a,rad)
+        rad = math.floor(math.min(rad or 7, (x2-x1)*0.5, (y2-y1)*0.5))
+        if rad < 1 then rect(x1,y1,x2,y2,r,g,b,a) return end
+        for yy=0,rad-1 do
+            local dy = rad - yy
+            local dx = math.floor(math.sqrt(math.max(0, rad*rad - dy*dy)) + 0.5)
+            rect(x1+rad-dx,y1+yy,x2-rad+dx,y1+yy+1,r,g,b,a)
+            rect(x1+rad-dx,y2-yy-1,x2-rad+dx,y2-yy,r,g,b,a)
+        end
+        rect(x1,y1+rad,x2,y2-rad,r,g,b,a)
+    end
+
+    local function txt(x,y,s,r,g,b,a)
+        s=tostring(s or "")
+        if Drawing and Drawing.DrawText then
+            Drawing.DrawText(ix(x),ix(y),s,r or TEXT_R,g or TEXT_G,b or TEXT_B,a or 1)
+        elseif Drawing and Drawing.DrawTextWithOutline then
+            Drawing.DrawTextWithOutline(ix(x+tw(s)*0.5),ix(y),s,r or TEXT_R,g or TEXT_G,b or TEXT_B,a or 1,0,0,0,0)
+        end
+    end
+
+    local function txtc(x,y,s,r,g,b,a)
+        txt(x-tw(s)*0.5,y,s,r,g,b,a)
+    end
+
+    local function panel_clean(x1,y1,x2,y2,bodyA,rad)
+        -- Clean glow: same rounded shape, no side smoke / gray rectangle artifacts.
+        round(x1-5,y1-5,x2+5,y2+5,0,0,0,0.045,rad+5)
+        round(x1-3,y1-3,x2+3,y2+3,0,0,0,0.080,rad+3)
+        round(x1-1,y1-1,x2+1,y2+1,0,0,0,0.280,rad+1)
+        round(x1,y1,x2,y2,PANEL_R,PANEL_G,PANEL_B,bodyA,rad)
+        round(x1+1,y1+1,x2-1,y2-1,PANEL2_R,PANEL2_G,PANEL2_B,0.100,math.max(1,rad-1))
+    end
+
+    local function key_down(vk)
+        if Windows and Windows.IsKeyPressed then
+            local ok,res=pcall(Windows.IsKeyPressed,vk)
+            if ok then return res==true end
+        end
+        if iskeypressed then
+            local ok,res=pcall(iskeypressed,vk)
+            if ok then return res==true end
+        end
+        return false
+    end
+
+    local function vk_name(vk)
+        if __ec16_vk_name then local ok,res=pcall(__ec16_vk_name,vk); if ok and res then return tostring(res) end end
+        if ap_tp_vk_name then local ok,res=pcall(ap_tp_vk_name,vk); if ok and res then return tostring(res) end end
+        if ap_vk_name then local ok,res=pcall(ap_vk_name,vk); if ok and res then return tostring(res) end end
+        vk=tonumber(vk or 0) or 0
+        if vk==0x01 then return "Mouse1" end
+        if vk==0x02 then return "Mouse2" end
+        if vk==0x04 then return "Mouse3" end
+        if vk==0x06 then return "Mouse5" end
+        if vk==0xA1 then return "RShift" end
+        if vk>=0x41 and vk<=0x5A then return string.char(vk) end
+        return tostring(vk)
+    end
+
+    local function ui_get(id, default)
+        local v = default
+        pcall(function()
+            if UIManager and UIManager.GetCheckboxValue then
+                local got = UIManager.GetCheckboxValue(id)
+                if got ~= nil then v = got == true end
+            end
+        end)
+        return v
+    end
+
+    local function ec37_calc_pred_fields()
+        local speed = tonumber(AP_BULLET_SPEED or ap_manual_bullet_speed or 1000) or 1000
+        local gravity = tonumber(AP_GRAVITY or ap_manual_gravity or 35) or 35
+        local power = tonumber(ap_power or 0.54) or 0.54
+        local ping = tonumber(ap_ping_ms or 0) or 0
+        local weapon = string.lower(tostring(ap_current_weapon_name or ""))
+        local is_bow = string.find(weapon,"bow",1,true) ~= nil or string.find(weapon,"crossbow",1,true) ~= nil or string.find(weapon,"nail",1,true) ~= nil
+
+        local x = power * 100
+        local y = 0
+
+        if speed > 1 then x = x * (1000 / speed) end
+
+        if is_bow then
+            x = x * 2.35
+            y = (gravity / 35) * 12
+        else
+            x = x * 0.65
+            y = (gravity / 196.2) * 10
+        end
+
+        x = x + clamp(ping / 12,0,18)
+        if ap_drop_prediction_enabled == false then y = 0 end
+
+        return math.floor(clamp(x,0,250)+0.5), math.floor(clamp(y,0,250)+0.5)
+    end
+
+    local function ec37_silent_pred_callback(target,pos,cam)
+        if not _G.EC_SILENT_PRED_BRIDGE then return pos end
+        if not ap_prediction_enabled then return pos end
+        if not pos then return nil end
+        pcall(function()
+            if not cam and aim and aim.get_camera_position then cam = aim.get_camera_position() end
+        end)
+        local ok,pred=pcall(function()
+            return ap_predict_pos(target,pos,cam)
+        end)
+        if ok and pred then return pred end
+        return pos
+    end
+
+    local function ec37_apply_silent()
+        if not cheat or not cheat.silent_aim then return end
+        local sa = cheat.silent_aim
+        local silent_enabled = ui_get("ec_silent_enabled", false)
+        local bridge_enabled = ui_get("ec36_silent_pred_bridge", _G.EC_SILENT_PRED_BRIDGE)
+
+        _G.EC_SILENT_PRED_BRIDGE = bridge_enabled == true
+
+        pcall(function() sa.enabled = silent_enabled end)
+        pcall(function() sa.team_check = ap_team_check == true end)
+        pcall(function() sa.sticky_aim = ap_sticky_aim == true end)
+        pcall(function() sa.fov = tonumber(ap_fov_px or sa.fov or 250) or 250 end)
+
+        local pred_on = (bridge_enabled == true and ap_prediction_enabled == true)
+        local px,py = ec37_calc_pred_fields()
+        pcall(function() sa.prediction = pred_on end)
+        pcall(function() sa.pred_x = px end)
+        pcall(function() sa.pred_y = py end)
+
+        pcall(function() sa.prediction_callback = ec37_silent_pred_callback end)
+        pcall(function() sa.predict_callback = ec37_silent_pred_callback end)
+        pcall(function() sa.target_position_callback = ec37_silent_pred_callback end)
+        pcall(function() sa.position_callback = ec37_silent_pred_callback end)
+        pcall(function() sa.get_prediction_position = ec37_silent_pred_callback end)
+        pcall(function() sa.get_target_position = ec37_silent_pred_callback end)
+    end
+
+    pcall(function()
+        if UIManager and UIManager.CreateCheckbox and UIManager.SetElementParent then
+            UIManager.CreateCheckbox("ec_silent_enabled","Silent Aim",false,function(v)
+                pcall(function()
+                    if cheat and cheat.silent_aim then cheat.silent_aim.enabled = v == true end
+                end)
+                notify("Silent Aim " .. (v and "ON" or "OFF"), v and "success" or "warning")
+            end)
+            UIManager.SetElementParent("ec_silent_enabled",TAB_ID)
+
+            -- create only if old bridge checkbox failed / was not visible
+            UIManager.CreateCheckbox("ec36_silent_pred_bridge","Silent Prediction",true,function(v)
+                _G.EC_SILENT_PRED_BRIDGE = v == true
+                notify("Silent Prediction " .. (v and "ON" or "OFF"), v and "success" or "warning")
+            end)
+            UIManager.SetElementParent("ec36_silent_pred_bridge",TAB_ID)
+        end
+    end)
+
+    local function collect_hotkey_candidates()
+        local items={}
+        local function add(vk,label,enabled)
+            vk=tonumber(vk or 0) or 0
+            if vk<=0 or enabled==false then return end
+            items[#items+1]={id=tostring(label).."_"..tostring(vk),key=vk_name(vk),label=tostring(label or ""),down=key_down(vk)}
+        end
+        pcall(function()
+            local enabled=true
+            if UIManager and UIManager.GetCheckboxValue then
+                enabled = UIManager.GetCheckboxValue("ap_aim_enable_fixed_click")==true or UIManager.GetCheckboxValue("aimbot_enable")==true or UIManager.GetCheckboxValue("aim_enable")==true
+            end
+            add(ap_aim_vk or (__EC16 and __EC16.aimKey) or 0x02,"Aimbot",enabled)
+        end)
+        pcall(function() add(ec_noclip_vk or 0x42,"Noclip",true) end)
+        pcall(function()
+            add(ap_left_tp_vk,"Left TP",ap_left_tp_enabled==true)
+            add(ap_right_tp_vk,"Right TP",ap_right_tp_enabled==true)
+            add(ap_90_left_tp_vk,"90 Left",ap_90_left_tp_enabled==true)
+            add(ap_90_right_tp_vk,"90 Right",ap_90_right_tp_enabled==true)
+            add(ap_copter_sit_vk,"Copter Sit",ap_copter_sit_vk and ap_copter_sit_vk>0)
+        end)
+        return items
+    end
+
+    function __ec16_draw_keybinds_panel(w,h,mx,my,cl)
+        if not (__EC16 and __EC16.keybindsPanel and __EC16.phase=="menu") then return end
+
+        local candidates=collect_hotkey_candidates()
+        local visible,alive={},{}
+        for _,it in ipairs(candidates) do
+            alive[it.id]=true
+            local st=__EC37.hotkeys[it.id] or {a=0,p=0,key=it.key,label=it.label}
+            st.key=it.key
+            st.label=it.label
+            local target=it.down and 1 or 0
+            st.p=lerp(st.p or 0,target,it.down and 0.18 or 0.13)
+            st.a=lerp(st.a or 0,target,it.down and 0.28 or 0.18)
+            __EC37.hotkeys[it.id]=st
+            if st.a>0.025 or st.p>0.025 then visible[#visible+1]=st end
+        end
+        for id,st in pairs(__EC37.hotkeys) do
+            if not alive[id] then
+                st.p=lerp(st.p or 0,0,0.13)
+                st.a=lerp(st.a or 0,0,0.18)
+                if st.a>0.025 or st.p>0.025 then visible[#visible+1]=st else __EC37.hotkeys[id]=nil end
+            end
+        end
+
+        table.sort(visible,function(a,b) return tostring(a.label)..tostring(a.key)<tostring(b.label)..tostring(b.key) end)
+
+        local showCount=math.min(#visible,4)
+        local width,rowH=152,18
+        local targetH=22+showCount*rowH
+        __EC37.panelH=lerp(__EC37.panelH or 22,targetH,0.18)
+        local height=math.max(22,__EC37.panelH)
+        local x1=__EC16.keybindsX or 24
+        local y1=__EC16.keybindsY or 40
+
+        if __ec16_in and __ec16_in(mx,my,x1,y1,x1+width,y1+height) and cl and not __EC16.lastClick then
+            __EC16.keybindsDragging=true; __EC16.keybindsDragX=mx-x1; __EC16.keybindsDragY=my-y1
+        end
+        if not cl then __EC16.keybindsDragging=false end
+        if __EC16.keybindsDragging then
+            x1=mx-(__EC16.keybindsDragX or 0)
+            y1=my-(__EC16.keybindsDragY or 0)
+            __EC16.keybindsX=x1
+            __EC16.keybindsY=y1
+        end
+
+        panel_clean(x1,y1,x1+width,y1+height,0.55,6)
+        rect(x1+8,y1+6,x1+9,y1+13,PINK_R,PINK_G,PINK_B,0.65)
+        rect(x1+11,y1+8,x1+12,y1+13,PINK_R,PINK_G,PINK_B,0.65)
+        rect(x1+14,y1+10,x1+15,y1+13,PINK_R,PINK_G,PINK_B,0.65)
+        txt(x1+24,y1+5,"Hotkeys",TEXT_R,TEXT_G,TEXT_B,0.95)
+        rect(x1+8,y1+17,x1+width-8,y1+18,1,1,1,0.08)
+
+        for i=1,showCount do
+            local it=visible[i]
+            local p=clamp(it.p or 0,0,1)
+            local a=clamp(it.a or 0,0,1)
+            local ry=y1+21+(i-1)*rowH
+            local kw=math.max(28,math.min(55,tw(it.key)+10))
+            local slideX=(1-p)*18
+            local slideY=(1-p)*10
+
+            round(x1+8-slideX,ry-1+slideY,x1+8+kw-slideX,ry+13+slideY,ROW_R,ROW_G,ROW_B,0.30*a,4)
+            txtc(x1+8+kw/2-slideX,ry+2+slideY,it.key,TEXT_R,TEXT_G,TEXT_B,0.95*a)
+            txt(x1+18+kw-slideX,ry+2+slideY,it.label,TEXT_R,TEXT_G,TEXT_B,0.94*a)
+        end
+    end
+
+    function __ec16_draw_moderator_panel(w,h,mx,my,cl)
+        if not (__EC16 and __EC16.moderatorPanel and __EC16.phase=="menu") then return end
+        local mods={}
+        pcall(function() if __ec16_get_online_moderators then mods=__ec16_get_online_moderators() or {} end end)
+        local count=math.min(#mods,4)
+        local width,height=180,22+math.max(count,0)*18
+        local x1,y1=__EC16.moderatorPanelX or 18,__EC16.moderatorPanelY or 122
+
+        if __ec16_in and __ec16_in(mx,my,x1,y1,x1+width,y1+height) and cl and not __EC16.lastClick then
+            __EC16.moderatorDragging=true; __EC16.moderatorDragX=mx-x1; __EC16.moderatorDragY=my-y1
+        end
+        if not cl then __EC16.moderatorDragging=false end
+        if __EC16.moderatorDragging then
+            x1=mx-(__EC16.moderatorDragX or 0)
+            y1=my-(__EC16.moderatorDragY or 0)
+            __EC16.moderatorPanelX=x1
+            __EC16.moderatorPanelY=y1
+        end
+
+        panel_clean(x1,y1,x1+width,y1+height,0.55,6)
+        txt(x1+10,y1+5,"Moderator List",TEXT_R,TEXT_G,TEXT_B,0.95)
+        rect(x1+8,y1+17,x1+width-8,y1+18,1,1,1,0.08)
+
+        for i=1,count do
+            local mod=mods[i]
+            local ry=y1+21+(i-1)*18
+            local name=tostring(mod.name or "Player")
+            if #name>11 then name=string.sub(name,1,11).."..." end
+            txt(x1+10,ry+2,name,TEXT_R,TEXT_G,TEXT_B,0.94)
+            txt(x1+115,ry+2,tostring(mod.uid or "?"),DIM_R,DIM_G,DIM_B,0.88)
+        end
+    end
+
+    hooks.on_render(function()
+        pcall(ec37_apply_silent)
+    end)
+
+    pcall(ec37_apply_silent)
+    notify("v37: Silent Aim visible + clean glow loaded", "success")
 end)()
