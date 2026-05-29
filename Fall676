@@ -972,7 +972,7 @@ __EC16.iconHandleCache = {}
 __EC16.playerAvatarCache = {}
 __EC16.armorEspItemsCache = {}
 end
-notify("Isolated Armor Hotbar V12 Clean loaded", "success")
+-- notify("Isolated Armor Hotbar V12 Clean loaded", "success")
 end)
 UIManager.SetElementParent("armoriso_reload_icons", TAB_ID)
 local function clamp(v, a, b)
@@ -1786,7 +1786,7 @@ last_target_key = nil
 armoriso_cached_target = nil
 end
 end)
-notify("Isolated Armor Hotbar V12 Clean loaded", "success")
+-- notify("Isolated Armor Hotbar V12 Clean loaded", "success")
 local K1_TAB = TAB_ID
 local k1 = {
 show_distance = true,
@@ -2827,7 +2827,7 @@ k1.last_loot_signature = ""
 k1.last_base_signature = ""
 k1.base_folder_cache = {}
 k1.loot_folder_cache = {}
-notify("Fallen ESP rescan forced", "success")
+-- notify("Fallen ESP rescan forced", "success")
 end)
 UIManager.SetElementParent("k1_force_rescan", K1_TAB)
 hooks.on_render(function()
@@ -2840,7 +2840,7 @@ k1_draw_world(my)
 k1_draw_loot(my)
 k1_draw_base(my)
 end)
-notify("Fallen ESP no periodic rescan loaded", "success")
+-- notify("Fallen ESP no periodic rescan loaded", "success")
 local function draw_head_reticle(x, y, r, g, b, a)
 local size = 4
 local gap = size * 0.25
@@ -3092,7 +3092,7 @@ end
 function ap_begin_tp_bind_capture(side)
 ap_tp_bind_waiting = side
 ap_tp_bind_wait_release = true
-notify("Press a key for " .. ap_tp_side_label(side) .. " bind. Esc cancels.", "warning")
+-- notify("Press a key for " .. ap_tp_side_label(side) .. " bind. Esc cancels.", "warning")
 end
 function ap_finish_tp_bind_capture(vk)
 local side = ap_tp_bind_waiting
@@ -3101,19 +3101,19 @@ vk = tonumber(vk or 0) or 0
 ap_clear_same_tp_key(vk, side)
 if side == "left" then
 ap_left_tp_vk = vk
-notify("Left TP Key: " .. ap_tp_vk_name(ap_left_tp_vk), "success")
+-- notify("Left TP Key: " .. ap_tp_vk_name(ap_left_tp_vk), "success")
 elseif side == "right" then
 ap_right_tp_vk = vk
-notify("Right TP Key: " .. ap_tp_vk_name(ap_right_tp_vk), "success")
+-- notify("Right TP Key: " .. ap_tp_vk_name(ap_right_tp_vk), "success")
 elseif side == "90_left" then
 ap_90_left_tp_vk = vk
-notify("90 Left TP Key: " .. ap_tp_vk_name(ap_90_left_tp_vk), "success")
+-- notify("90 Left TP Key: " .. ap_tp_vk_name(ap_90_left_tp_vk), "success")
 elseif side == "90_right" then
 ap_90_right_tp_vk = vk
-notify("90 Right TP Key: " .. ap_tp_vk_name(ap_90_right_tp_vk), "success")
+-- notify("90 Right TP Key: " .. ap_tp_vk_name(ap_90_right_tp_vk), "success")
 elseif side == "copter_sit" then
 ap_copter_sit_vk = vk
-notify("c-sit Key: " .. ap_tp_vk_name(ap_copter_sit_vk), "success")
+-- notify("c-sit Key: " .. ap_tp_vk_name(ap_copter_sit_vk), "success")
 end
 ap_tp_bind_waiting = nil
 ap_tp_bind_wait_release = false
@@ -3122,14 +3122,14 @@ function ap_cancel_tp_bind_capture()
 local side = ap_tp_bind_waiting
 ap_tp_bind_waiting = nil
 ap_tp_bind_wait_release = false
-if side then notify(ap_tp_side_label(side) .. " keybind canceled", "warning") end
+-- if side then notify(ap_tp_side_label(side) .. " keybind canceled", "warning") end
 end
 
 local function ap_begin_bind_capture()
 ap_bind_waiting = true
 ap_bind_wait_release = true
 ap_set_bind_button_visible(0, true)
-notify("Press a key for Aimbot bind. Esc cancels.", "warning")
+-- notify("Press a key for Aimbot bind. Esc cancels.", "warning")
 end
 function ap_set_bind_button_visible(vk, waiting)
 pcall(function()
@@ -5515,7 +5515,7 @@ UIManager.CreateText("ap_aim_title_main", "Aimbot")
 UIManager.SetElementParent("ap_aim_title_main", TAB_ID)
 UIManager.CreateCheckbox("ap_aim_enable_fixed_click", "Aimbot", false, function(v)
 ap_enabled = v
-notify("Aimbot " .. (v and "ON" or "OFF"), v and "success" or "warning")
+-- notify("Aimbot " .. (v and "ON" or "OFF"), v and "success" or "warning")
 end)
 UIManager.SetElementParent("ap_aim_enable_fixed_click", TAB_ID)
 ap_create_bind_buttons()
@@ -5673,7 +5673,7 @@ end
 function ec_noclip_begin_bind_capture()
 ec_noclip_bind_waiting = true
 ec_noclip_bind_wait_release = true
-notify("Press a key for Noclip bind. Esc cancels.", "warning")
+-- notify("Press a key for Noclip bind. Esc cancels.", "warning")
 end
 
 function ec_noclip_finish_bind_capture(vk)
@@ -5682,13 +5682,13 @@ if vk <= 0 then vk = 0x42 end
 ec_noclip_vk = vk
 ec_noclip_bind_waiting = false
 ec_noclip_bind_wait_release = false
-notify("Noclip Key: " .. ec_noclip_key_name(), "success")
+-- notify("Noclip Key: " .. ec_noclip_key_name(), "success")
 end
 
 function ec_noclip_cancel_bind_capture()
 ec_noclip_bind_waiting = false
 ec_noclip_bind_wait_release = false
-notify("Noclip keybind canceled", "warning")
+-- notify("Noclip keybind canceled", "warning")
 end
 
 function ec_noclip_capture_tick()
@@ -6607,13 +6607,13 @@ if Windows.IsKeyPressed(vk) then
 if vk == 0x1B then
 ap_bind_waiting = false
 ap_set_bind_button_visible(ap_aim_vk, false)
-notify("Aimbot keybind canceled", "warning")
+-- notify("Aimbot keybind canceled", "warning")
 return
 end
 ap_aim_vk = vk
 ap_bind_waiting = false
 ap_set_bind_button_visible(ap_aim_vk, false)
-notify("Aimbot Key: " .. ap_vk_name(ap_aim_vk), "success")
+-- notify("Aimbot Key: " .. ap_vk_name(ap_aim_vk), "success")
 return
 end
 end
@@ -6881,7 +6881,7 @@ if hs and hs.visible then
 draw_head_reticle(hs.X, hs.Y, 1.0, 0.25, 0.15, 1.0)
 end
 end)
-notify("Fallen: Armor + ESP + API Aim loaded", "success")
+-- notify("Fallen: Armor + ESP + API Aim loaded", "success")
 pcall(function()
 UIManager.SetColorPickerValue("armoriso_border_color", __EC_PINK_R, __EC_PINK_G, __EC_PINK_B, 1)
 UIManager.SetColorPickerValue("armoriso_glow_color", __EC_PINK_R, __EC_PINK_G, __EC_PINK_B, 1)
@@ -7058,7 +7058,7 @@ __ec16_out(x,y,x+bw,y+bh,h and 1 or 0.18,h and 0 or 0.18,h and 0.55 or 0.20,0.85
 __ec16_txt(x+bw/2,y+7,text,0.78)
 if h and cl and not __EC16.lastClick then
 __EC16.menuBindWaiting = true
-notify("Press menu bind key...", "success")
+-- notify("Press menu bind key...", "success")
 end
 end
 function __ec16_name()
@@ -7506,7 +7506,7 @@ cb = cb or __EC16_UI.buttons["ap_aim_bind_vk_6"] or __EC16_UI.buttons["ap_aim_bi
 if cb then
 pcall(cb)
 else
-notify("Aimbot bind callback not found", "warning")
+-- notify("Aimbot bind callback not found", "warning")
 end
 end
 end
@@ -9249,7 +9249,7 @@ pressedVk = __ec16_poll_menu_bind_key()
 if __EC16.menuBindWaiting and pressedVk and pressedVk ~= 0x01 then
 __EC16.menuBindKey = pressedVk
 __EC16.menuBindWaiting = false
-notify("Menu bind: " .. __ec16_vk_name(pressedVk), "success")
+-- notify("Menu bind: " .. __ec16_vk_name(pressedVk), "success")
 end
 menuKeyDown = Windows and Windows.IsKeyPressed and Windows.IsKeyPressed(__EC16.menuBindKey or 0xA1)
 end)
@@ -9284,7 +9284,7 @@ return
 end
 __EC16.lastClick=cl
 end)
-notify("ECLIPZE Fallen menu v75 original UI + armor cache loaded","success")
+-- notify("ECLIPZE Fallen menu v75 original UI + armor cache loaded","success")
 end
 __ec16_install()
 
@@ -9515,7 +9515,7 @@ do
         pcall(ec11_draw_avatar_overlay)
     end)
 
-    notify("Eclipze v11 transparent glass fix loaded", "success")
+--     notify("Eclipze v11 transparent glass fix loaded", "success")
 end
 
 
@@ -10510,7 +10510,7 @@ do
 
     -- Keep these values explicit so no v12-style draw optimization/limiter is used.
     __EC13.noDrawOptimization = true
-    notify("Eclipze v13 no-optimization transparent UI loaded", "success")
+--     notify("Eclipze v13 no-optimization transparent UI loaded", "success")
 end
 
 
@@ -10828,7 +10828,7 @@ do
         pcall(__ec16_draw_local_card_v16)
     end)
 
-    notify("Eclipze v16 transparent checker UI loaded", "success")
+--     notify("Eclipze v16 transparent checker UI loaded", "success")
 end
 
 
@@ -11249,7 +11249,7 @@ do
         pcall(__ec16_draw_player_info_checker_v16)
     end)
 
-    notify("Eclipze v18 artifact cleanup loaded", "success")
+--     notify("Eclipze v18 artifact cleanup loaded", "success")
 end
 
 
@@ -11745,7 +11745,7 @@ ECLIPZE v26 clean dark panels + fixed toggles
         if __EC16.keybindsPanel==nil then __EC16.keybindsPanel=true end
     end)
 
-    notify("Eclipze v26 clean overlay loaded", "success")
+--     notify("Eclipze v26 clean overlay loaded", "success")
 end)()
 
 
@@ -11914,7 +11914,7 @@ ECLIPZE v27 Neverlose-style pink toggles
         return draw_neverlose_toggle(mx,my,cl,x,y,label,value,function() end,"bool_"..tostring(label))
     end
 
-    if notify then notify("Eclipze v27 Neverlose toggles loaded", "success") end
+--     if notify then notify("Eclipze v27 Neverlose toggles loaded", "success") end
 end)()
 
 
@@ -12090,7 +12090,7 @@ ECLIPZE v28 Neverlose-like small-track toggles
         return draw_nl_pink_toggle(mx,my,cl,x,y,label,value,function() end,"bool_"..tostring(label))
     end
 
-    if notify then notify("Eclipze v28 NL-style pink toggles loaded", "success") end
+--     if notify then notify("Eclipze v28 NL-style pink toggles loaded", "success") end
 end)()
 
 
@@ -12266,7 +12266,7 @@ ECLIPZE v29 thicker NL-style pink toggles
         return draw_nl_pink_toggle(mx,my,cl,x,y,label,value,function() end,"bool_"..tostring(label))
     end
 
-    if notify then notify("Eclipze v29 thicker NL toggles loaded", "success") end
+--     if notify then notify("Eclipze v29 thicker NL toggles loaded", "success") end
 end)()
 
 
@@ -12475,7 +12475,7 @@ ECLIPZE v30 transparent side panels
         end
     end
 
-    if notify then notify('Eclipze v30 transparent side panels loaded', 'success') end
+--     if notify then notify('Eclipze v30 transparent side panels loaded', 'success') end
 end)()
 
 
@@ -12685,7 +12685,7 @@ ECLIPZE v31 dark side panels fix
         end
     end
 
-    if notify then notify('Eclipze v31 dark side panels loaded', 'success') end
+--     if notify then notify('Eclipze v31 dark side panels loaded', 'success') end
 end)()
 
 
@@ -12970,7 +12970,7 @@ ECLIPZE v32 compact soft HUD panels
         end
     end
 
-    if notify then notify('Eclipze v32 compact soft HUD loaded', 'success') end
+--     if notify then notify('Eclipze v32 compact soft HUD loaded', 'success') end
 end)()
 
 
@@ -13250,7 +13250,7 @@ ECLIPZE v33 reference-like soft dark HUD
         end
     end
 
-    if notify then notify('Eclipze v33 ref panels loaded', 'success') end
+--     if notify then notify('Eclipze v33 ref panels loaded', 'success') end
 end)()
 
 
@@ -13437,7 +13437,7 @@ ECLIPZE v34 keybind popup animation return
         end
     end
 
-    if notify then notify('Eclipze v34 keybind popup restored', 'success') end
+--     if notify then notify('Eclipze v34 keybind popup restored', 'success') end
 end)()
 
 
@@ -13716,7 +13716,7 @@ ECLIPZE v35 fixed keybind popup + soft black glow
         end
     end
 
-    if notify then notify("Eclipze v35 keybind popup fixed", "success") end
+--     if notify then notify("Eclipze v35 keybind popup fixed", "success") end
 end)()
 
 
@@ -13838,7 +13838,7 @@ ECLIPZE v36 Silent Aim Prediction Bridge
         if UIManager and UIManager.CreateCheckbox and UIManager.SetElementParent then
             UIManager.CreateCheckbox("ec36_silent_pred_bridge", "Silent Use AP Prediction", true, function(v)
                 _G.EC_SILENT_PRED_BRIDGE = v == true
-                notify("Silent prediction bridge " .. (v and "ON" or "OFF"), v and "success" or "warning")
+--                 notify("Silent prediction bridge " .. (v and "ON" or "OFF"), v and "success" or "warning")
             end)
             UIManager.SetElementParent("ec36_silent_pred_bridge", TAB_ID)
         end
@@ -13849,7 +13849,7 @@ ECLIPZE v36 Silent Aim Prediction Bridge
     end)
 
     pcall(ec36_apply_silent_bridge)
-    notify("Silent Aim AP Prediction Bridge loaded", "success")
+--     notify("Silent Aim AP Prediction Bridge loaded", "success")
 end)()
 
 
@@ -14037,14 +14037,14 @@ ECLIPZE v37 Silent Aim visible + clean side glow
                 pcall(function()
                     if cheat and cheat.silent_aim then cheat.silent_aim.enabled = v == true end
                 end)
-                notify("Silent Aim " .. (v and "ON" or "OFF"), v and "success" or "warning")
+--                 notify("Silent Aim " .. (v and "ON" or "OFF"), v and "success" or "warning")
             end)
             UIManager.SetElementParent("ec_silent_enabled",TAB_ID)
 
             -- create only if old bridge checkbox failed / was not visible
             UIManager.CreateCheckbox("ec36_silent_pred_bridge","Silent Prediction",true,function(v)
                 _G.EC_SILENT_PRED_BRIDGE = v == true
-                notify("Silent Prediction " .. (v and "ON" or "OFF"), v and "success" or "warning")
+--                 notify("Silent Prediction " .. (v and "ON" or "OFF"), v and "success" or "warning")
             end)
             UIManager.SetElementParent("ec36_silent_pred_bridge",TAB_ID)
         end
@@ -14180,7 +14180,7 @@ ECLIPZE v37 Silent Aim visible + clean side glow
     end)
 
     pcall(ec37_apply_silent)
-    notify("v37: Silent Aim visible + clean glow loaded", "success")
+--     notify("v37: Silent Aim visible + clean glow loaded", "success")
 end)()
 
 
@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V69_PATCH()
+function __EC_V70_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v69_loaded then return end
-    V._v69_loaded = true
+    if V._v70_loaded then return end
+    V._v70_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 69 then
+    if T._defaults_version ~= 70 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V69_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 69
+        T._defaults_version = 70
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -15680,6 +15680,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_visual_fog) end)
     end
 
-    if notify then notify("v69: filled world fog sphere loaded", "success") end
+    if notify and not __EC_V70_NOTIFIED then __EC_V70_NOTIFIED = true; notify("Eclipze v70 loaded", "success") end
 end
-__EC_V69_PATCH()
+__EC_V70_PATCH()
