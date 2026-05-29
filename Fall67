@@ -14184,18 +14184,22 @@ end)()
 
 
 --[[
-Eclipze v47 stable trail + safe aura cache
-- Auras are NOT overridden / NOT simplified. Original aura visuals stay untouched.
-- Adds only small per-frame caches for aura position/color/W2S.
-- Player Trail: fixed size, only Length slider, stable capped line rendering.
+Eclipze v48 Visuals tab + custom color picker
+- Adds top VISUALS tab.
+- Visual features are collected there: Player Trail, Bullet Tracers / Hit Effects, Self Aura.
+- Custom handmade HSV color picker, no native/UIManager color picker.
+- Trail: fixed size, only Length slider, optimized capped segments.
+- Auras: original draw styles are kept; only safe caching is added.
 ]]
 ;(function()
+    __EC_VISUALS = __EC_VISUALS or {}
+    local V = __EC_VISUALS
+    if V._v48_loaded then return end
+    V._v48_loaded = true
+
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._v47_loaded then return end
-    T._v47_loaded = true
-
-    if T._defaults_version ~= 47 then
+    if T._defaults_version ~= 48 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14203,15 +14207,18 @@ Eclipze v47 stable trail + safe aura cache
         T.life = 0.29
         T.opacity = 0.72
         T.hue = 0.56
+        T.color = {0.70, 0.92, 1.00, 1}
         T.rainbowSpeed = 0.85
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 47
+        T._defaults_version = 48
     end
-
     T.size = 1.67
     T.points = T.points or {}
+
+    if V.section == nil then V.section = "Trail" end
+    V.picker = V.picker or { open = nil, data = {} }
 
     local function now()
         return (tick and tick()) or (os and os.clock and os.clock()) or 0
@@ -14242,22 +14249,44 @@ Eclipze v47 stable trail + safe aura cache
         return #s * 6
     end
 
-    local function hsv(h)
+    local function hsv_to_rgb(h,s,v)
         h = (tonumber(h or 0) or 0) % 1
-        if __ec16_hsv_to_rgb then
-            local ok, c = pcall(__ec16_hsv_to_rgb, h)
-            if ok and c then return c[1] or 1, c[2] or 0, c[3] or 0 end
-        end
+        s = clamp(s or 1, 0, 1)
+        v = clamp(v or 1, 0, 1)
         local i = math.floor(h * 6)
         local f = h * 6 - i
-        local q = 1 - f
+        local p = v * (1 - s)
+        local q = v * (1 - f * s)
+        local t = v * (1 - (1 - f) * s)
         i = i % 6
-        if i == 0 then return 1, f, 0 end
-        if i == 1 then return q, 1, 0 end
-        if i == 2 then return 0, 1, f end
-        if i == 3 then return 0, q, 1 end
-        if i == 4 then return f, 0, 1 end
-        return 1, 0, q
+        if i == 0 then return v,t,p end
+        if i == 1 then return q,v,p end
+        if i == 2 then return p,v,t end
+        if i == 3 then return p,q,v end
+        if i == 4 then return t,p,v end
+        return v,p,q
+    end
+
+    local function rgb_to_hsv(r,g,b)
+        r = clamp(r or 1,0,1)
+        g = clamp(g or 1,0,1)
+        b = clamp(b or 1,0,1)
+        local mx = math.max(r,g,b)
+        local mn = math.min(r,g,b)
+        local d = mx - mn
+        local h = 0
+        if d ~= 0 then
+            if mx == r then
+                h = ((g - b) / d) % 6
+            elseif mx == g then
+                h = ((b - r) / d) + 2
+            else
+                h = ((r - g) / d) + 4
+            end
+            h = h / 6
+        end
+        local s = (mx == 0) and 0 or (d / mx)
+        return h, s, mx
     end
 
     local function rect(x1,y1,x2,y2,r,g,b,a)
@@ -14269,6 +14298,12 @@ Eclipze v47 stable trail + safe aura cache
     local function line(x1,y1,x2,y2,r,g,b,a,th)
         if Drawing and Drawing.DrawLine then
             Drawing.DrawLine(x1,y1,x2,y2,r,g,b,a or 1,th or 1)
+        end
+    end
+
+    local function circle(x,y,rad,r,g,b,a)
+        if Drawing and Drawing.DrawCircleFilled then
+            Drawing.DrawCircleFilled(x,y,rad,r,g,b,a or 1)
         end
     end
 
@@ -14299,23 +14334,26 @@ Eclipze v47 stable trail + safe aura cache
 
     local function theme()
         return {
-            box={0.068,0.052,0.135},
-            inner={0.020,0.018,0.040},
-            head={0.090,0.060,0.175},
+            bg={0.030,0.025,0.070},
+            pane={0.058,0.047,0.118},
+            box={0.080,0.064,0.155},
+            box2={0.022,0.020,0.040},
+            head={0.100,0.072,0.190},
             acc={1.00,0.00,0.58},
             text={0.94,0.89,1.00},
-            dim={0.56,0.51,0.70},
+            dim={0.48,0.43,0.64},
+            soft={0.74,0.69,0.88},
             good={0.25,1.00,0.50}
         }
     end
 
     local function group(x,y,w,h,title)
         local th = theme()
-        round(x-1,y-1,x+w+1,y+h+1,th.acc[1],th.acc[2],th.acc[3],0.050,8)
-        round(x,y,x+w,y+h,th.box[1],th.box[2],th.box[3],0.58,8)
-        round(x+1,y+1,x+w-1,y+h-1,th.inner[1],th.inner[2],th.inner[3],0.44,7)
-        round(x+1,y+1,x+w-1,y+24,th.head[1],th.head[2],th.head[3],0.64,7)
-        rect(x+10,y+22,x+w-10,y+24,th.acc[1],th.acc[2],th.acc[3],0.58)
+        round(x-1,y-1,x+w+1,y+h+1,th.acc[1],th.acc[2],th.acc[3],0.032,8)
+        round(x,y,x+w,y+h,th.box[1],th.box[2],th.box[3],0.94,8)
+        round(x+1,y+1,x+w-1,y+h-1,th.box2[1],th.box2[2],th.box2[3],0.92,7)
+        round(x+1,y+1,x+w-1,y+24,th.head[1],th.head[2],th.head[3],0.98,7)
+        rect(x+10,y+22,x+w-10,y+24,th.acc[1],th.acc[2],th.acc[3],0.36)
         text_left(x+12,y+7,title,th.text[1],th.text[2],th.text[3],0.98)
     end
 
@@ -14335,33 +14373,147 @@ Eclipze v47 stable trail + safe aura cache
         return tonumber(value or minv) or minv
     end
 
-    local function hue_slider(mx,my,cl,x,y,w,label,hue)
-        hue = clamp(hue or 0.56,0,1)
-        text_left(x,y,label,0.72,0.68,0.80,0.90)
-        local cr,cg,cb = hsv(hue)
-        round(x,y+22,x+34,y+48,cr,cg,cb,0.96,5)
-
-        local sx = x + 48
-        local sy = y + 31
-        local sw = math.max(80,w-48)
-        local sh = 8
-        local parts = 48
-        for i=0,parts-1 do
-            local rr,gg,bb = hsv(i/parts)
-            local x1 = sx + sw*(i/parts)
-            local x2 = sx + sw*((i+1)/parts)
-            rect(x1,sy,x2+1,sy+sh,rr,gg,bb,1)
-        end
-        round(sx-1,sy-3,sx+sw+1,sy+sh+3,0,0,0,0.35,4)
-        local kx = sx + sw*hue
-        rect(kx-2,sy-6,kx+2,sy+sh+6,1,1,1,0.95)
-        if __ec16_in and __ec16_in(mx,my,sx,sy-12,sx+sw,sy+sh+12) and cl then
-            hue = clamp((mx-sx)/math.max(sw,1),0,1)
-        end
-        return hue
+    local function ensure_ecbt()
+        EC_BT = EC_BT or {}
+        if EC_BT.life == nil then EC_BT.life = 4.0 end
+        if EC_BT.alpha == nil then EC_BT.alpha = 1.0 end
+        if EC_BT.maxDist == nil then EC_BT.maxDist = 1000 end
+        if EC_BT.instant == nil then EC_BT.instant = true end
+        if EC_BT.revealTime == nil then EC_BT.revealTime = 0.55 end
+        if EC_BT.hitSize == nil then EC_BT.hitSize = 38 end
+        EC_BT.weaponOrigin = false
+        EC_BT.screenStraight = true
+        EC_BT.realHitOnly = false
+        EC_BT.onlyOnHit = false
+        EC_BT.hitRadius = 35
     end
 
-    local function calc_menu_cols()
+    local function get_target_color(id)
+        __EC16 = __EC16 or {}
+        if id == "trail" then
+            local c = T.color or {0.70,0.92,1.00,1}
+            return c[1] or 0.70, c[2] or 0.92, c[3] or 1.00
+        elseif id == "tracer" then
+            local c = __EC16.tracerColor or {0.55,0.80,1.00,1}
+            return c[1] or 0.55, c[2] or 0.80, c[3] or 1.00
+        elseif id == "hitfx" then
+            local c = __EC16.hitFxColor or {0.55,0.80,1.00,1}
+            return c[1] or 0.55, c[2] or 0.80, c[3] or 1.00
+        elseif id == "aura_top" then
+            local c = __EC16.selfAuraTopColor or {0.55,0.90,1.00,1}
+            return c[1] or 0.55, c[2] or 0.90, c[3] or 1.00
+        elseif id == "aura_bottom" then
+            local c = __EC16.selfAuraBottomColor or {1.00,0.45,0.75,1}
+            return c[1] or 1.00, c[2] or 0.45, c[3] or 0.75
+        end
+        return 1,1,1
+    end
+
+    local function apply_target_color(id,r,g,b,h)
+        __EC16 = __EC16 or {}
+        if id == "trail" then
+            T.color = {r,g,b,1}
+            T.hue = h or T.hue or 0.56
+        elseif id == "tracer" then
+            __EC16.tracerColor = {r,g,b,1}
+            __EC16.tracerHue = h or __EC16.tracerHue or 0.56
+        elseif id == "hitfx" then
+            __EC16.hitFxColor = {r,g,b,1}
+            __EC16.hitFxHue = h or __EC16.hitFxHue or 0.56
+        elseif id == "aura_top" then
+            __EC16.selfAuraTopColor = {r,g,b,1}
+            __EC16.selfAuraTopHue = h or __EC16.selfAuraTopHue or 0.56
+        elseif id == "aura_bottom" then
+            __EC16.selfAuraBottomColor = {r,g,b,1}
+            __EC16.selfAuraBottomHue = h or __EC16.selfAuraBottomHue or 0.92
+        end
+    end
+
+    local function color_picker(mx,my,cl,x,y,label,id)
+        local th = theme()
+        local r,g,b = get_target_color(id)
+        text_left(x,y,label,th.dim[1],th.dim[2],th.dim[3],0.95)
+        round(x,y+22,x+38,y+48,r,g,b,0.96,5)
+        round(x-1,y+21,x+39,y+49,1,1,1,0.09,6)
+        text_left(x+52,y+29,"Click to edit",th.soft[1],th.soft[2],th.soft[3],0.78)
+
+        local hovered = __ec16_in and __ec16_in(mx,my,x,y+22,x+38,y+48)
+        if hovered and cl and not (__EC16 and __EC16.lastClick) then
+            if V.picker.open == id then
+                V.picker.open = nil
+            else
+                V.picker.open = id
+                local h,s,v = rgb_to_hsv(r,g,b)
+                V.picker.data[id] = V.picker.data[id] or {h=h,s=s,v=v}
+                V.picker.data[id].h = h
+                V.picker.data[id].s = s
+                V.picker.data[id].v = v
+            end
+        end
+
+        if V.picker.open ~= id then return 56 end
+
+        local data = V.picker.data[id]
+        if not data then
+            local h,s,vv = rgb_to_hsv(r,g,b)
+            data = {h=h,s=s,v=vv}
+            V.picker.data[id] = data
+        end
+
+        local px = x
+        local py = y + 58
+        local sq = 150
+        local hueH = 12
+        round(px-5,py-5,px+sq+5,py+sq+hueH+24,0.015,0.014,0.034,0.98,8)
+        round(px-4,py-4,px+sq+4,py+sq+hueH+23,0.090,0.060,0.175,0.58,8)
+
+        local cells = 30
+        for iy=0,cells-1 do
+            local vv = 1 - (iy / (cells-1))
+            for ix=0,cells-1 do
+                local ss = ix / (cells-1)
+                local rr,gg,bb = hsv_to_rgb(data.h, ss, vv)
+                local x1 = px + (ix / cells) * sq
+                local y1 = py + (iy / cells) * sq
+                local x2 = px + ((ix+1) / cells) * sq + 1
+                local y2 = py + ((iy+1) / cells) * sq + 1
+                rect(x1,y1,x2,y2,rr,gg,bb,1)
+            end
+        end
+        round(px-1,py-1,px+sq+1,py+sq+1,0,0,0,0.30,3)
+
+        local cx = px + data.s * sq
+        local cy = py + (1 - data.v) * sq
+        circle(cx,cy,5,0,0,0,0.62)
+        circle(cx,cy,3,1,1,1,0.95)
+
+        local hy = py + sq + 12
+        local hParts = 54
+        for i=0,hParts-1 do
+            local rr,gg,bb = hsv_to_rgb(i / hParts, 1, 1)
+            local x1 = px + (i / hParts) * sq
+            local x2 = px + ((i+1) / hParts) * sq + 1
+            rect(x1,hy,x2,hy+hueH,rr,gg,bb,1)
+        end
+        round(px-1,hy-1,px+sq+1,hy+hueH+1,0,0,0,0.30,3)
+        local hx = px + data.h * sq
+        rect(hx-2,hy-4,hx+2,hy+hueH+4,1,1,1,0.95)
+
+        if cl then
+            if __ec16_in and __ec16_in(mx,my,px,py,px+sq,py+sq) then
+                data.s = clamp((mx - px) / sq,0,1)
+                data.v = clamp(1 - ((my - py) / sq),0,1)
+            elseif __ec16_in and __ec16_in(mx,my,px,hy-6,px+sq,hy+hueH+6) then
+                data.h = clamp((mx - px) / sq,0,1)
+            end
+        end
+
+        local nr,ng,nb = hsv_to_rgb(data.h,data.s,data.v)
+        apply_target_color(id,nr,ng,nb,data.h)
+        return sq + hueH + 90
+    end
+
+    local function layout()
         if not __EC16 then return nil end
         local reveal = 1
         if __ec16_sm then
@@ -14372,54 +14524,156 @@ Eclipze v47 stable trail + safe aura cache
         local x = __EC16.x or 95
         local y = __EC16.y or 70
         local ww = __EC16.w or 960
+        local hh = (__EC16.h or 640) * reveal
+        local x2 = x + ww
+        local y2 = y + hh
+
         local paneX = x + 14
         local paneY = y + 78
-        local paneX2 = x + ww - 14
+        local paneX2 = x2 - 14
+        local paneY2 = y2 - 14
         local sideW = 178
         local sideX = paneX + 12
         local sideY = paneY + 12
+        local sideY2 = paneY2 - 12
         local contentX = sideX + sideW + 14
         local contentY = sideY
         local contentX2 = paneX2 - 12
+        local contentY2 = sideY2
         local innerGap = 14
         local contentW = contentX2 - contentX
-        local colW = math.floor((contentW - innerGap*4)/3)
+        local colW = math.floor((contentW - innerGap * 4) / 3)
         local c1 = contentX + innerGap
         local c2 = c1 + colW + innerGap
         local c3 = c2 + colW + innerGap
         local sy = contentY + 18
-        return c1,c2,c3,sy,colW
+
+        return {
+            x=x,y=y,ww=ww,hh=hh,x2=x2,y2=y2,
+            paneX=paneX,paneY=paneY,paneX2=paneX2,paneY2=paneY2,
+            sideX=sideX,sideY=sideY,sideY2=sideY2,sideW=sideW,
+            contentX=contentX,contentY=contentY,contentX2=contentX2,contentY2=contentY2,
+            innerGap=innerGap,colW=colW,c1=c1,c2=c2,c3=c3,sy=sy
+        }
     end
 
-    local function controls_active()
-        return __EC16 and __EC16.open == true and __EC16.wantOpen ~= false and (__EC16.animDir or 1) == 1 and (__EC16.anim or 0) > 0.92
-            and __EC16.phase == "menu" and __EC16.mainTab == "esp" and __EC16.espSection == "Misc"
+    local function draw_visuals_top_tab(mx,my,cl)
+        local L = layout()
+        if not L then return end
+        local th = theme()
+        local tx = L.x + 18 + 88 + 6 + 132 + 6 + 102 + 6
+        local ty = L.y + 45
+        local w = 104
+        local active = (__EC16.mainTab == "visuals")
+        local hov = __ec16_in and __ec16_in(mx,my,tx,ty,tx+w,ty+25)
+        if hov and cl and not (__EC16 and __EC16.lastClick) then
+            __EC16.mainTab = "visuals"
+            __EC16.visualsSection = __EC16.visualsSection or V.section or "Trail"
+            V.section = __EC16.visualsSection
+        end
+
+        if active then
+            round(tx-1,ty-1,tx+w+1,ty+26,th.acc[1],th.acc[2],th.acc[3],0.08,7)
+            round(tx,ty,tx+w,ty+25,0.125,0.083,0.225,1,6)
+            rect(tx+8,ty+22,tx+w-8,ty+24,th.acc[1],th.acc[2],th.acc[3],1)
+            text_left(tx+10,ty+7,"VISUALS",1,0.82,0.96,1)
+        else
+            round(tx,ty,tx+w,ty+25,0.050,0.040,0.100,hov and 0.98 or 0.76,6)
+            text_left(tx+10,ty+7,"VISUALS",0.60,0.54,0.76,hov and 0.95 or 0.78)
+        end
     end
 
-    local function draw_trail_menu_controls(mx,my,cl)
-        if not controls_active() then return end
-        local c1,c2,c3,sy,colW = calc_menu_cols()
-        if not c1 then return end
+    local function draw_visuals_page(mx,my,cl)
+        if not (__EC16 and __EC16.open and __EC16.mainTab == "visuals") then return end
+        local L = layout()
+        if not L then return end
         local th = theme()
 
-        group(c2,sy,colW,174,"Player Trail")
-        T.enabled = safe_bool(mx,my,cl,c2+18,sy+42,"Player Trail",T.enabled == true)
-        T.rainbow = safe_bool(mx,my,cl,c2+18,sy+72,"Rainbow Trail",T.rainbow == true)
-        T.length = safe_float(mx,my,cl,c2+18,sy+112,colW-36,"Trail Length",T.length or 46,8,220)
+        V.section = __EC16.visualsSection or V.section or "Trail"
 
-        group(c3,sy,colW,165,"Trail Color")
-        T.hue = hue_slider(mx,my,cl,c3+18,sy+42,colW-36,"Color",T.hue or 0.56)
+        -- Cover old ESP content/sidebar because base menu does not know the Visuals tab.
+        round(L.sideX+1,L.sideY+61,L.sideX+L.sideW-1,L.sideY2-1,0.024,0.022,0.048,0.94,9)
+        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,0.96,8)
+        if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.62,1) end
 
-        local br,bg,bb = hsv(T.hue or 0.56)
-        local gr,gg,gb = lerp_color(br,bg,bb,0.70,0.92,1.00,0.50)
-        local wr,wg,wb = lerp_color(br,bg,bb,1,1,1,0.84)
-        local px = c3 + 18
-        local py = sy + 122
-        line(px,py,px+124,py,gr,gg,gb,0.10,10.0)
-        line(px,py,px+124,py,gr,gg,gb,0.16,5.8)
-        line(px,py,px+124,py,wr,wg,wb,0.42,2.7)
-        line(px,py,px+124,py,0.98,0.99,1.00,0.95,1.15)
-        text_left(c3+18,sy+143,T.enabled and "Status: ON" or "Status: OFF",T.enabled and th.good[1] or th.dim[1],T.enabled and th.good[2] or th.dim[2],T.enabled and th.good[3] or th.dim[3],0.90)
+        local sections = {"Trail","Bullet Tracers","Aura"}
+        local secY = L.sideY + 74
+        for _,name in ipairs(sections) do
+            local ix1 = L.sideX + 10
+            local ix2 = L.sideX + L.sideW - 10
+            local iy1 = secY
+            local iy2 = secY + 26
+            local active = (V.section == name)
+            local hov = __ec16_in and __ec16_in(mx,my,ix1,iy1,ix2,iy2)
+            if hov and cl and not (__EC16 and __EC16.lastClick) then
+                V.section = name
+                __EC16.visualsSection = name
+                V.picker.open = nil
+            end
+            if active then
+                round(ix1-1,iy1-1,ix2+1,iy2+1,th.acc[1],th.acc[2],th.acc[3],0.040,7)
+                round(ix1,iy1,ix2,iy2,0.075,0.058,0.145,0.82,6)
+                rect(ix1,iy1,ix1+3,iy2,th.acc[1],th.acc[2],th.acc[3],1)
+                text_left(ix1+14,iy1+7,name,0.92,0.88,1.00,0.98)
+            else
+                round(ix1,iy1,ix2,iy2,hov and 0.060 or 0.048,hov and 0.046 or 0.038,hov and 0.110 or 0.092,hov and 0.82 or 0.60,6)
+                text_left(ix1+14,iy1+7,name,0.58,0.52,0.74,hov and 0.94 or 0.80)
+            end
+            secY = secY + 31
+        end
+
+        local c1,c2,c3,sy,colW = L.c1,L.c2,L.c3,L.sy,L.colW
+
+        if V.section == "Trail" then
+            group(c1,sy,colW,174,"Player Trail")
+            T.enabled = safe_bool(mx,my,cl,c1+18,sy+42,"Player Trail",T.enabled == true)
+            T.rainbow = safe_bool(mx,my,cl,c1+18,sy+72,"Rainbow Trail",T.rainbow == true)
+            T.length = safe_float(mx,my,cl,c1+18,sy+112,colW-36,"Trail Length",T.length or 46,8,220)
+
+            group(c2,sy,colW,330,"Trail Color")
+            color_picker(mx,my,cl,c2+18,sy+44,"Trail Color","trail")
+            text_left(c1+18,sy+145,"Fixed Size: 1.67",th.dim[1],th.dim[2],th.dim[3],0.82)
+
+        elseif V.section == "Bullet Tracers" then
+            ensure_ecbt()
+            group(c1,sy,colW,485,"Bullet Tracers")
+            EC_BT.enabled = safe_bool(mx,my,cl,c1+18,sy+42,"Bullet Tracers",EC_BT.enabled == true)
+            EC_BT.instant = safe_bool(mx,my,cl,c1+18,sy+72,"Instant Tracer",EC_BT.instant ~= false)
+            EC_BT.alpha = safe_float(mx,my,cl,c1+18,sy+112,colW-36,"Tracer Opacity",EC_BT.alpha or 1.0,0.05,1.0)
+            EC_BT.life = safe_float(mx,my,cl,c1+18,sy+172,colW-36,"Tracer Life",EC_BT.life or 4.0,0.10,8.0)
+            EC_BT.revealTime = safe_float(mx,my,cl,c1+18,sy+232,colW-36,"Reveal Time",EC_BT.revealTime or 0.55,0.05,2.50)
+            EC_BT.maxDist = safe_float(mx,my,cl,c1+18,sy+292,colW-36,"Tracer/HitFX Max Dist",EC_BT.maxDist or 1000,100,3000)
+
+            group(c2,sy,colW,520,"Colors")
+            local used1 = color_picker(mx,my,cl,c2+18,sy+44,"Tracer Color","tracer")
+            local y2 = sy + 44 + used1 + 10
+            color_picker(mx,my,cl,c2+18,y2,"Hit Effect Color","hitfx")
+
+            group(c3,sy,colW,390,"Hit / Style")
+            if __ec16_tracer_style_dropdown then
+                pcall(__ec16_tracer_style_dropdown,mx,my,cl,c3+18,sy+42,colW-36)
+            end
+            EC_BT.hitfx = safe_bool(mx,my,cl,c3+18,sy+116,"Hit Effects",EC_BT.hitfx == true)
+            EC_BT.hitSize = safe_float(mx,my,cl,c3+18,sy+156,colW-36,"Hit Effect Size",EC_BT.hitSize or 38,18,96)
+            if __ec16_hitfx_style_dropdown then
+                pcall(__ec16_hitfx_style_dropdown,mx,my,cl,c3+18,sy+226,colW-36)
+            end
+
+        elseif V.section == "Aura" then
+            if __EC16.selfAura == nil then __EC16.selfAura = false end
+            if __EC16.selfAuraStyle == nil then __EC16.selfAuraStyle = 0 end
+
+            group(c1,sy,colW,180,"Self Aura")
+            __EC16.selfAura = safe_bool(mx,my,cl,c1+18,sy+42,"Self Aura",__EC16.selfAura == true)
+            if __ec16_aura_style_dropdown then
+                pcall(__ec16_aura_style_dropdown,mx,my,cl,c1+18,sy+88,colW-36)
+            end
+
+            group(c2,sy,colW,520,"Aura Colors")
+            local used1 = color_picker(mx,my,cl,c2+18,sy+44,"Aura Upper Color","aura_top")
+            local y2 = sy + 44 + used1 + 10
+            color_picker(mx,my,cl,c2+18,y2,"Aura Lower Color","aura_bottom")
+        end
     end
 
     local function get_hrp_pos()
@@ -14493,25 +14747,24 @@ Eclipze v47 stable trail + safe aura cache
         return out
     end
 
-    local function color_at(u,k)
+    local function trail_color(u,k)
         if T.rainbow then
-            return hsv((T.hue or 0.56) + now()*(T.rainbowSpeed or 0.85)*0.10 + u*0.18)
+            return hsv_to_rgb((T.hue or 0.56) + now()*(T.rainbowSpeed or 0.85)*0.10 + u*0.18, 1, 1)
         end
-        local br,bg,bb = hsv((T.hue or 0.56) + (u - 0.5) * 0.035)
-        local gr,gg,gb = lerp_color(br,bg,bb,0.70,0.92,1.00,0.50)
-        return lerp_color(gr,gg,gb,1.00,1.00,1.00,0.28 + 0.34*k)
+
+        local c = T.color or {0.70,0.92,1.00,1}
+        local r,g,b = c[1] or 0.70, c[2] or 0.92, c[3] or 1.00
+        return lerp_color(r,g,b,1.00,1.00,1.00,0.28 + 0.34*k)
     end
 
-    local function draw_gradient_segment(a,b,alpha,k,u)
+    local function draw_trail_segment(a,b,alpha,k,u)
         if alpha <= 0.006 then return end
         local size = 1.67
-
         local core = 1.0
         local mid = size * 1.55
         local glow1 = size * 3.35
         local glow2 = size * 5.80
-
-        local r,g,bc = color_at(u,k)
+        local r,g,bc = trail_color(u,k)
         local gr,gg,gb = lerp_color(r,g,bc,0.45,0.82,1.00,0.45)
 
         line(a.x,a.y,b.x,b.y,gr,gg,gb,alpha*0.060,glow2)
@@ -14520,34 +14773,26 @@ Eclipze v47 stable trail + safe aura cache
         line(a.x,a.y,b.x,b.y,0.98,0.99,1.00,alpha*0.900,core)
     end
 
-    local function draw_many_lines(curve, life, len)
+    local function draw_trail_lines(curve, life, len)
         local opacity = clamp(T.opacity or 0.72,0.05,1.00)
         local total = math.max(#curve - 1, 1)
         local step = 1
-
-        -- FPS guard: when length is huge, draw fewer curve samples instead of exploding draw calls.
-        if len > 130 and #curve > 210 then
-            step = 2
-        end
-        if len > 180 and #curve > 240 then
-            step = 3
-        end
-
+        if len > 130 and #curve > 210 then step = 2 end
+        if len > 180 and #curve > 240 then step = 3 end
         local prev = curve[1]
+
         for i=2,#curve,step do
             local b = curve[i]
             local a = prev or curve[i-1]
             prev = b
-
             local dx = b.x - a.x
             local dy = b.y - a.y
             local d = math.sqrt(dx*dx + dy*dy)
-
             if d < 160 then
                 local age = b.age or 0
                 local k = clamp(1 - age/life,0,1)
                 local alpha = opacity * (0.030 + k*k*0.970)
-                draw_gradient_segment(a,b,alpha,k,i/total)
+                draw_trail_segment(a,b,alpha,k,i/total)
             end
         end
     end
@@ -14569,7 +14814,6 @@ Eclipze v47 stable trail + safe aura cache
         local tm = now()
         local vel = get_hrp_vel()
         local speed = math.sqrt((vel.X or 0)^2 + (vel.Y or 0)^2 + (vel.Z or 0)^2)
-
         local sample = rawPos
         if speed > 0.01 then
             sample = rawPos - (vel:normalize() * math.min(0.68,0.06 + speed*0.010))
@@ -14636,20 +14880,17 @@ Eclipze v47 stable trail + safe aura cache
         for i=1,#pts do
             local p = pts[i]
             local s = world_to_screen(p.pos)
-            if s then
-                raw[#raw+1] = {x=s.X,y=s.Y,age=tm-(p.t or tm)}
-            end
+            if s then raw[#raw+1] = {x=s.X,y=s.Y,age=tm-(p.t or tm)} end
         end
         if #raw < 2 then return end
 
         local targetSegs = math.floor(clamp(90 + len * 0.85, 95, 260))
         local curve = build_curve(raw, targetSegs)
         if #curve < 2 then return end
-
-        draw_many_lines(curve, life, len)
+        draw_trail_lines(curve, life, len)
     end
 
-    -- Safe aura cache. No aura draw styles are replaced.
+    -- Safe aura cache only. Original aura drawing stays untouched.
     __EC_AURA_SAFE_CACHE = __EC_AURA_SAFE_CACHE or { w2s = {}, frame = -1 }
     local AC = __EC_AURA_SAFE_CACHE
 
@@ -14658,9 +14899,7 @@ Eclipze v47 stable trail + safe aura cache
         local old_pos = EC_SAURA_POS
         EC_SAURA_POS = function()
             local f = math.floor(now() * 120)
-            if AC.pos_frame == f and AC.pos_value then
-                return AC.pos_value
-            end
+            if AC.pos_frame == f and AC.pos_value then return AC.pos_value end
             local p = old_pos()
             AC.pos_frame = f
             AC.pos_value = p
@@ -14673,9 +14912,7 @@ Eclipze v47 stable trail + safe aura cache
         local old_top = EC_SAURA_COLOR_TOP
         EC_SAURA_COLOR_TOP = function()
             local f = math.floor(now() * 60)
-            if AC.top_frame == f and AC.top_value then
-                return AC.top_value[1], AC.top_value[2], AC.top_value[3]
-            end
+            if AC.top_frame == f and AC.top_value then return AC.top_value[1],AC.top_value[2],AC.top_value[3] end
             local r,g,b = old_top()
             AC.top_frame = f
             AC.top_value = {r,g,b}
@@ -14688,9 +14925,7 @@ Eclipze v47 stable trail + safe aura cache
         local old_bottom = EC_SAURA_COLOR_BOTTOM
         EC_SAURA_COLOR_BOTTOM = function()
             local f = math.floor(now() * 60)
-            if AC.bottom_frame == f and AC.bottom_value then
-                return AC.bottom_value[1], AC.bottom_value[2], AC.bottom_value[3]
-            end
+            if AC.bottom_frame == f and AC.bottom_value then return AC.bottom_value[1],AC.bottom_value[2],AC.bottom_value[3] end
             local r,g,b = old_bottom()
             AC.bottom_frame = f
             AC.bottom_value = {r,g,b}
@@ -14703,34 +14938,33 @@ Eclipze v47 stable trail + safe aura cache
         local old_w2s = EC_SAURA_W2S
         EC_SAURA_W2S = function(pos)
             if not pos then return nil,nil,false end
-
             local f = math.floor(now() * 120)
             if AC.frame ~= f then
                 AC.frame = f
                 AC.w2s = {}
             end
-
             local x = tonumber(pos.X or pos[1]) or 0
             local y = tonumber(pos.Y or pos[2]) or 0
             local z = tonumber(pos.Z or pos[3]) or 0
             local key = tostring(math.floor(x * 10 + 0.5)) .. ":" .. tostring(math.floor(y * 10 + 0.5)) .. ":" .. tostring(math.floor(z * 10 + 0.5))
             local c = AC.w2s[key]
-            if c then
-                return c[1], c[2], c[3]
-            end
-
+            if c then return c[1],c[2],c[3] end
             local sx,sy,vis = old_w2s(pos)
             AC.w2s[key] = {sx,sy,vis}
             return sx,sy,vis
         end
     end
 
-    if type(__ec16_menu) == "function" and not T._menu_wrapped then
+    if type(__ec16_menu) == "function" and not V._menu_wrapped then
         local old_menu = __ec16_menu
-        T._menu_wrapped = true
+        V._menu_wrapped = true
         __ec16_menu = function(mx,my,cl,w,h)
+            if __EC16 and __EC16.mainTab == "aim" and (__EC16.aimSection == "Tracers" or __EC16.aimSection == "Aura") then
+                __EC16.aimSection = "General"
+            end
             old_menu(mx,my,cl,w,h)
-            pcall(draw_trail_menu_controls,mx,my,cl)
+            pcall(draw_visuals_top_tab,mx,my,cl)
+            pcall(draw_visuals_page,mx,my,cl)
         end
     end
 
@@ -14740,5 +14974,5 @@ Eclipze v47 stable trail + safe aura cache
         callbacks.paint(function() pcall(draw_player_trail) end)
     end
 
-    if notify then notify("v47: stable trail + safe aura cache loaded", "success") end
+    if notify then notify("v48: Visuals tab and custom color picker loaded", "success") end
 end)()
