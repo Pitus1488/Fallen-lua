@@ -14184,19 +14184,19 @@ end)()
 
 
 --[[
-Eclipze v45 Player Trail patch
-- Trail is ONLY lines, no dots/stamps/circles.
-- Many thin offset lines create glow, so it does not look like separate points.
-- Only Length and Size sliders are exposed.
-- Fixed pixel thickness, so distance does not scale the trail.
+Eclipze v46 optimized trail + aura patch
+- Player Trail: fixed size, only Length slider.
+- Trail uses many connected gradient line segments, not dots.
+- Trail segment count is capped for FPS when Length is high.
+- Self Aura draw functions are overridden with cheaper versions.
 ]]
 ;(function()
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._v45_loaded then return end
-    T._v45_loaded = true
+    if T._v46_loaded then return end
+    T._v46_loaded = true
 
-    if T._defaults_version ~= 45 then
+    if T._defaults_version ~= 46 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14208,9 +14208,9 @@ Eclipze v45 Player Trail patch
         T.smoothPower = 0.18
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 45
+        T._defaults_version = 46
     end
-
+    T.size = 1.67
     T.points = T.points or {}
 
     local function now()
@@ -14402,11 +14402,10 @@ Eclipze v45 Player Trail patch
         if not c1 then return end
         local th = theme()
 
-        group(c2,sy,colW,232,"Player Trail")
+        group(c2,sy,colW,174,"Player Trail")
         T.enabled = safe_bool(mx,my,cl,c2+18,sy+42,"Player Trail",T.enabled == true)
         T.rainbow = safe_bool(mx,my,cl,c2+18,sy+72,"Rainbow Trail",T.rainbow == true)
         T.length = safe_float(mx,my,cl,c2+18,sy+112,colW-36,"Trail Length",T.length or 46,8,220)
-        T.size = safe_float(mx,my,cl,c2+18,sy+170,colW-36,"Trail Size",T.size or 1.67,0.7,6.0)
 
         group(c3,sy,colW,165,"Trail Color")
         T.hue = hue_slider(mx,my,cl,c3+18,sy+42,colW-36,"Color",T.hue or 0.56)
@@ -14471,24 +14470,29 @@ Eclipze v45 Player Trail patch
         return 0.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3)
     end
 
-    local function build_curve(points)
+    local function build_curve(points, maxSegs)
         if #points < 2 then return points end
         local out = {}
+        local baseSteps = math.max(5, math.floor(maxSegs / math.max(#points - 1, 1)))
+        baseSteps = math.min(baseSteps, 18)
+
         for i=1,#points-1 do
             local p0 = points[math.max(1,i-1)]
             local p1 = points[i]
             local p2 = points[i+1]
             local p3 = points[math.min(#points,i+2)]
-            local steps = 14
-            for s=0,steps-1 do
-                local t = s / steps
+            for s=0,baseSteps-1 do
+                local t = s / baseSteps
                 out[#out+1] = {
                     x = catmull(p0.x,p1.x,p2.x,p3.x,t),
                     y = catmull(p0.y,p1.y,p2.y,p3.y,t),
                     age = mix(p1.age or 0,p2.age or 0,t)
                 }
+                if #out >= maxSegs then break end
             end
+            if #out >= maxSegs then break end
         end
+
         out[#out+1] = points[#points]
         return out
     end
@@ -14503,59 +14507,27 @@ Eclipze v45 Player Trail patch
         return lerp_color(gr,gg,gb,1.00,1.00,1.00,0.28 + 0.34*k)
     end
 
-    local function draw_offset_line(x1,y1,x2,y2,off,r,g,b,a,th)
-        local dx = x2 - x1
-        local dy = y2 - y1
-        local len = math.sqrt(dx*dx + dy*dy)
-        if len < 0.001 then return end
-        local nx = -dy / len
-        local ny = dx / len
-        line(x1 + nx*off, y1 + ny*off, x2 + nx*off, y2 + ny*off, r,g,b,a,th)
-    end
-
     local function draw_gradient_segment(a,b,alpha,k,u)
         if alpha <= 0.006 then return end
 
-        local size = clamp(T.size or 1.67,0.55,8.0)
-
-        -- Fixed screen-space width. Nothing here depends on distance.
-        local glowRadius = math.max(3.0, size * 4.40)
-        local innerRadius = math.max(1.2, size * 1.35)
+        local size = 1.67
+        local core = 1.0
+        local mid = size * 1.55
+        local glow1 = size * 3.35
+        local glow2 = size * 5.80
 
         local r,g,bc = color_at(u,k)
         local gr,gg,gb = lerp_color(r,g,bc,0.45,0.82,1.00,0.45)
 
-        -- Glow is many thin offset lines, not fat short pieces and not dots.
-        local glowSteps = 6
-        for o=-glowSteps,glowSteps do
-            local p = math.abs(o) / glowSteps
-            local off = o * (glowRadius / glowSteps)
-            local aa = alpha * 0.052 * (1 - p) * (1 - p)
-            if aa > 0.002 then
-                draw_offset_line(a.x,a.y,b.x,b.y,off,gr,gg,gb,aa,1.0)
-            end
-        end
-
-        -- Colored body, also offset lines.
-        local innerSteps = 3
-        for o=-innerSteps,innerSteps do
-            local p = math.abs(o) / innerSteps
-            local off = o * (innerRadius / innerSteps)
-            local aa = alpha * 0.135 * (1 - p*0.72)
-            if aa > 0.004 then
-                draw_offset_line(a.x,a.y,b.x,b.y,off,r,g,bc,aa,1.0)
-            end
-        end
-
-        -- White core.
-        line(a.x,a.y,b.x,b.y,0.98,0.99,1.00,alpha*0.78,1.0)
+        line(a.x,a.y,b.x,b.y,gr,gg,gb,alpha*0.060,glow2)
+        line(a.x,a.y,b.x,b.y,gr,gg,gb,alpha*0.105,glow1)
+        line(a.x,a.y,b.x,b.y,r,g,bc,alpha*0.330,mid)
+        line(a.x,a.y,b.x,b.y,0.98,0.99,1.00,alpha*0.900,core)
     end
 
     local function draw_many_lines(curve, life)
         local opacity = clamp(T.opacity or 0.72,0.05,1.00)
         local total = math.max(#curve - 1, 1)
-        local drawn = 0
-        local maxLines = 1400
 
         for i=2,#curve do
             local a = curve[i-1]
@@ -14563,15 +14535,11 @@ Eclipze v45 Player Trail patch
             local dx = b.x - a.x
             local dy = b.y - a.y
             local d = math.sqrt(dx*dx + dy*dy)
-
-            if d < 90 then
+            if d < 130 then
                 local age = b.age or 0
                 local k = clamp(1 - age/life,0,1)
-                local alpha = opacity * (0.025 + k*k*0.975)
-                local u = i / total
-                draw_gradient_segment(a,b,alpha,k,u)
-                drawn = drawn + 1
-                if drawn >= maxLines then return end
+                local alpha = opacity * (0.030 + k*k*0.970)
+                draw_gradient_segment(a,b,alpha,k,i/total)
             end
         end
     end
@@ -14635,7 +14603,7 @@ Eclipze v45 Player Trail patch
             local dy = sample.Y - lp.Y
             local dz = sample.Z - lp.Z
             local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
-            if dist >= 0.035 or (tm - (last.t or tm)) >= 0.008 then add = true end
+            if dist >= 0.050 or (tm - (last.t or tm)) >= 0.012 then add = true end
         end
 
         if add then
@@ -14647,7 +14615,7 @@ Eclipze v45 Player Trail patch
 
         local len = clamp(T.length or 46,8,220)
         local life = clamp((T.life or 0.29) * (len / 46.0),0.16,1.80)
-        local maxCount = math.floor(len + 0.5)
+        local maxCount = math.floor(math.min(len, 120) + 0.5)
 
         for i=#pts,1,-1 do
             if (tm - (pts[i].t or tm)) > life then table.remove(pts,i) end
@@ -14663,9 +14631,171 @@ Eclipze v45 Player Trail patch
         end
         if #raw < 2 then return end
 
-        local curve = build_curve(raw)
+        local maxSegs = math.floor(clamp(80 + len * 1.1, 90, 260))
+        local curve = build_curve(raw, maxSegs)
         if #curve < 2 then return end
         draw_many_lines(curve, life)
+    end
+
+    -- Optimized aura override
+    local TWO_PI = 6.283185
+    local function sa_w2s(pos)
+        if EC_SAURA_W2S then return EC_SAURA_W2S(pos) end
+        local s = nil
+        pcall(function() if rbx and rbx.world_to_screen then s = rbx.world_to_screen(pos) end end)
+        if not s then pcall(function() if aim and aim.world_to_screen then s = aim.world_to_screen(pos) end end) end
+        if not s then return nil,nil,false end
+        return tonumber(s.X or s[1]), tonumber(s.Y or s[2]), (s.visible == nil or s.visible == true)
+    end
+
+    local function sa_pos(center, radius, yoff, ang)
+        return {
+            X = center.X + math.cos(ang) * radius,
+            Y = center.Y + yoff,
+            Z = center.Z + math.sin(ang) * radius
+        }
+    end
+
+    function EC_SAURA_DRAW_SEG(x1,y1,x2,y2,r,g,b,a,thick)
+        if not x1 or not y1 or not x2 or not y2 then return end
+        line(x1,y1,x2,y2,r,g,b,a*0.14,thick*2.2)
+        line(x1,y1,x2,y2,r,g,b,a,thick)
+    end
+
+    function EC_SAURA_DRAW_CIRCLE(center, radius, yoff, r,g,b, a, thick)
+        local lastx,lasty,lastv = nil,nil,false
+        local steps = 72
+        for i=0,steps do
+            local t = (i / steps) * TWO_PI
+            local sx,sy,vis = sa_w2s(sa_pos(center, radius, yoff, t))
+            if sx and sy and vis and lastx and lasty and lastv then
+                EC_SAURA_DRAW_SEG(lastx,lasty,sx,sy,r,g,b,a,thick)
+            end
+            lastx,lasty,lastv = sx,sy,vis
+        end
+    end
+
+    function EC_SAURA_DASH_POS(center, radius, yoff, ang)
+        return sa_pos(center, radius, yoff, ang)
+    end
+
+    function EC_SAURA_DRAW_TAPER_DASH(center, radius, yoff, ang, arcLen, r,g,b, alpha, thick, yJit)
+        local segs = 6
+        local prevx,prevy,prevv = nil,nil,false
+        local tnow = now() * 7.0
+        for j=0,segs do
+            local u = j / segs
+            local profile = 1 - math.abs((u - 0.5) * 2)
+            local width = thick * (0.18 + profile * 1.35)
+            local a = alpha * (0.32 + profile * 0.68)
+            local waveShape = math.sin(u * TWO_PI * 1.10 + tnow)
+            local t = ang + (u - 0.5) * arcLen
+            local rr = radius + waveShape * (arcLen * 0.10)
+            local y = yoff + math.sin(u * 3.14159) * yJit + waveShape * yJit * 0.25
+            local sx,sy,vis = sa_w2s(sa_pos(center, rr, y, t))
+            if sx and sy and vis and prevx and prevy and prevv then
+                EC_SAURA_DRAW_SEG(prevx,prevy,sx,sy,r,g,b,a,width)
+            end
+            prevx,prevy,prevv = sx,sy,vis
+        end
+    end
+
+    function EC_SAURA_DRAW_DASHES(center, radius, yoff, r,g,b, alpha, thick, count, arcLen, offset, sizeJit, yJit)
+        count = math.min(count or 8, 8)
+        for i=0,(count-1) do
+            local a = offset + (i / count) * TWO_PI
+            local scale = 1 + math.sin(i * 1.917 + offset * 0.7) * (sizeJit or 0.2)
+            local yy = math.sin(i * 1.371 + offset * 0.9) * (yJit or 0.15)
+            EC_SAURA_DRAW_TAPER_DASH(center, radius, yoff + yy, a, arcLen * 1.55 * scale, r,g,b, alpha, thick * 1.02 * scale, (yJit or 0.15) * 0.62)
+        end
+    end
+
+    function EC_SAURA_DRAW_ORB(center, radius, yoff, ang, size, r,g,b,a)
+        local sx,sy,vis = sa_w2s(sa_pos(center, radius, yoff, ang))
+        if sx and sy and vis and Drawing and Drawing.DrawCircle then
+            Drawing.DrawCircle(sx,sy,size*0.70,r,g,b,a*0.75,1.6)
+        end
+    end
+
+    function EC_SAURA_DRAW_HELIX(center, radius, baseY, r1,g1,b1,r2,g2,b2, alpha, thick)
+        local tnow = now()
+        local steps = 48
+        local p1x,p1y,p1v = nil,nil,false
+        local p2x,p2y,p2v = nil,nil,false
+        for i=0,steps do
+            local u = i / steps
+            local a = u * TWO_PI * 1.35 + tnow * 1.30
+            local y1 = baseY + math.sin(u*TWO_PI*2 + tnow*3.4) * 1.15
+            local y2 = baseY + math.sin(u*TWO_PI*2 + tnow*3.4 + 3.14159) * 1.15
+            local x1,y1s,v1 = sa_w2s(sa_pos(center, radius, y1, a))
+            local x2,y2s,v2 = sa_w2s(sa_pos(center, radius, y2, a + 3.14159))
+            if x1 and y1s and v1 and p1x and p1v then EC_SAURA_DRAW_SEG(p1x,p1y,x1,y1s,r1,g1,b1,alpha,thick) end
+            if x2 and y2s and v2 and p2x and p2v then EC_SAURA_DRAW_SEG(p2x,p2y,x2,y2s,r2,g2,b2,alpha,thick) end
+            p1x,p1y,p1v = x1,y1s,v1
+            p2x,p2y,p2v = x2,y2s,v2
+        end
+    end
+
+    local old_ec_saura_draw = EC_SAURA_DRAW
+    function EC_SAURA_DRAW()
+        if not __EC16 or not __EC16.selfAura then return end
+        local tnow = now()
+        -- Hard FPS cap for aura render. It still looks smooth, but avoids stacking tons of draw calls.
+        if __EC_PLAYER_TRAIL._aura_last and (tnow - __EC_PLAYER_TRAIL._aura_last) < 0.010 then return end
+        __EC_PLAYER_TRAIL._aura_last = tnow
+
+        local center = EC_SAURA_POS and EC_SAURA_POS() or nil
+        if not center then return end
+
+        local style = math.floor(tonumber(__EC16.selfAuraStyle or 0) or 0)
+        if style < 0 then style = 0 end
+        if style > 8 then style = 8 end
+        if style >= 1 and style <= 4 then style = 0 end
+
+        local radius = 8.0
+        local baseY = -2.65
+        local bR,bG,bB = EC_SAURA_COLOR_TOP()
+        local pR,pG,pB = EC_SAURA_COLOR_BOTTOM()
+
+        if style == 5 then
+            EC_SAURA_DRAW_HELIX(center, radius*1.03, baseY, bR,bG,bB, pR,pG,pB, 0.58, 1.45)
+            return
+        elseif style == 6 then
+            for k=0,1 do
+                local pulse = (math.sin(tnow*2.0 + k*2.1) + 1) * 0.5
+                local rr = radius * (0.78 + k*0.32 + pulse*0.10)
+                local yy = baseY + (k-0.5)*0.70
+                if k == 0 then
+                    EC_SAURA_DRAW_CIRCLE(center, rr, yy, bR,bG,bB, 0.45 + pulse*0.15, 1.45)
+                else
+                    EC_SAURA_DRAW_CIRCLE(center, rr, yy, pR,pG,pB, 0.45 + pulse*0.15, 1.45)
+                end
+            end
+            return
+        elseif style == 7 then
+            EC_SAURA_DRAW_CIRCLE(center, radius*1.06, baseY, bR,bG,bB, 0.30, 1.25)
+            EC_SAURA_DRAW_CIRCLE(center, radius*1.20, baseY+0.10, pR,pG,pB, 0.26, 1.25)
+            for i=0,7 do
+                local a = tnow*1.8 + (i/8)*TWO_PI
+                if i % 2 == 0 then
+                    EC_SAURA_DRAW_ORB(center, radius*1.02, baseY, a, 3.0, bR,bG,bB, 0.70)
+                else
+                    EC_SAURA_DRAW_ORB(center, radius*1.12, baseY+0.08, -a, 2.7, pR,pG,pB, 0.66)
+                end
+            end
+            return
+        elseif style == 8 then
+            EC_SAURA_DRAW_CIRCLE(center, radius*0.82, baseY+1.25, bR,bG,bB, 0.48, 1.55)
+            EC_SAURA_DRAW_CIRCLE(center, radius*1.32, baseY-1.10, pR,pG,pB, 0.44, 1.70)
+            EC_SAURA_DRAW_DASHES(center, radius*1.32, baseY-1.10, pR,pG,pB, 0.50, 0.96, 7, 0.20, tnow*-1.2, 0.16, 0.08)
+            EC_SAURA_DRAW_DASHES(center, radius*0.82, baseY+1.25, bR,bG,bB, 0.46, 0.92, 6, 0.16, tnow*1.3, 0.14, 0.08)
+            return
+        end
+
+        EC_SAURA_DRAW_CIRCLE(center, radius*0.92, baseY, bR,bG,bB, 0.52, 1.45)
+        EC_SAURA_DRAW_CIRCLE(center, radius*1.18, baseY+0.03, pR,pG,pB, 0.52, 1.45)
+        EC_SAURA_DRAW_DASHES(center, radius*0.92, baseY, bR,bG,bB, 0.52, 0.98, 7, 0.23, tnow*0.82, 0.20, 0.14)
+        EC_SAURA_DRAW_DASHES(center, radius*1.18, baseY+0.03, pR,pG,pB, 0.52, 0.98, 7, 0.23, tnow*-0.98+1.25, 0.20, 0.14)
     end
 
     if type(__ec16_menu) == "function" and not T._menu_wrapped then
@@ -14683,5 +14813,5 @@ Eclipze v45 Player Trail patch
         callbacks.paint(function() pcall(draw_player_trail) end)
     end
 
-    if notify then notify("v45: offset gradient line trail loaded", "success") end
+    if notify then notify("v46: optimized trail and auras loaded", "success") end
 end)()
