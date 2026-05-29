@@ -14186,7 +14186,7 @@ end)()
 
 
 --[[
-Eclipze v51 Visuals + global custom color picker
+Eclipze v52 Visuals + fixed global color picker
 - VISUALS is a real top tab.
 - AIM no longer shows Tracers / Aura.
 - Global replacement for old color hue sliders: all existing color rows use this custom square + overlay picker.
@@ -14198,12 +14198,12 @@ Eclipze v51 Visuals + global custom color picker
 ;(function()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v51_loaded then return end
-    V._v51_loaded = true
+    if V._v52_loaded then return end
+    V._v52_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 51 then
+    if T._defaults_version ~= 52 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ Eclipze v51 Visuals + global custom color picker
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 51
+        T._defaults_version = 52
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -14544,8 +14544,11 @@ Eclipze v51 Visuals + global custom color picker
         if hov and cl and not (__EC16 and __EC16.lastClick) then
             if V.picker.open == id then
                 V.picker.open = nil
+                V.picker.justOpened = nil
             else
                 open_picker_for(id,x,y+size+8)
+                V.picker.justOpened = id
+                V.picker.justOpenedAt = now()
             end
         end
     end
@@ -14553,8 +14556,10 @@ Eclipze v51 Visuals + global custom color picker
     -- Global replacement for every old hue/rainbow slider row.
     function __ec16_rainbow_slider(mx,my,cl,x,y,w,label,target)
         local th = theme()
-        text_left(x,y,tostring(label or "Color"),th.dim[1],th.dim[2],th.dim[3],0.88)
-        color_button(mx,my,cl,x+w-24,y+18,tostring(target or "fov"))
+        local labelText = tostring(label or "Color")
+        text_left(x,y,labelText,th.dim[1],th.dim[2],th.dim[3],0.88)
+        -- same row, opposite the label/function; not below it.
+        color_button(mx,my,cl,x+w-24,y-3,tostring(target or "fov"))
         return 34
     end
 
@@ -14589,8 +14594,13 @@ Eclipze v51 Visuals + global custom color picker
         local inBox = __ec16_in and __ec16_in(mx,my,px-6,py-6,px+totalW+6,py+totalH+6)
         local btnId = button_under_mouse(mx,my)
         local newClick = cl and not (__EC16 and __EC16.lastClick)
+        local skipOutsideClose = false
+        if V.picker.justOpened == id then
+            skipOutsideClose = true
+            V.picker.justOpened = nil
+        end
 
-        if newClick and not inBox then
+        if newClick and not inBox and not skipOutsideClose then
             if btnId then
                 if btnId == id then
                     V.picker.open = nil
@@ -14667,7 +14677,35 @@ Eclipze v51 Visuals + global custom color picker
         apply_target_color(id,nr,ng,nb,data.h)
     end
 
-    local function picker_blocks_base(mx,my,cl)
+    
+local function handle_top_tabs_when_visuals(mx,my,cl)
+        if not (__EC16 and __EC16.mainTab == "visuals") then return end
+        if not (cl and not (__EC16 and __EC16.lastClick)) then return end
+        local x = __EC16.x or 95
+        local y = __EC16.y or 70
+        local tx = x + 18
+        local ty = y + 45
+        local tabs = {
+            {id="aim", w=88},
+            {id="esp", w=132},
+            {id="noclip", w=102},
+            {id="visuals", w=104}
+        }
+        for _,tb in ipairs(tabs) do
+            if __ec16_in and __ec16_in(mx,my,tx,ty,tx+tb.w,ty+25) then
+                __EC16.mainTab = tb.id
+                if tb.id == "aim" then __EC16.aimSection = __EC16.aimSection or "General" end
+                if tb.id == "esp" then __EC16.espSection = __EC16.espSection or "Armor" end
+                if tb.id == "noclip" then __EC16.noclipSection = __EC16.noclipSection or "Noclip" end
+                if tb.id == "visuals" then __EC16.visualsSection = __EC16.visualsSection or V.section or "Trail" end
+                V.picker.open = nil
+                return
+            end
+            tx = tx + tb.w + 6
+        end
+    end
+
+local function picker_blocks_base(mx,my,cl)
         if not V.picker.open then return false end
         if not cl then return false end
         return true
@@ -15023,11 +15061,20 @@ Eclipze v51 Visuals + global custom color picker
             end
 
             reset_color_buttons()
+            pcall(handle_top_tabs_when_visuals,mx,my,cl)
+
             local block = picker_blocks_base(mx,my,cl)
             local baseCl = block and false or cl
+            if __EC16 and __EC16.mainTab == "visuals" then
+                -- Prevent hidden ESP/old content from receiving clicks under the Visuals overlay.
+                baseCl = false
+            end
 
             old_menu(mx,my,baseCl,w,h)
-            pcall(draw_visuals_page,mx,my,baseCl)
+
+            local visualCl = cl
+            if block then visualCl = false end
+            pcall(draw_visuals_page,mx,my,visualCl)
             pcall(draw_color_picker_overlay,mx,my,cl)
         end
     end
@@ -15038,5 +15085,5 @@ Eclipze v51 Visuals + global custom color picker
         callbacks.paint(function() pcall(draw_player_trail) end)
     end
 
-    if notify then notify("v51: global color picker fixed", "success") end
+    if notify then notify("v52: color picker hitboxes fixed", "success") end
 end)()
