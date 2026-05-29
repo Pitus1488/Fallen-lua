@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V66_PATCH()
+function __EC_V67_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v66_loaded then return end
-    V._v66_loaded = true
+    if V._v67_loaded then return end
+    V._v67_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 66 then
+    if T._defaults_version ~= 67 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V66_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 66
+        T._defaults_version = 67
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -15453,36 +15453,87 @@ local function picker_blocks_base(mx,my,cl)
     end
 
 
-    -- v66: simple filled projected sphere around player.
-    -- Same idea as old sphere radius, but without any line/ring drawing.
-    local function screen_dist_v66(a,b)
-        if not (a and b) then return nil end
-        local dx = (a.X or 0) - (b.X or 0)
-        local dy = (a.Y or 0) - (b.Y or 0)
-        return math.sqrt(dx*dx + dy*dy)
+    -- v67: real world-projected filled sphere around the player.
+    -- Same old sphere position/radius idea, but no visible rings/outline lines.
+    local function fog_w2s_v67(pos)
+        return world_to_screen(pos)
     end
 
-    local function draw_filled_fog_sphere_v66(cx,cy,rad,r,g,b,alpha,detail)
-        if rad <= 2 then return end
+    local function fog_band_v67(p1,p2,r,g,b,a,thick)
+        local s1 = fog_w2s_v67(p1)
+        local s2 = fog_w2s_v67(p2)
+        if not (s1 and s2) then return end
+        -- Internal drawing uses soft thick bands, visually it becomes a filled sphere.
+        line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a,thick)
+    end
 
-        -- One visible filled fog circle with soft edge.
-        -- No lines, no particles, no screen-wide overlay.
-        circle(cx,cy,rad * 1.06,r,g,b,alpha * 0.055)
+    local function draw_filled_disk_plane_v67(center,radius,plane,r,g,b,alpha,steps,tm,phase)
+        steps = math.max(18, math.min(72, steps or 42))
+        local band = math.max(2.2, radius * 0.020)
+        local screenThick = math.max(2.0, 3.0 + radius * 0.018)
 
-        local layers = math.floor(8 + detail * 10)
-        if layers < 6 then layers = 6 end
-        if layers > 18 then layers = 18 end
+        for i=-steps,steps do
+            local t = i / steps
+            local chord = math.sqrt(math.max(0,1 - t*t)) * radius
+            local off = t * radius
+            local p1,p2
 
-        for i=layers,1,-1 do
-            local k = i / layers
-            local rr = rad * k
-            local edge = 1 - k
-            local a = alpha * (0.026 + edge * 0.030)
-            circle(cx,cy,rr,r,g,b,a)
+            if plane == "xy" then
+                p1 = center + Vector3(-chord, off, 0)
+                p2 = center + Vector3( chord, off, 0)
+            elseif plane == "yz" then
+                p1 = center + Vector3(0, off, -chord)
+                p2 = center + Vector3(0, off,  chord)
+            else -- xz
+                p1 = center + Vector3(-chord, 0, off)
+                p2 = center + Vector3( chord, 0, off)
+            end
+
+            local edge = 1 - math.abs(t)
+            local wave = 0.80 + 0.20 * math.sin(tm * 0.9 + i * 0.37 + phase)
+            local a = alpha * (0.018 + edge * 0.028) * wave
+            fog_band_v67(p1,p2,r,g,b,a,screenThick)
         end
+    end
 
-        -- Tiny center haze so it looks filled, not like only border.
-        circle(cx,cy,rad * 0.52,r,g,b,alpha * 0.028)
+    local function draw_filled_sphere_world_v67(center,radius,r,g,b,alpha,detail,tm)
+        local steps = math.floor(24 + detail * 30)
+        if steps < 22 then steps = 22 end
+        if steps > 58 then steps = 58 end
+
+        -- Three old-sphere planes filled with many transparent bands.
+        -- This stays attached to the player in world, not to the screen.
+        draw_filled_disk_plane_v67(center,radius,"xy",r,g,b,alpha * 0.92,steps,tm,0.0)
+        draw_filled_disk_plane_v67(center,radius,"yz",r,g,b,alpha * 0.72,steps,tm,1.7)
+        draw_filled_disk_plane_v67(center,radius,"xz",r,g,b,alpha * 0.55,steps,tm,3.4)
+
+        -- Extra soft inner volume points so it reads as filled, not as stripes.
+        local blobs = math.floor(18 + detail * 28)
+        if blobs > 44 then blobs = 44 end
+        for i=1,blobs do
+            local h1 = ec_hash01(i * 2.17)
+            local h2 = ec_hash01(i * 5.91)
+            local h3 = ec_hash01(i * 9.43)
+            local ang = h1 * 6.283185 + tm * (0.08 + h3 * 0.12)
+            local y = (h2 * 2 - 1) * radius * 0.55
+            local flat = math.sqrt(math.max(0, radius*radius - y*y))
+            local dist = flat * (0.18 + h3 * 0.56)
+            local pos = center + Vector3(math.cos(ang)*dist, y, math.sin(ang)*dist)
+
+            local sp = fog_w2s_v67(pos)
+            if sp then
+                local sizePos = fog_w2s_v67(pos + Vector3(radius * 0.035,0,0))
+                local rr = 6
+                if sizePos then
+                    local dx = sizePos.X - sp.X
+                    local dy = sizePos.Y - sp.Y
+                    rr = math.sqrt(dx*dx + dy*dy)
+                    if rr < 3 then rr = 3 end
+                    if rr > 42 then rr = 42 end
+                end
+                circle(sp.X,sp.Y,rr * (0.9 + h1*0.7),r,g,b,alpha * (0.020 + h2*0.018))
+            end
+        end
     end
 
     local function draw_visual_fog()
@@ -15494,31 +15545,14 @@ local function picker_blocks_base(mx,my,cl)
         local radius = clamp(V.fog.radius or 22.0,6.0,80.0)
         local op = clamp(V.fog.opacity or 0.26,0.01,0.80)
         local detail = clamp(V.fog.density or 0.55,0.10,1.00)
+        local spd = clamp(V.fog.speed or 0.55,0.00,2.00)
+        local tm = now() * spd
         local r,g,b = get_target_color("fog")
 
-        -- Sphere follows player in WORLD. This is not a full screen overlay.
-        local cpos = center + Vector3(0,radius * 0.18,0)
-        local sc = world_to_screen(cpos)
-        if not sc then return end
+        -- Same around-player sphere placement as before.
+        local sphereCenter = center + Vector3(0,radius * 0.18,0)
 
-        -- Project world radius to screen radius, same style as previous sphere, just filled.
-        local sx = world_to_screen(cpos + Vector3(radius,0,0))
-        local sz = world_to_screen(cpos + Vector3(0,0,radius))
-        local sy = world_to_screen(cpos + Vector3(0,radius,0))
-        local sx2 = world_to_screen(cpos - Vector3(radius,0,0))
-        local sz2 = world_to_screen(cpos - Vector3(0,0,radius))
-
-        local r1 = screen_dist_v66(sc,sx) or 0
-        local r2 = screen_dist_v66(sc,sz) or 0
-        local r3 = screen_dist_v66(sc,sy) or 0
-        local r4 = screen_dist_v66(sc,sx2) or 0
-        local r5 = screen_dist_v66(sc,sz2) or 0
-        local sr = math.max(r1,r2,r3,r4,r5)
-
-        if sr < 6 then return end
-        if sr > 1600 then sr = 1600 end
-
-        draw_filled_fog_sphere_v66(sc.X,sc.Y,sr,r,g,b,op,detail)
+        draw_filled_sphere_world_v67(sphereCenter,radius,r,g,b,op,detail,tm)
     end
 
     -- Safe aura cache only. Original aura styles are NOT replaced.
@@ -15644,6 +15678,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_visual_fog) end)
     end
 
-    if notify then notify("v66: simple filled fog sphere loaded", "success") end
+    if notify then notify("v67: world filled fog sphere loaded", "success") end
 end
-__EC_V66_PATCH()
+__EC_V67_PATCH()
