@@ -1,4 +1,132 @@
+-- Eclipze v18 hard compatibility guard
+__EC13 = __EC13 or { anim = {}, click = {}, slider = {}, avatar = {}, fps = {}, user = {}, target = {}, cache = {} }
+_EC13 = _EC13 or __EC13
+__EC13.anim = __EC13.anim or {}
+__EC13.click = __EC13.click or {}
+__EC13.slider = __EC13.slider or {}
+__EC13.avatar = __EC13.avatar or {}
+__EC13.fps = __EC13.fps or {}
+__EC13.user = __EC13.user or {}
+__EC13.target = __EC13.target or {}
+__EC13.cache = __EC13.cache or {}
 
+__EC_PINK_R = 1.00
+__EC_PINK_G = 0.00
+__EC_PINK_B = 0.55
+__EC_PINK_SOFT_R = 1.00
+__EC_PINK_SOFT_G = 0.18
+__EC_PINK_SOFT_B = 0.72
+__EC16_MENU_ALLOWED = false
+__EC16_UI = { check = {}, slider = {}, color = {}, buttons = {}, buttonLabels = {}, visible = {}, texts = {} }
+__EC16_ORIGINAL_UI = UIManager
+UIManager = {
+CreateTab = function(id, label) return id end,
+CreateWindow = function(id, label, x, y, w, h) return id end,
+CreateText = function(id, text) __EC16_UI.texts[id] = text return id end,
+CreateSeparator = function(id) return id end,
+SetElementParent = function(id, parent) return true end,
+SetElementSameLine = function(id, v) return true end,
+SetElementVisible = function(id, v)
+__EC16_UI.visible[id] = v == true
+return true
+end,
+RemoveElement = function(id) return true end,
+CreateCheckbox = function(id, label, default, on_change)
+if __EC16_UI.check[id] == nil then __EC16_UI.check[id] = false end
+return id
+end,
+CreateSliderInt = function(id, label, minv, maxv, default)
+if __EC16_UI.slider[id] == nil then __EC16_UI.slider[id] = default or minv or 0 end
+return id
+end,
+CreateSliderFloat = function(id, label, minv, maxv, default)
+if __EC16_UI.slider[id] == nil then __EC16_UI.slider[id] = default or minv or 0 end
+return id
+end,
+CreateColorPicker = function(id, label, r, g, b, a)
+if __EC16_UI.color[id] == nil then
+__EC16_UI.color[id] = {r=r or 1,g=g or 1,b=b or 1,a=a or 1,[1]=r or 1,[2]=g or 1,[3]=b or 1,[4]=a or 1}
+end
+return id
+end,
+CreateButton = function(id, label, cb)
+__EC16_UI.buttons[id] = cb
+__EC16_UI.buttonLabels[id] = label
+if __EC16_UI.visible[id] == nil then __EC16_UI.visible[id] = true end
+return id
+end,
+GetCheckboxValue = function(id) return __EC16_UI.check[id] == true end,
+SetCheckboxValue = function(id, v) __EC16_UI.check[id] = v == true return true end,
+GetSliderIntValue = function(id) return math.floor(__EC16_UI.slider[id] or 0) end,
+SetSliderIntValue = function(id, v) __EC16_UI.slider[id] = v return true end,
+GetSliderFloatValue = function(id) return __EC16_UI.slider[id] or 0 end,
+SetSliderFloatValue = function(id, v) __EC16_UI.slider[id] = v return true end,
+GetColorPickerValue = function(id)
+return __EC16_UI.color[id] or {r=1,g=1,b=1,a=1,[1]=1,[2]=1,[3]=1,[4]=1}
+end,
+SetColorPickerValue = function(id, r, g, b, a)
+__EC16_UI.color[id] = {r=r,g=g,b=b,a=a or 1,[1]=r,[2]=g,[3]=b,[4]=a or 1}
+return true
+end,
+OpenColorPicker = function(id)
+if __EC16_ORIGINAL_UI and __EC16_ORIGINAL_UI.OpenColorPicker then
+return __EC16_ORIGINAL_UI.OpenColorPicker(id)
+end
+return true
+end,
+ToggleColorPicker = function(id)
+if __EC16_ORIGINAL_UI and __EC16_ORIGINAL_UI.ToggleColorPicker then
+return __EC16_ORIGINAL_UI.ToggleColorPicker(id)
+end
+return true
+end
+}
+TAB_ID = "Fallen"
+ARMOR_MAP = {
+["Armor_153"] = "Cloth Head Wrap",
+["Armor_115"] = "Cloth Shirt",
+["Armor_116"] = "Cloth Pants",
+["Armor_156"] = "Cloth Handwraps",
+["Armor_117"] = "Cloth Footwraps",
+["Armor_124"] = "Wooden Chestplate",
+["Armor_125"] = "Wooden Leggings",
+["Armor_123"] = "Wooden Helmet",
+["Armor_145"] = "Salvaged Helmet",
+["Armor_146"] = "Salvaged Chestplate",
+["Armor_147"] = "Salvaged Leggings",
+["Armor_155"] = "Salvaged Gloves",
+["Armor_148"] = "Military Helmet",
+["Armor_149"] = "Military Chestplate",
+["Armor_150"] = "Military Leggings",
+["Armor_157"] = "Military Gloves",
+["Armor_271"] = "Altyn Helmet",
+["Armor_272"] = "Boris Chestplate",
+["Armor_141"] = "Steel Helmet",
+["Armor_142"] = "Steel Chestplate",
+["Armor_143"] = "Steel Leggings",
+["Armor_158"] = "Leather Gloves",
+["Armor_113"] = "Shorts",
+["Armor_59"] = "Hoodie",
+["Armor_63"] = "Pants",
+["Armor_60"] = "Hazmat Suit",
+["Armor_111"] = "Boots",
+["Armor_121"] = "Boots",
+["Armor_112"] = "Collared Shirt",
+["Armor_122"] = "Flannel Jacket",
+["Armor_114"] = "Tank Top",
+["Armor_159"] = "Wetsuit",
+["Armor_154"] = "Baseball Cap",
+["Armor_152"] = "Balaclava",
+["Armor_223"] = "Bruno's Helmet",
+["Armor_222"] = "Bruno's Chestplate",
+["Armor_298"] = "Bone Armor",
+["Salvaged_Backpack"] = "Salvaged Backpack"
+}
+ICON_URLS = {
+["Bruno's Helmet"] = {
+"https://static.wikia.nocookie.net/fallen-survival-new/images/f/f1/Brunohelmet.png/revision/latest?format=original",
+"https://static.wikia.nocookie.net/fallen-survival-new/images/f/f1/Brunohelmet.png/revision/latest/scale-to-width-down/100?cb=20250108175533"
+},
 ["Bruno's Chestplate"] = {
 "https://static.wikia.nocookie.net/fallen-survival-new/images/6/62/Brunochest.png/revision/latest?format=original",
 "https://static.wikia.nocookie.net/fallen-survival-new/images/6/62/Brunochest.png/revision/latest/scale-to-width-down/100?cb=20250108175253"
