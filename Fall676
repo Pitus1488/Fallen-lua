@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V68_PATCH()
+function __EC_V69_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v68_loaded then return end
-    V._v68_loaded = true
+    if V._v69_loaded then return end
+    V._v69_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 68 then
+    if T._defaults_version ~= 69 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V68_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 68
+        T._defaults_version = 69
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -15453,31 +15453,26 @@ local function picker_blocks_base(mx,my,cl)
     end
 
 
-    -- v68: shaded filled sphere around player.
-    -- No old line rings. No flat fullscreen overlay. This is built from world-space sphere samples.
-    local function fog_lerp_v68(a,b,t)
+    -- v69: filled world sphere around the player.
+    -- Same "sphere around me" logic, but fully filled: no lines, no dots, no screen overlay.
+    local function fog_lerp_v69(a,b,t)
         if t < 0 then t = 0 end
         if t > 1 then t = 1 end
-        return a + (b-a)*t
+        return a + (b-a) * t
     end
 
-    local function fog_screen_radius_v68(pos,worldSize)
+    local function fog_screen_radius_v69(pos, worldRadius)
         local sp = world_to_screen(pos)
-        if not sp then return nil,nil end
+        if not sp then return nil, nil end
 
-        local sx = world_to_screen(pos + Vector3(worldSize,0,0))
-        local sy = world_to_screen(pos + Vector3(0,worldSize,0))
-        local sz = world_to_screen(pos + Vector3(0,0,worldSize))
+        local sx = world_to_screen(pos + Vector3(worldRadius,0,0))
+        local sz = world_to_screen(pos + Vector3(0,0,worldRadius))
+        local sy = world_to_screen(pos + Vector3(0,worldRadius,0))
 
-        local rr = 4
+        local rr = 0
         if sx then
             local dx = sx.X - sp.X
             local dy = sx.Y - sp.Y
-            rr = math.max(rr, math.sqrt(dx*dx + dy*dy))
-        end
-        if sy then
-            local dx = sy.X - sp.X
-            local dy = sy.Y - sp.Y
             rr = math.max(rr, math.sqrt(dx*dx + dy*dy))
         end
         if sz then
@@ -15485,76 +15480,15 @@ local function picker_blocks_base(mx,my,cl)
             local dy = sz.Y - sp.Y
             rr = math.max(rr, math.sqrt(dx*dx + dy*dy))
         end
-
-        if rr < 2.5 then rr = 2.5 end
-        if rr > 75 then rr = 75 end
-        return sp,rr
-    end
-
-    local function build_fog_sphere_cache_v68(detailKey)
-        V.fog = V.fog or {}
-        local cache = V.fog.sphereCache
-        if cache and cache.detailKey == detailKey then return cache end
-
-        local rings = 9 + detailKey * 2
-        local segBase = 18 + detailKey * 4
-        local samples = {}
-
-        -- Outer visible sphere surface
-        for iy=-rings,rings do
-            local v = iy / rings
-            local y = v
-            local flat = math.sqrt(math.max(0,1 - y*y))
-            local segs = math.max(10, math.floor(segBase * flat + 8))
-            for s=0,segs-1 do
-                local a = (s / segs) * 6.283185
-                samples[#samples+1] = {
-                    x = math.cos(a) * flat,
-                    y = y,
-                    z = math.sin(a) * flat,
-                    shell = 1.0,
-                    kind = 1
-                }
-            end
+        if sy then
+            local dx = sy.X - sp.X
+            local dy = sy.Y - sp.Y
+            rr = math.max(rr, math.sqrt(dx*dx + dy*dy))
         end
 
-        -- Inside volume points so it looks like one filled ball, not a hollow shell
-        local innerCount = 95 + detailKey * 45
-        for i=1,innerCount do
-            local h1 = ec_hash01(i * 2.133)
-            local h2 = ec_hash01(i * 5.719)
-            local h3 = ec_hash01(i * 9.431)
-            local h4 = ec_hash01(i * 13.237)
-
-            local a = h1 * 6.283185
-            local y = h2 * 2 - 1
-            local flat = math.sqrt(math.max(0,1 - y*y))
-            local dist = math.pow(h3,0.42) * 0.92
-
-            samples[#samples+1] = {
-                x = math.cos(a) * flat * dist,
-                y = y * dist,
-                z = math.sin(a) * flat * dist,
-                shell = dist,
-                kind = 2,
-                phase = h4 * 6.283185
-            }
-        end
-
-        cache = { detailKey = detailKey, samples = samples }
-        V.fog.sphereCache = cache
-        return cache
-    end
-
-    local function draw_fog_sphere_blob_v68(sp,rr,r,g,b,a,shade)
-        -- Shaded filled particle. Many of these build one solid sphere.
-        local sr = fog_lerp_v68(r,1.0,shade)
-        local sg = fog_lerp_v68(g,0.88,shade * 0.55)
-        local sb = fog_lerp_v68(b,1.0,shade * 0.40)
-
-        circle(sp.X,sp.Y,rr*1.55,sr,sg,sb,a*0.12)
-        circle(sp.X,sp.Y,rr*1.05,sr,sg,sb,a*0.30)
-        circle(sp.X,sp.Y,rr*0.62,sr,sg,sb,a*0.48)
+        if rr < 2 then rr = 2 end
+        if rr > 1600 then rr = 1600 end
+        return sp, rr
     end
 
     local function draw_visual_fog()
@@ -15563,65 +15497,64 @@ local function picker_blocks_base(mx,my,cl)
         local hrp = get_hrp_pos()
         if not hrp then return end
 
-        local radius = clamp(V.fog.radius or 22.0,6.0,80.0)
-        local op = clamp(V.fog.opacity or 0.26,0.01,0.80)
-        local detail = clamp(V.fog.density or 0.55,0.10,1.00)
-        local spd = clamp(V.fog.speed or 0.55,0.00,2.00)
-        local tm = now() * spd
+        local radius = clamp(V.fog.radius or 22.0, 6.0, 80.0)
+        local opacity = clamp(V.fog.opacity or 0.26, 0.01, 0.80)
+        local detail = clamp(V.fog.density or 0.55, 0.10, 1.00)
         local r,g,b = get_target_color("fog")
 
-        -- Sphere center stays in world around the player.
-        local center = hrp + Vector3(0,radius * 0.18,0)
+        -- Keep the same sphere-around-player placement.
+        local center = hrp + Vector3(0, radius * 0.18, 0)
 
-        local detailKey = math.floor(detail * 5 + 0.5)
-        if detailKey < 1 then detailKey = 1 end
-        if detailKey > 5 then detailKey = 5 end
+        -- Main projected sphere radius.
+        local centerScreen, sphereScreenRadius = fog_screen_radius_v69(center, radius)
+        if not centerScreen or not sphereScreenRadius or sphereScreenRadius < 6 then return end
 
-        local cache = build_fog_sphere_cache_v68(detailKey)
-        local samples = cache.samples
+        -- Base filled body.
+        local layers = math.floor(20 + detail * 36)
+        if layers < 18 then layers = 18 end
+        if layers > 56 then layers = 56 end
 
-        -- Light direction for "ball" shading like the reference image.
-        local lx,ly,lz = -0.45,0.70,-0.35
-        local llen = math.sqrt(lx*lx + ly*ly + lz*lz)
-        lx,ly,lz = lx/llen,ly/llen,lz/llen
-
-        local worldBlob = radius * (0.030 + detail * 0.017)
-
-        for i=1,#samples do
-            local s = samples[i]
-
-            -- Very small movement, keeps sphere alive but still a solid sphere.
-            local wob = 0
-            if s.kind == 2 then
-                wob = math.sin(tm * 0.55 + (s.phase or 0)) * radius * 0.010
-            end
-
-            local px = s.x * radius + wob
-            local py = s.y * radius
-            local pz = s.z * radius + wob * 0.45
-            local pos = center + Vector3(px,py,pz)
-
-            local sp,rr = fog_screen_radius_v68(pos,worldBlob * (s.kind == 1 and 1.25 or 1.75))
-            if sp and rr then
-                local dot = s.x*lx + s.y*ly + s.z*lz
-                local shade = 0.10
-                if dot > 0 then shade = dot * 0.55 end
-
-                -- Highlight upper-left like the example sphere.
-                local hx = s.x + 0.38
-                local hy = s.y - 0.30
-                local hz = s.z + 0.20
-                local hd = hx*hx + hy*hy + hz*hz
-                if hd < 0.22 then
-                    shade = shade + (0.22 - hd) * 2.3
+        -- One solid body built from many filled world-space cross-sections.
+        for i = layers, 0, -1 do
+            local t = (i / layers) * 2.0 - 1.0
+            local y = t * radius
+            local chord = math.sqrt(math.max(0, radius * radius - y * y))
+            if chord > 0.001 then
+                local layerPos = center + Vector3(0, y, 0)
+                local sp, sr = fog_screen_radius_v69(layerPos, chord)
+                if sp and sr then
+                    local edgeFade = 1.0 - math.abs(t)
+                    local a = opacity * (0.010 + edgeFade * 0.020)
+                    circle(sp.X, sp.Y, sr, r, g, b, a)
                 end
-
-                local edgeFade = 0.55 + (1 - math.min(1,math.abs(s.shell or 1))) * 0.35
-                local a = op * (s.kind == 1 and 0.105 or 0.070) * edgeFade
-
-                draw_fog_sphere_blob_v68(sp,rr,r,g,b,a,shade)
             end
         end
+
+        -- Soft shading so it reads like a filled sphere similar to the reference.
+        local lightR = fog_lerp_v69(r, 1.0, 0.28)
+        local lightG = fog_lerp_v69(g, 0.92, 0.22)
+        local lightB = fog_lerp_v69(b, 1.0, 0.18)
+        local darkR  = r * 0.80
+        local darkG  = g * 0.80
+        local darkB  = b * 0.88
+
+        -- Bright highlight near upper-left.
+        circle(centerScreen.X - sphereScreenRadius * 0.18,
+               centerScreen.Y - sphereScreenRadius * 0.18,
+               sphereScreenRadius * 0.26,
+               lightR, lightG, lightB, opacity * 0.22)
+
+        -- Very soft darker volume on lower-right.
+        circle(centerScreen.X + sphereScreenRadius * 0.12,
+               centerScreen.Y + sphereScreenRadius * 0.14,
+               sphereScreenRadius * 0.92,
+               darkR, darkG, darkB, opacity * 0.05)
+
+        -- Final center fill to remove any remaining hollow feel.
+        circle(centerScreen.X,
+               centerScreen.Y,
+               sphereScreenRadius * 0.88,
+               r, g, b, opacity * 0.020)
     end
 
     -- Safe aura cache only. Original aura styles are NOT replaced.
@@ -15747,6 +15680,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_visual_fog) end)
     end
 
-    if notify then notify("v68: shaded world fog sphere loaded", "success") end
+    if notify then notify("v69: filled world fog sphere loaded", "success") end
 end
-__EC_V68_PATCH()
+__EC_V69_PATCH()
