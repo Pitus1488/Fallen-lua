@@ -14182,55 +14182,45 @@ ECLIPZE v37 Silent Aim visible + clean side glow
 end)()
 
 
-
 --[[
-Eclipze v41 Player Trail patch
-- Trail behind local player's HumanoidRootPart.
-- Smooth blue-white trail with stronger soft glow.
-- No dotted circles, no trail style slider.
-- Custom menu blocks draw only while menu is open on FALLEN ESP -> Misc.
+Eclipze v42 Player Trail patch
+- Smoother blue-white trail behind local HumanoidRootPart.
+- Rounded soft glow, denser interpolation, less jagged and less square.
+- No style slider.
 ]]
 ;(function()
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._v41_loaded then return end
-    T._v41_loaded = true
+    if T._v42_loaded then return end
+    T._v42_loaded = true
 
     if T.enabled == nil then T.enabled = false end
     if T.rainbow == nil then T.rainbow = false end
-    if T.length == nil then T.length = 24 end
-    if T.size == nil then T.size = 3.6 end
-    if T.life == nil then T.life = 0.78 end
-    if T.opacity == nil then T.opacity = 0.92 end
+    if T.length == nil then T.length = 28 end
+    if T.size == nil then T.size = 3.2 end
+    if T.life == nil then T.life = 0.82 end
+    if T.opacity == nil then T.opacity = 0.95 end
     if T.hue == nil then T.hue = 0.56 end
-    if T.rainbowSpeed == nil then T.rainbowSpeed = 0.90 end
-    if T.smoothPower == nil then T.smoothPower = 0.32 end
+    if T.rainbowSpeed == nil then T.rainbowSpeed = 0.85 end
+    if T.smoothPower == nil then T.smoothPower = 0.26 end
     T.points = T.points or {}
 
     local function now()
         return (tick and tick()) or (os and os.clock and os.clock()) or 0
     end
-
     local function clamp(v, a, b)
         v = tonumber(v or 0) or 0
         if v < a then return a end
         if v > b then return b end
         return v
     end
-
     local function mix(a, b, t)
         t = clamp(t or 0, 0, 1)
         return a + (b - a) * t
     end
-
     local function lerp_color(r1,g1,b1,r2,g2,b2,t)
         return mix(r1,r2,t), mix(g1,g2,t), mix(b1,b2,t)
     end
-
-    local function ix(v)
-        return math.floor((tonumber(v) or 0) + 0.5)
-    end
-
     local function tw(s)
         s = tostring(s or "")
         if __ec16_text_w then
@@ -14239,7 +14229,6 @@ Eclipze v41 Player Trail patch
         end
         return #s * 6
     end
-
     local function hsv(h)
         h = (tonumber(h or 0) or 0) % 1
         if __ec16_hsv_to_rgb then
@@ -14260,16 +14249,19 @@ Eclipze v41 Player Trail patch
 
     local function rect(x1,y1,x2,y2,r,g,b,a)
         if Drawing and Drawing.DrawBoxFilled then
-            Drawing.DrawBoxFilled(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a or 1)
+            Drawing.DrawBoxFilled(x1,y1,x2,y2,r,g,b,a or 1)
         end
     end
-
     local function line(x1,y1,x2,y2,r,g,b,a,th)
         if Drawing and Drawing.DrawLine then
-            Drawing.DrawLine(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a or 1,th or 1)
+            Drawing.DrawLine(x1,y1,x2,y2,r,g,b,a or 1,th or 1)
         end
     end
-
+    local function circle(x,y,rad,r,g,b,a)
+        if Drawing and Drawing.DrawCircleFilled then
+            Drawing.DrawCircleFilled(x,y,rad,r,g,b,a or 1)
+        end
+    end
     local function round(x1,y1,x2,y2,r,g,b,a,rad)
         if __ec16_draw_round_rect then
             pcall(__ec16_draw_round_rect,x1,y1,x2,y2,r,g,b,a or 1,rad or 8)
@@ -14285,13 +14277,12 @@ Eclipze v41 Player Trail patch
         end
         rect(x1,y1+rad,x2,y2-rad,r,g,b,a)
     end
-
     local function text_left(x,y,s,r,g,b,a)
         s = tostring(s or "")
         if Drawing and Drawing.DrawTextWithOutline then
-            Drawing.DrawTextWithOutline(ix(x + tw(s)*0.5),ix(y),s,r or 0.94,g or 0.89,b or 1.00,a or 1,0,0,0,(a or 1)*0.90)
+            Drawing.DrawTextWithOutline(x + tw(s)*0.5, y, s, r or 0.94, g or 0.89, b or 1.00, a or 1, 0,0,0,(a or 1)*0.90)
         elseif Drawing and Drawing.DrawText then
-            Drawing.DrawText(ix(x),ix(y),s,r or 0.94,g or 0.89,b or 1.00,a or 1)
+            Drawing.DrawText(x, y, s, r or 0.94, g or 0.89, b or 1.00, a or 1)
         end
     end
 
@@ -14306,7 +14297,6 @@ Eclipze v41 Player Trail patch
             good={0.25,1.00,0.50}
         }
     end
-
     local function group(x,y,w,h,title)
         local th = theme()
         round(x-1,y-1,x+w+1,y+h+1,th.acc[1],th.acc[2],th.acc[3],0.050,8)
@@ -14316,7 +14306,6 @@ Eclipze v41 Player Trail patch
         rect(x+10,y+22,x+w-10,y+24,th.acc[1],th.acc[2],th.acc[3],0.58)
         text_left(x+12,y+7,title,th.text[1],th.text[2],th.text[3],0.98)
     end
-
     local function safe_bool(mx,my,cl,x,y,label,value)
         if __ec16_bool_check then
             local ok,res = pcall(__ec16_bool_check,mx,my,cl,x,y,label,value == true)
@@ -14324,7 +14313,6 @@ Eclipze v41 Player Trail patch
         end
         return value == true
     end
-
     local function safe_float(mx,my,cl,x,y,w,label,value,minv,maxv)
         if __ec16_float_slider then
             local ok,res = pcall(__ec16_float_slider,mx,my,cl,x,y,w,label,value,minv,maxv)
@@ -14332,7 +14320,6 @@ Eclipze v41 Player Trail patch
         end
         return tonumber(value or minv) or minv
     end
-
     local function hue_slider(mx,my,cl,x,y,w,label,hue)
         hue = clamp(hue or 0.56,0,1)
         text_left(x,y,label,0.72,0.68,0.80,0.90)
@@ -14357,7 +14344,6 @@ Eclipze v41 Player Trail patch
         end
         return hue
     end
-
     local function calc_menu_cols()
         if not __EC16 then return nil end
         local reveal = 1
@@ -14372,7 +14358,6 @@ Eclipze v41 Player Trail patch
         local paneX = x + 14
         local paneY = y + 78
         local paneX2 = x + ww - 14
-        local paneY2 = y + hh - 14
         local sideW = 178
         local sideX = paneX + 12
         local sideY = paneY + 12
@@ -14388,36 +14373,34 @@ Eclipze v41 Player Trail patch
         local sy = contentY + 18
         return c1,c2,c3,sy,colW
     end
-
     local function controls_active()
         return __EC16 and __EC16.open == true and __EC16.wantOpen ~= false and (__EC16.animDir or 1) == 1 and (__EC16.anim or 0) > 0.92
             and __EC16.phase == "menu" and __EC16.mainTab == "esp" and __EC16.espSection == "Misc"
     end
-
     local function draw_trail_menu_controls(mx,my,cl)
         if not controls_active() then return end
         local c1,c2,c3,sy,colW = calc_menu_cols()
         if not c1 then return end
         local th = theme()
-
         group(c2,sy,colW,348,"Player Trail")
         T.enabled = safe_bool(mx,my,cl,c2+18,sy+42,"Player Trail",T.enabled == true)
         T.rainbow = safe_bool(mx,my,cl,c2+18,sy+72,"Rainbow Trail",T.rainbow == true)
-        T.length = safe_float(mx,my,cl,c2+18,sy+112,colW-36,"Trail Length",T.length or 24,8,46)
-        T.size = safe_float(mx,my,cl,c2+18,sy+170,colW-36,"Trail Size",T.size or 3.6,1.2,9)
-        T.life = safe_float(mx,my,cl,c2+18,sy+228,colW-36,"Trail Life",T.life or 0.78,0.20,1.80)
-        T.opacity = safe_float(mx,my,cl,c2+18,sy+286,colW-36,"Trail Opacity",T.opacity or 0.92,0.15,1.00)
+        T.length = safe_float(mx,my,cl,c2+18,sy+112,colW-36,"Trail Length",T.length or 28,8,52)
+        T.size = safe_float(mx,my,cl,c2+18,sy+170,colW-36,"Trail Size",T.size or 3.2,1.0,8)
+        T.life = safe_float(mx,my,cl,c2+18,sy+228,colW-36,"Trail Life",T.life or 0.82,0.20,1.80)
+        T.opacity = safe_float(mx,my,cl,c2+18,sy+286,colW-36,"Trail Opacity",T.opacity or 0.95,0.15,1.00)
 
         group(c3,sy,colW,165,"Trail Color")
         T.hue = hue_slider(mx,my,cl,c3+18,sy+42,colW-36,"Color",T.hue or 0.56)
         local br,bg,bb = hsv(T.hue or 0.56)
-        local wr,wg,wb = lerp_color(br,bg,bb,1,1,1,0.78)
+        local gr,gg,gb = lerp_color(br,bg,bb,0.72,0.95,1.00,0.45)
+        local wr,wg,wb = lerp_color(br,bg,bb,1,1,1,0.82)
         local px = c3 + 18
         local py = sy + 122
-        line(px,py,px+124,py,br,bg,bb,0.10,13.0)
-        line(px,py,px+124,py,br,bg,bb,0.15,8.0)
-        line(px,py,px+124,py,wr,wg,wb,0.52,4.0)
-        line(px,py,px+124,py,0.98,0.99,1.00,0.90,1.35)
+        line(px,py,px+124,py,gr,gg,gb,0.08,15.0)
+        line(px,py,px+124,py,gr,gg,gb,0.12,10.0)
+        line(px,py,px+124,py,wr,wg,wb,0.32,4.2)
+        line(px,py,px+124,py,0.98,0.99,1.00,0.95,1.4)
         text_left(c3+18,sy+143,T.enabled and "Status: ON" or "Status: OFF",T.enabled and th.good[1] or th.dim[1],T.enabled and th.good[2] or th.dim[2],T.enabled and th.good[3] or th.dim[3],0.90)
     end
 
@@ -14437,7 +14420,6 @@ Eclipze v41 Player Trail patch
         if not x or not y or not z then return nil end
         return Vector3(x,y,z)
     end
-
     local function get_hrp_vel()
         local vel = nil
         pcall(function()
@@ -14449,7 +14431,6 @@ Eclipze v41 Player Trail patch
         if not vel then return Vector3(0,0,0) end
         return Vector3(tonumber(vel.X or vel[1]) or 0, tonumber(vel.Y or vel[2]) or 0, tonumber(vel.Z or vel[3]) or 0)
     end
-
     local function world_to_screen(pos)
         local s = nil
         pcall(function() if rbx and rbx.world_to_screen then s = rbx.world_to_screen(pos) end end)
@@ -14457,8 +14438,8 @@ Eclipze v41 Player Trail patch
         if not s then return nil end
         local x = tonumber(s.X or s[1])
         local y = tonumber(s.Y or s[2])
-        local visible = (s.visible == nil) and true or (s.visible == true)
-        if not x or not y or not visible then return nil end
+        local vis = (s.visible == nil) and true or (s.visible == true)
+        if not x or not y or not vis then return nil end
         return {X=x,Y=y,visible=true}
     end
 
@@ -14467,7 +14448,6 @@ Eclipze v41 Player Trail patch
         local t3 = t2*t
         return 0.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3)
     end
-
     local function build_curve(points)
         if #points < 2 then return points end
         local out = {}
@@ -14476,7 +14456,7 @@ Eclipze v41 Player Trail patch
             local p1 = points[i]
             local p2 = points[i+1]
             local p3 = points[math.min(#points,i+2)]
-            local steps = 8
+            local steps = 12
             for s=0,steps-1 do
                 local t = s / steps
                 out[#out+1] = {
@@ -14490,18 +14470,28 @@ Eclipze v41 Player Trail patch
         return out
     end
 
-    local function draw_glow_segment(x1,y1,x2,y2,alpha,k,hue)
-        if alpha <= 0.006 then return end
+    local function draw_round_stamp(x,y,alpha,k,hue)
+        if alpha <= 0.003 then return end
         local br,bg,bb = hsv(hue)
-        local cyR,cyG,cyB = lerp_color(br,bg,bb,0.72,0.95,1.00,0.45)
+        local gr,gg,gb = lerp_color(br,bg,bb,0.72,0.95,1.00,0.45)
         local wr,wg,wb = lerp_color(br,bg,bb,1,1,1,0.82)
-        local base = clamp(T.size or 3.6,1.0,12.0) * (0.55 + k*0.62)
-
-        line(x1,y1,x2,y2,cyR,cyG,cyB,alpha*0.055,base*8.2)
-        line(x1,y1,x2,y2,cyR,cyG,cyB,alpha*0.080,base*5.8)
-        line(x1,y1,x2,y2,cyR,cyG,cyB,alpha*0.120,base*3.9)
-        line(x1,y1,x2,y2,wr,wg,wb,alpha*0.350,base*1.85)
-        line(x1,y1,x2,y2,0.98,0.99,1.00,alpha*0.980,math.max(1.0,base*0.45))
+        local base = clamp(T.size or 3.2,1.0,10.0) * (0.58 + k*0.48)
+        circle(x,y,base*4.4,gr,gg,gb,alpha*0.010)
+        circle(x,y,base*3.0,gr,gg,gb,alpha*0.018)
+        circle(x,y,base*1.7,wr,wg,wb,alpha*0.042)
+        circle(x,y,math.max(0.8,base*0.42),1.00,1.00,1.00,alpha*0.13)
+    end
+    local function draw_glow_segment(x1,y1,x2,y2,alpha,k,hue)
+        if alpha <= 0.004 then return end
+        local br,bg,bb = hsv(hue)
+        local gr,gg,gb = lerp_color(br,bg,bb,0.72,0.95,1.00,0.45)
+        local wr,wg,wb = lerp_color(br,bg,bb,1,1,1,0.82)
+        local base = clamp(T.size or 3.2,1.0,10.0) * (0.58 + k*0.48)
+        line(x1,y1,x2,y2,gr,gg,gb,alpha*0.045,base*9.0)
+        line(x1,y1,x2,y2,gr,gg,gb,alpha*0.070,base*6.0)
+        line(x1,y1,x2,y2,gr,gg,gb,alpha*0.110,base*4.0)
+        line(x1,y1,x2,y2,wr,wg,wb,alpha*0.34,base*1.95)
+        line(x1,y1,x2,y2,1.00,1.00,1.00,alpha*0.96,math.max(1.0,base*0.46))
     end
 
     local function draw_player_trail()
@@ -14510,20 +14500,18 @@ Eclipze v41 Player Trail patch
             T.smoothPos = nil
             return
         end
-
         local rawPos = get_hrp_pos()
         if not rawPos then
             T.points = {}
             T.smoothPos = nil
             return
         end
-
         local tm = now()
         local vel = get_hrp_vel()
         local speed = math.sqrt((vel.X or 0)^2 + (vel.Y or 0)^2 + (vel.Z or 0)^2)
         local sample = rawPos
         if speed > 0.01 then
-            sample = rawPos - (vel:normalize() * math.min(0.90,0.10 + speed*0.014))
+            sample = rawPos - (vel:normalize() * math.min(0.78,0.08 + speed*0.012))
         end
 
         if T.smoothPos then
@@ -14536,7 +14524,7 @@ Eclipze v41 Player Trail patch
                 T.smoothPos = sample
             else
                 local dt = tm - (T.lastSmoothTime or tm)
-                local follow = clamp((T.smoothPower or 0.32) + dt*4.0,0.18,0.58)
+                local follow = clamp((T.smoothPower or 0.26) + dt*3.2,0.16,0.52)
                 T.smoothPos = Vector3(
                     mix(T.smoothPos.X,sample.X,follow),
                     mix(T.smoothPos.Y,sample.Y,follow),
@@ -14561,7 +14549,7 @@ Eclipze v41 Player Trail patch
             local dy = sample.Y - lp.Y
             local dz = sample.Z - lp.Z
             local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
-            if dist >= 0.055 or (tm - (last.t or tm)) >= 0.012 then add = true end
+            if dist >= 0.042 or (tm - (last.t or tm)) >= 0.010 then add = true end
         end
         if add then
             pts[#pts+1] = {pos=sample,t=tm}
@@ -14570,8 +14558,8 @@ Eclipze v41 Player Trail patch
             last.t = tm
         end
 
-        local life = clamp(T.life or 0.78,0.20,2.00)
-        local maxCount = math.floor(clamp(T.length or 24,8,58)+0.5)
+        local life = clamp(T.life or 0.82,0.20,2.20)
+        local maxCount = math.floor(clamp(T.length or 28,10,72)+0.5)
         for i=#pts,1,-1 do
             if (tm - (pts[i].t or tm)) > life then table.remove(pts,i) end
         end
@@ -14582,27 +14570,27 @@ Eclipze v41 Player Trail patch
         for i=1,#pts do
             local p = pts[i]
             local s = world_to_screen(p.pos)
-            if s then
-                raw[#raw+1] = {x=s.X,y=s.Y,age=tm-(p.t or tm)}
-            end
+            if s then raw[#raw+1] = {x=s.X,y=s.Y,age=tm-(p.t or tm)} end
         end
         if #raw < 2 then return end
 
         local curve = build_curve(raw)
         if #curve < 2 then return end
 
-        local opacity = clamp(T.opacity or 0.92,0.05,1.00)
-        for i=2,#curve do
-            local a = curve[i-1]
-            local b = curve[i]
-            local age = b.age or 0
+        local opacity = clamp(T.opacity or 0.95,0.05,1.00)
+        local prev = nil
+        for i=1,#curve do
+            local p = curve[i]
+            local age = p.age or 0
             local k = clamp(1 - age/life,0,1)
-            local segAlpha = opacity * (0.04 + (k*k)*0.96)
+            local alpha = opacity * (0.05 + k*k*0.95)
             local hue = T.hue or 0.56
-            if T.rainbow then
-                hue = hue + tm*(T.rainbowSpeed or 0.90)*0.12 + (i/math.max(#curve,1))*0.16
+            if T.rainbow then hue = hue + tm*(T.rainbowSpeed or 0.85)*0.10 + (i/math.max(#curve,1))*0.12 end
+            if prev then
+                draw_glow_segment(prev.x,prev.y,p.x,p.y,alpha,k,hue)
             end
-            draw_glow_segment(a.x,a.y,b.x,b.y,segAlpha,k,hue)
+            draw_round_stamp(p.x,p.y,alpha,k,hue)
+            prev = p
         end
     end
 
@@ -14614,12 +14602,11 @@ Eclipze v41 Player Trail patch
             pcall(draw_trail_menu_controls,mx,my,cl)
         end
     end
-
     if hooks and hooks.on_render then
         hooks.on_render(function() pcall(draw_player_trail) end)
     elseif callbacks and callbacks.paint then
         callbacks.paint(function() pcall(draw_player_trail) end)
     end
 
-    if notify then notify("v41: smooth glow player trail loaded", "success") end
+    if notify then notify("v42: rounded glow player trail loaded", "success") end
 end)()
