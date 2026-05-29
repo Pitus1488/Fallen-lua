@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V58_PATCH()
+function __EC_V59_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v58_loaded then return end
-    V._v58_loaded = true
+    if V._v59_loaded then return end
+    V._v59_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 58 then
+    if T._defaults_version ~= 59 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V58_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 58
+        T._defaults_version = 59
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -14567,6 +14567,12 @@ function __EC_V58_PATCH()
         end
     end
 
+    local function visual_control_click(cl)
+        if V.colorClickConsumed then return false end
+        if V.picker and V.picker.open and cl then return false end
+        return cl
+    end
+
     -- Global replacement for every old hue/rainbow slider row.
     function __ec16_rainbow_slider(mx,my,cl,x,y,w,label,target)
         local th = theme()
@@ -14759,51 +14765,51 @@ local function picker_blocks_base(mx,my,cl)
 
         if V.section == "Trail" then
             group(c1,sy,colW,174,"Player Trail")
-            T.enabled = safe_bool(mx,my,cl,c1+18,sy+42,"Player Trail",T.enabled == true)
             color_button(mx,my,cl,c1+colW-42,sy+42,"trail")
-            T.rainbow = safe_bool(mx,my,cl,c1+18,sy+72,"Rainbow Trail",T.rainbow == true)
-            T.length = safe_float(mx,my,cl,c1+18,sy+112,colW-36,"Trail Length",T.length or 46,8,220)
+            T.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Player Trail",T.enabled == true)
+            T.rainbow = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+72,"Rainbow Trail",T.rainbow == true)
+            T.length = safe_float(mx,my,visual_control_click(cl),c1+18,sy+112,colW-36,"Trail Length",T.length or 46,8,220)
 
         elseif V.section == "Squares" then
             V.squares = V.squares or {}
-            group(c1,sy,colW,330,"Orbit Squares")
-            V.squares.enabled = safe_bool(mx,my,cl,c1+18,sy+42,"Orbit Squares",V.squares.enabled == true)
+            group(c1,sy,colW,330,"Orbit Cubes")
             color_button(mx,my,cl,c1+colW-42,sy+42,"squares")
-            V.squares.amount = safe_float(mx,my,cl,c1+18,sy+86,colW-36,"Amount",V.squares.amount or 42,8,90)
-            V.squares.radius = safe_float(mx,my,cl,c1+18,sy+146,colW-36,"Radius",V.squares.radius or 9.5,2.0,24.0)
-            V.squares.speed = safe_float(mx,my,cl,c1+18,sy+206,colW-36,"Speed",V.squares.speed or 1.15,0.10,4.00)
-            V.squares.size = safe_float(mx,my,cl,c1+18,sy+266,colW-36,"Square Size",V.squares.size or 0.75,0.20,2.20)
+            V.squares.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Orbit Cubes",V.squares.enabled == true)
+            V.squares.amount = safe_float(mx,my,visual_control_click(cl),c1+18,sy+86,colW-36,"Amount",V.squares.amount or 42,8,90)
+            V.squares.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+146,colW-36,"Radius",V.squares.radius or 9.5,5.5,24.0)
+            V.squares.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+206,colW-36,"Speed",V.squares.speed or 1.10,0.10,4.00)
+            V.squares.size = safe_float(mx,my,visual_control_click(cl),c1+18,sy+266,colW-36,"Cube Size",V.squares.size or 0.75,0.20,1.60)
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
             group(c1,sy,colW,485,"Bullet Tracers")
-            EC_BT.enabled = safe_bool(mx,my,cl,c1+18,sy+42,"Bullet Tracers",EC_BT.enabled == true)
             color_button(mx,my,cl,c1+colW-42,sy+42,"tracer")
-            EC_BT.instant = safe_bool(mx,my,cl,c1+18,sy+72,"Instant Tracer",EC_BT.instant ~= false)
-            EC_BT.alpha = safe_float(mx,my,cl,c1+18,sy+112,colW-36,"Tracer Opacity",EC_BT.alpha or 1.0,0.05,1.0)
-            EC_BT.life = safe_float(mx,my,cl,c1+18,sy+172,colW-36,"Tracer Life",EC_BT.life or 4.0,0.10,8.0)
-            EC_BT.revealTime = safe_float(mx,my,cl,c1+18,sy+232,colW-36,"Reveal Time",EC_BT.revealTime or 0.55,0.05,2.50)
-            EC_BT.maxDist = safe_float(mx,my,cl,c1+18,sy+292,colW-36,"Tracer/HitFX Max Dist",EC_BT.maxDist or 1000,100,3000)
+            EC_BT.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Bullet Tracers",EC_BT.enabled == true)
+            EC_BT.instant = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+72,"Instant Tracer",EC_BT.instant ~= false)
+            EC_BT.alpha = safe_float(mx,my,visual_control_click(cl),c1+18,sy+112,colW-36,"Tracer Opacity",EC_BT.alpha or 1.0,0.05,1.0)
+            EC_BT.life = safe_float(mx,my,visual_control_click(cl),c1+18,sy+172,colW-36,"Tracer Life",EC_BT.life or 4.0,0.10,8.0)
+            EC_BT.revealTime = safe_float(mx,my,visual_control_click(cl),c1+18,sy+232,colW-36,"Reveal Time",EC_BT.revealTime or 0.55,0.05,2.50)
+            EC_BT.maxDist = safe_float(mx,my,visual_control_click(cl),c1+18,sy+292,colW-36,"Tracer/HitFX Max Dist",EC_BT.maxDist or 1000,100,3000)
 
             group(c2,sy,colW,230,"Hit Effects")
-            EC_BT.hitfx = safe_bool(mx,my,cl,c2+18,sy+42,"Hit Effects",EC_BT.hitfx == true)
             color_button(mx,my,cl,c2+colW-42,sy+42,"hitfx")
-            EC_BT.hitSize = safe_float(mx,my,cl,c2+18,sy+86,colW-36,"Hit Effect Size",EC_BT.hitSize or 38,18,96)
+            EC_BT.hitfx = safe_bool(mx,my,visual_control_click(cl),c2+18,sy+42,"Hit Effects",EC_BT.hitfx == true)
+            EC_BT.hitSize = safe_float(mx,my,visual_control_click(cl),c2+18,sy+86,colW-36,"Hit Effect Size",EC_BT.hitSize or 38,18,96)
 
             group(c3,sy,colW,390,"Style")
-            if __ec16_tracer_style_dropdown then pcall(__ec16_tracer_style_dropdown,mx,my,cl,c3+18,sy+42,colW-36) end
-            if __ec16_hitfx_style_dropdown then pcall(__ec16_hitfx_style_dropdown,mx,my,cl,c3+18,sy+160,colW-36) end
+            if __ec16_tracer_style_dropdown then pcall(__ec16_tracer_style_dropdown,mx,my,visual_control_click(cl),c3+18,sy+42,colW-36) end
+            if __ec16_hitfx_style_dropdown then pcall(__ec16_hitfx_style_dropdown,mx,my,visual_control_click(cl),c3+18,sy+160,colW-36) end
 
         elseif V.section == "Aura" then
             if __EC16.selfAura == nil then __EC16.selfAura = false end
             if __EC16.selfAuraStyle == nil then __EC16.selfAuraStyle = 0 end
 
             group(c1,sy,colW,230,"Self Aura")
-            __EC16.selfAura = safe_bool(mx,my,cl,c1+18,sy+42,"Self Aura",__EC16.selfAura == true)
             color_button(mx,my,cl,c1+colW-42,sy+42,"aura_top")
+            __EC16.selfAura = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Self Aura",__EC16.selfAura == true)
             text_left(c1+18,sy+78,"Aura Lower",th.dim[1],th.dim[2],th.dim[3],0.88)
             color_button(mx,my,cl,c1+colW-42,sy+74,"aura_bottom")
-            if __ec16_aura_style_dropdown then pcall(__ec16_aura_style_dropdown,mx,my,cl,c1+18,sy+120,colW-36) end
+            if __ec16_aura_style_dropdown then pcall(__ec16_aura_style_dropdown,mx,my,visual_control_click(cl),c1+18,sy+120,colW-36) end
         end
     end
 
@@ -15018,14 +15024,7 @@ local function picker_blocks_base(mx,my,cl)
         return v - math.floor(v)
     end
 
-    local function ec_rotate3(x,y,z,ax,ay,az)
-        local cx = math.cos(ax)
-        local sx = math.sin(ax)
-        local cy = math.cos(ay)
-        local sy = math.sin(ay)
-        local cz = math.cos(az)
-        local sz = math.sin(az)
-
+    local function ec_rotate3_cached(x,y,z,cx,sx,cy,sy,cz,sz)
         local y1 = y * cx - z * sx
         local z1 = y * sx + z * cx
         y = y1
@@ -15041,15 +15040,54 @@ local function picker_blocks_base(mx,my,cl)
         return x3,y3,z
     end
 
-    local function draw_cube_edge(p1,p2,cr,cg,cb,alpha)
-        local s1 = world_to_screen(p1)
-        local s2 = world_to_screen(p2)
-        if not (s1 and s2) then return end
+    local function build_cube_cache(amount)
+        V.squares = V.squares or {}
+        local cache = V.squares.cache
+        if cache and cache.amount == amount then return cache end
 
-        -- soft glow + bright inner line
-        line(s1.X,s1.Y,s2.X,s2.Y,cr,cg,cb,alpha * 0.10,5.6)
-        line(s1.X,s1.Y,s2.X,s2.Y,cr,cg,cb,alpha * 0.22,2.6)
-        line(s1.X,s1.Y,s2.X,s2.Y,1.00,0.94,1.00,alpha * 0.55,1.05)
+        cache = { amount = amount, items = {} }
+        for i=1,amount do
+            local h1 = ec_hash01(i * 1.37)
+            local h2 = ec_hash01(i * 2.91)
+            local h3 = ec_hash01(i * 4.43)
+            local h4 = ec_hash01(i * 5.77)
+            local h5 = ec_hash01(i * 7.31)
+            local h6 = ec_hash01(i * 9.19)
+
+            cache.items[i] = {
+                h1=h1,h2=h2,h3=h3,h4=h4,h5=h5,h6=h6,
+                dir=(h3 > 0.5) and 1 or -1,
+                phase=h1 * 6.283185,
+                rMul=0.95 + h2 * 1.55,
+                yBase=1.8 + h4 * 8.3,
+                yAmp=0.55 + h5 * 2.0,
+                yPhase=i * 0.83,
+                spinX=0.50 + h1 * 0.75,
+                spinY=0.35 + h2 * 0.70,
+                spinZ=0.28 + h3 * 0.65,
+                spinPX=i * 0.31,
+                spinPY=i * 0.57,
+                spinPZ=i * 0.79,
+                sizeMul=0.78 + h6 * 0.72
+            }
+        end
+
+        V.squares.cache = cache
+        return cache
+    end
+
+    local function draw_cube_edges_screen(scr,cr,cg,cb,alpha)
+        for ei=1,#__EC_CUBE_EDGES do
+            local e = __EC_CUBE_EDGES[ei]
+            local s1 = scr[e[1]]
+            local s2 = scr[e[2]]
+            if s1 and s2 then
+                -- same visual quality: glow + inner line, but screen points are cached per cube
+                line(s1.X,s1.Y,s2.X,s2.Y,cr,cg,cb,alpha * 0.10,5.6)
+                line(s1.X,s1.Y,s2.X,s2.Y,cr,cg,cb,alpha * 0.22,2.6)
+                line(s1.X,s1.Y,s2.X,s2.Y,1.00,0.94,1.00,alpha * 0.55,1.05)
+            end
+        end
     end
 
     local function draw_orbit_squares()
@@ -15059,55 +15097,52 @@ local function picker_blocks_base(mx,my,cl)
 
         local tm = now()
         local amount = math.floor(clamp(V.squares.amount or 42,8,90)+0.5)
-        local radius = clamp(V.squares.radius or 9.5,2.0,24.0)
+        local radius = clamp(V.squares.radius or 9.5,5.5,24.0)
         local speed = clamp(V.squares.speed or 1.10,0.05,4.0)
-        local baseSize = clamp(V.squares.size or 0.75,0.15,2.4)
+        local baseSize = clamp(V.squares.size or 0.75,0.15,1.8)
         local cr,cg,cb = get_target_color("squares")
 
-        -- draw amount is capped a bit for FPS, but the slider can still control density
-        local drawAmount = math.min(amount, 72)
+        -- no quality drop: up to 80 cubes, but with cached per-cube params and 8 W2S calls per cube instead of 24
+        local drawAmount = math.min(amount,80)
+        local cache = build_cube_cache(drawAmount)
 
         for i=1,drawAmount do
-            local h1 = ec_hash01(i * 1.37)
-            local h2 = ec_hash01(i * 2.91)
-            local h3 = ec_hash01(i * 4.43)
-            local h4 = ec_hash01(i * 5.77)
+            local it = cache.items[i]
+            local dir = it.dir
+            local orbit = tm * speed * dir * (0.44 + it.h1 * 0.92) + it.phase
 
-            -- not one radius: each cube has its own elliptical orbit and height layer
-            local dir = (h3 > 0.5) and 1 or -1
-            local ax = radius * (0.38 + h1 * 1.35)
-            local az = radius * (0.45 + h2 * 1.45)
-            local orbit = tm * speed * dir * (0.42 + h4 * 0.95) + h1 * 6.283185
-            local lift = 0.85 + h2 * 8.8 + math.sin(tm * speed * (0.65 + h1) + i * 0.83) * (0.65 + h3 * 1.9)
+            -- different radii, but never close enough to cut into the player
+            local dist = math.max(5.8, radius * it.rMul)
+            local wob = math.sin(tm * speed * (0.50 + it.h3) + it.h5 * 6.283185) * (radius * 0.10)
+            local px = math.cos(orbit) * (dist + wob)
+            local pz = math.sin(orbit + math.sin(tm * 0.35 + it.h2 * 6.283185) * 0.16) * (dist - wob * 0.35)
+            local lift = it.yBase + math.sin(tm * speed * (0.65 + it.h1) + it.yPhase) * it.yAmp
 
-            local px = math.cos(orbit) * ax
-            local pz = math.sin(orbit * (0.92 + h3 * 0.18)) * az
             local pos = center + Vector3(px,lift,pz)
 
-            -- true 3D cube rotation, not flat billboard
-            local sx = baseSize * (0.65 + h2 * 1.25)
-            local sy = baseSize * (0.65 + h3 * 1.35)
-            local sz = baseSize * (0.65 + h4 * 1.20)
-            local rx = tm * speed * (0.55 + h1) + i * 0.31
-            local ry = tm * speed * (0.40 + h2) + i * 0.57
-            local rz = tm * speed * (0.30 + h3) + i * 0.79
+            -- equal side length on X/Y/Z: cube stays square, no rectangle scaling
+            local s = baseSize * it.sizeMul
+            local rx = tm * speed * it.spinX + it.spinPX
+            local ry = tm * speed * it.spinY + it.spinPY
+            local rz = tm * speed * it.spinZ + it.spinPZ
 
-            local verts = {}
+            local cx = math.cos(rx)
+            local sx = math.sin(rx)
+            local cy = math.cos(ry)
+            local sy = math.sin(ry)
+            local cz = math.cos(rz)
+            local sz = math.sin(rz)
+
+            local scr = {}
             for ci=1,8 do
                 local c = __EC_CUBE_CORNERS[ci]
-                local x,y,z = ec_rotate3(c[1] * sx,c[2] * sy,c[3] * sz,rx,ry,rz)
-                verts[ci] = pos + Vector3(x,y,z)
+                local x,y,z = ec_rotate3_cached(c[1] * s,c[2] * s,c[3] * s,cx,sx,cy,sy,cz,sz)
+                scr[ci] = world_to_screen(pos + Vector3(x,y,z))
             end
 
-            local alpha = 0.20 + 0.35 * (0.5 + 0.5 * math.sin(tm * 1.85 + i * 0.71))
-            if h1 > 0.72 then
-                alpha = alpha + 0.12
-            end
-
-            for ei=1,#__EC_CUBE_EDGES do
-                local e = __EC_CUBE_EDGES[ei]
-                draw_cube_edge(verts[e[1]],verts[e[2]],cr,cg,cb,alpha)
-            end
+            local alpha = 0.22 + 0.35 * (0.5 + 0.5 * math.sin(tm * 1.85 + i * 0.71))
+            if it.h1 > 0.72 then alpha = alpha + 0.12 end
+            draw_cube_edges_screen(scr,cr,cg,cb,alpha)
         end
     end
 
@@ -15189,6 +15224,17 @@ local function picker_blocks_base(mx,my,cl)
             V.colorClickConsumed = false
             V.tabClickConsumed = false
 
+            -- Use previous frame button list to block old hitboxes before they can toggle.
+            local prevBtn = button_hit_from_list(V.picker.buttons,mx,my)
+            if newClick and prevBtn then
+                if V.picker.open == prevBtn.id then
+                    V.picker.open = nil
+                else
+                    open_picker_for(prevBtn.id,prevBtn.x,prevBtn.y+prevBtn.h+8)
+                end
+                V.colorClickConsumed = true
+            end
+
             pcall(handle_top_tabs_when_visuals,mx,my,newClick)
 
             reset_color_buttons()
@@ -15220,6 +15266,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares) end)
     end
 
-    if notify then notify("v58: 3D orbit cubes loaded", "success") end
+    if notify then notify("v59: orbit cubes optimized", "success") end
 end
-__EC_V58_PATCH()
+__EC_V59_PATCH()
