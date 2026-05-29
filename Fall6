@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V77_PATCH()
+function __EC_V78_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v77_loaded then return end
-    V._v77_loaded = true
+    if V._v78_loaded then return end
+    V._v78_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 77 then
+    if T._defaults_version ~= 78 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V77_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 77
+        T._defaults_version = 78
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -14238,10 +14238,17 @@ function __EC_V77_PATCH()
         distance = 12.0,
         height = 2.4,
         side = 0.0,
-        smooth = 0.08,
+        smooth = 0.45,
         saved = false,
         camPos = nil
     }
+    if V.thirdPerson._version ~= 78 then
+        V.thirdPerson._version = 78
+        V.thirdPerson.camPos = nil
+        if V.thirdPerson.smooth == nil or V.thirdPerson.smooth < 0.25 then
+            V.thirdPerson.smooth = 0.45
+        end
+    end
 
     local function now()
         return (tick and tick()) or (os and os.clock and os.clock()) or 0
@@ -15399,7 +15406,7 @@ local function picker_blocks_base(mx,my,cl)
     end
 
 
-    local function ec_v77_lerp_vec(a,b,t)
+    local function ec_v78_lerp_vec(a,b,t)
         if not a then return b end
         if not b then return a end
         t = clamp(t or 1,0,1)
@@ -15410,7 +15417,16 @@ local function picker_blocks_base(mx,my,cl)
         )
     end
 
-    local function ec_v77_get_cam_rot()
+    local function ec_v78_norm3(x,y,z, fallback)
+        x = tonumber(x or 0) or 0
+        y = tonumber(y or 0) or 0
+        z = tonumber(z or 0) or 0
+        local m = math.sqrt(x*x + y*y + z*z)
+        if m < 0.0001 then return fallback or Vector3(0,0,-1) end
+        return Vector3(x/m,y/m,z/m)
+    end
+
+    local function ec_v78_get_cam_rot()
         local rot = nil
         pcall(function()
             if aim and aim.get_camera_rotation then
@@ -15420,87 +15436,92 @@ local function picker_blocks_base(mx,my,cl)
         return rot
     end
 
-    local function ec_v77_norm(v)
-        local x = tonumber(v.X or v[1]) or 0
-        local y = tonumber(v.Y or v[2]) or 0
-        local z = tonumber(v.Z or v[3]) or 0
-        local m = math.sqrt(x*x + y*y + z*z)
-        if m < 0.0001 then return Vector3(0,0,-1) end
-        return Vector3(x/m,y/m,z/m)
-    end
-
-    local function ec_v77_get_camera_vectors()
-        local rot = ec_v77_get_cam_rot()
+    local function ec_v78_get_yaw_vectors()
+        local rot = ec_v78_get_cam_rot()
         if rot then
-            local right = Vector3(tonumber(rot[1] or 1) or 1, tonumber(rot[2] or 0) or 0, tonumber(rot[3] or 0) or 0)
-            local forward = Vector3(-(tonumber(rot[7] or 0) or 0), -(tonumber(rot[8] or 0) or 0), -(tonumber(rot[9] or 1) or 1))
-            return ec_v77_norm(right), ec_v77_norm(forward)
+            -- camera forward from rotation, but yaw-only.
+            -- Using pitch direction caused vertical feedback/jitter while moving mouse.
+            local fx = -(tonumber(rot[7] or 0) or 0)
+            local fz = -(tonumber(rot[9] or 1) or 1)
+            local forward = ec_v78_norm3(fx,0,fz,Vector3(0,0,-1))
+            local right = ec_v78_norm3(forward.Z,0,-forward.X,Vector3(1,0,0))
+            return right, forward
         end
         return Vector3(1,0,0), Vector3(0,0,-1)
     end
 
-    local function ec_v77_get_target_pos()
-        local pos = nil
-        pcall(function()
-            if rbx and rbx.local_head then
-                local head = rbx.local_head()
-                if head and head.get_position then pos = head:get_position() end
-            end
-        end)
-        if not pos then pos = get_hrp_pos() end
+    local function ec_v78_get_root_pos()
+        -- Use HRP/root only. Head position bobs with animations and caused shaking.
+        local pos = get_hrp_pos()
         if not pos then return nil end
         return Vector3(tonumber(pos.X or pos[1]) or 0, tonumber(pos.Y or pos[2]) or 0, tonumber(pos.Z or pos[3]) or 0)
+    end
+
+    local function ec_v78_set_camera_pos(pos)
+        pcall(function()
+            if aim and aim.set_camera_position then
+                aim.set_camera_position(pos)
+            end
+        end)
+        -- Some builds expose camera object too; use it if present, silently.
+        pcall(function()
+            if rbx and rbx.camera then
+                local cam = rbx.camera()
+                if cam and cam.set_camera_pos then
+                    cam:set_camera_pos(pos)
+                end
+            end
+        end)
     end
 
     local function draw_third_person()
         if not (V.thirdPerson and V.thirdPerson.enabled == true) then
             if V.thirdPerson then
                 V.thirdPerson.camPos = nil
-                V.thirdPerson.saved = false
+                V.thirdPerson.lastEnabled = false
             end
             return
         end
 
-        -- Do NOT set camera rotation here.
-        -- Forcing aim.look_at_matrix / set_camera_rotation was why mouse movement got locked.
+        -- Do not touch camera rotation. Mouse stays free.
         if not (aim and aim.set_camera_position and aim.get_camera_rotation) then return end
 
-        local target = ec_v77_get_target_pos()
-        if not target then return end
+        local root = ec_v78_get_root_pos()
+        if not root then return end
+
+        if V.thirdPerson.lastEnabled ~= true then
+            V.thirdPerson.camPos = nil
+            V.thirdPerson.lastEnabled = true
+        end
 
         local dist = clamp(V.thirdPerson.distance or 12.0,4.0,35.0)
         local height = clamp(V.thirdPerson.height or 2.4,0.0,10.0)
         local side = clamp(V.thirdPerson.side or 0.0,-12.0,12.0)
-        local smooth = clamp(V.thirdPerson.smooth or 0.08,0.0,0.95)
+        local smooth = clamp(V.thirdPerson.smooth or 0.45,0.0,0.95)
 
-        local right, forward = ec_v77_get_camera_vectors()
+        local right, forward = ec_v78_get_yaw_vectors()
 
-        -- Keep the player's normal mouse-controlled camera rotation.
-        -- Only move camera backward/right/up from the player.
-        local base = target + Vector3(0,height,0)
+        local base = root + Vector3(0,height,0)
         local desired = base - (forward * dist) + (right * side)
 
+        -- Smooth is now actually smoothing. Higher value = calmer camera.
         local follow = 1.0 - smooth
-        if follow < 0.08 then follow = 0.08 end
+        if follow < 0.035 then follow = 0.035 end
         if follow > 1.0 then follow = 1.0 end
 
-        -- If camera teleports too far, reset smoothing to avoid snapping/jitter.
         if V.thirdPerson.camPos then
             local dx = desired.X - V.thirdPerson.camPos.X
             local dy = desired.Y - V.thirdPerson.camPos.Y
             local dz = desired.Z - V.thirdPerson.camPos.Z
             local d = math.sqrt(dx*dx + dy*dy + dz*dz)
-            if d > 60 then
+            if d > 45 then
                 V.thirdPerson.camPos = desired
             end
         end
 
-        local camPos = ec_v77_lerp_vec(V.thirdPerson.camPos, desired, follow)
+        local camPos = ec_v78_lerp_vec(V.thirdPerson.camPos, desired, follow)
         V.thirdPerson.camPos = camPos
-
-        pcall(function()
-            aim.set_camera_position(camPos)
-        end)
+        ec_v78_set_camera_pos(camPos)
     end
 
     -- Safe aura cache only. Original aura styles are NOT replaced.
@@ -15626,6 +15647,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_third_person) end)
     end
 
-    if notify and not __EC_V77_NOTIFIED then __EC_V77_NOTIFIED = true; notify("Eclipze v77 loaded", "success") end
+    if notify and not __EC_V78_NOTIFIED then __EC_V78_NOTIFIED = true; notify("Eclipze v78 loaded", "success") end
 end
-__EC_V77_PATCH()
+__EC_V78_PATCH()
