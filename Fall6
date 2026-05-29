@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V73_PATCH()
+function __EC_V75_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v73_loaded then return end
-    V._v73_loaded = true
+    if V._v75_loaded then return end
+    V._v75_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 73 then
+    if T._defaults_version ~= 75 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V73_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 73
+        T._defaults_version = 75
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -14233,15 +14233,15 @@ function __EC_V73_PATCH()
         color = {0.92, 0.70, 1.00, 1}
     }
     if V.squares.mode == nil then V.squares.mode = "Mixed" end
-    V.fog = V.fog or {
+    V.thirdPerson = V.thirdPerson or {
         enabled = false,
-        radius = 22.0,
-        opacity = 0.26,
-        density = 0.55,
-        speed = 0.55,
-        color = {0.70, 0.74, 1.00, 1}
+        distance = 12.0,
+        height = 2.4,
+        side = 0.0,
+        smooth = 0.18,
+        saved = false,
+        camPos = nil
     }
-    if V.fog.radius == nil then V.fog.radius = 22.0 end
 
     local function now()
         return (tick and tick()) or (os and os.clock and os.clock()) or 0
@@ -14487,10 +14487,7 @@ function __EC_V73_PATCH()
         elseif id == "squares" then
             local c = (V.squares and V.squares.color) or {0.92,0.70,1.00,1}
             return c[1] or 0.92,c[2] or 0.70,c[3] or 1.00
-        elseif id == "fog" then
-            local c = (V.fog and V.fog.color) or {0.70,0.74,1.00,1}
-            return c[1] or 0.70,c[2] or 0.74,c[3] or 1.00
-        end
+
         return 1,1,1
     end
 
@@ -14528,11 +14525,7 @@ function __EC_V73_PATCH()
             V.squares = V.squares or {}
             V.squares.color = {r,g,b,1}
             V.squares.hue = h or V.squares.hue or 0.78
-        elseif id == "fog" then
-            V.fog = V.fog or {}
-            V.fog.color = {r,g,b,1}
-            V.fog.hue = h or V.fog.hue or 0.63
-        end
+
         if __ec16_apply_colors then pcall(__ec16_apply_colors) end
     end
 
@@ -14895,7 +14888,7 @@ local function picker_blocks_base(mx,my,cl)
         round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,1.00,8)
         if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.62,1) end
 
-        local sections = {"Trail","World Effects","Fog","Bullet Tracers","Aura"}
+        local sections = {"Trail","World Effects","Third Person","Bullet Tracers","Aura"}
         local secY = L.sideY + 74
         for _,name in ipairs(sections) do
             local ix1 = L.sideX + 10
@@ -14941,15 +14934,14 @@ local function picker_blocks_base(mx,my,cl)
             V.squares.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+282,colW-36,"Speed",V.squares.speed or 1.10,0.10,4.00)
             V.squares.size = safe_float(mx,my,visual_control_click(cl),c1+18,sy+342,colW-36,"Effect Size",V.squares.size or 0.75,0.20,1.60)
 
-        elseif V.section == "Fog" then
-            V.fog = V.fog or {}
-            group(c1,sy,colW,360,"Fog Sphere")
-            color_button(mx,my,cl,c1+colW-42,sy+42,"fog")
-            V.fog.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Fog Sphere",V.fog.enabled == true)
-            V.fog.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+86,colW-36,"Distance",V.fog.radius or 22.0,6.0,60.0)
-            V.fog.opacity = safe_float(mx,my,visual_control_click(cl),c1+18,sy+146,colW-36,"Transparency",V.fog.opacity or 0.26,0.02,0.75)
-            V.fog.density = safe_float(mx,my,visual_control_click(cl),c1+18,sy+206,colW-36,"Sphere Detail",V.fog.density or 0.55,0.10,1.00)
-            V.fog.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+266,colW-36,"Animation",V.fog.speed or 0.55,0.00,2.00)
+        elseif V.section == "Third Person" then
+            V.thirdPerson = V.thirdPerson or {}
+            group(c1,sy,colW,330,"Third Person")
+            V.thirdPerson.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Third Person",V.thirdPerson.enabled == true)
+            V.thirdPerson.distance = safe_float(mx,my,visual_control_click(cl),c1+18,sy+86,colW-36,"Distance",V.thirdPerson.distance or 12.0,4.0,35.0)
+            V.thirdPerson.height = safe_float(mx,my,visual_control_click(cl),c1+18,sy+146,colW-36,"Height",V.thirdPerson.height or 2.4,0.0,10.0)
+            V.thirdPerson.side = safe_float(mx,my,visual_control_click(cl),c1+18,sy+206,colW-36,"Side Offset",V.thirdPerson.side or 0.0,-12.0,12.0)
+            V.thirdPerson.smooth = safe_float(mx,my,visual_control_click(cl),c1+18,sy+266,colW-36,"Smooth",V.thirdPerson.smooth or 0.18,0.0,0.95)
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
@@ -15401,152 +15393,96 @@ local function picker_blocks_base(mx,my,cl)
     end
 
     local function draw_visual_fog()
-        if not (V.fog and V.fog.enabled == true) then return end
-        local center = get_hrp_pos()
-        if not center then return end
+        return
+    end
 
-        local r,g,b = get_target_color("fog")
-        local radius = clamp(V.fog.radius or 22.0,6.0,80.0)
-        local op = clamp(V.fog.opacity or 0.26,0.01,0.80)
-        local detail = clamp(V.fog.density or 0.55,0.10,1.00)
-        local spd = clamp(V.fog.speed or 0.55,0.00,2.00)
-        local tm = now() * spd
 
-        local steps = math.floor(28 + detail * 28)
-        if steps < 24 then steps = 24 end
-        if steps > 60 then steps = 60 end
+    local function ec_v75_vec(x,y,z)
+        return Vector3(tonumber(x or 0) or 0, tonumber(y or 0) or 0, tonumber(z or 0) or 0)
+    end
 
-        -- Big fog sphere around player, not a screen overlay.
-        draw_fog_ring(center,radius,0,"xz",r,g,b,op*0.95,steps,tm)
-        draw_fog_ring(center,radius,0,"xy",r,g,b,op*0.72,steps,tm)
-        draw_fog_ring(center,radius,0,"yz",r,g,b,op*0.72,steps,tm)
+    local function ec_v75_lerp_vec(a,b,t)
+        if not a then return b end
+        if not b then return a end
+        t = clamp(t or 1,0,1)
+        return Vector3(
+            (a.X or 0) + ((b.X or 0) - (a.X or 0)) * t,
+            (a.Y or 0) + ((b.Y or 0) - (a.Y or 0)) * t,
+            (a.Z or 0) + ((b.Z or 0) - (a.Z or 0)) * t
+        )
+    end
 
-        local rings = math.floor(3 + detail * 5)
-        for i=1,rings do
-            local k = i / (rings + 1)
-            local y = (k * 2 - 1) * radius * 0.76
-            local rr = math.sqrt(math.max(radius*radius - y*y,0))
-            local wave = math.sin(tm + i * 1.37) * radius * 0.018
-            draw_fog_ring(center,rr,y + wave,"xz",r,g,b,op*(0.28 + 0.18*k),steps,tm)
-        end
-
-        -- floating fog arcs on the sphere surface
-        local wisps = math.floor(8 + detail * 14)
-        for i=1,wisps do
-            local h1 = ec_hash01(i * 3.11)
-            local h2 = ec_hash01(i * 6.27)
-            local h3 = ec_hash01(i * 9.73)
-            local ang = h1 * 6.283185 + tm * (0.18 + h3 * 0.35)
-            local elev = (h2 * 2 - 1) * 0.72
-            local y = elev * radius
-            local rr = math.sqrt(math.max(radius*radius - y*y,0))
-            local arc = 0.28 + h3 * 0.42
-            local last = nil
-            local segs = 10
-            for j=0,segs do
-                local t = ang + (j/segs - 0.5) * arc
-                local p = center + Vector3(math.cos(t)*rr,y + math.sin(tm+i)*radius*0.015,math.sin(t)*rr)
-                if last then fog_line(last,p,r,g,b,op*(0.14 + h2*0.10),0.16) end
-                last = p
+    local function ec_v75_get_cam_rot()
+        local rot = nil
+        pcall(function()
+            if aim and aim.get_camera_rotation then
+                rot = aim.get_camera_rotation()
             end
+        end)
+        return rot
+    end
+
+    local function ec_v75_get_camera_vectors()
+        local rot = ec_v75_get_cam_rot()
+        if rot then
+            local right = Vector3(tonumber(rot[1] or 1) or 1, tonumber(rot[2] or 0) or 0, tonumber(rot[3] or 0) or 0)
+            local up = Vector3(tonumber(rot[4] or 0) or 0, tonumber(rot[5] or 1) or 1, tonumber(rot[6] or 0) or 0)
+            local forward = Vector3(-(tonumber(rot[7] or 0) or 0), -(tonumber(rot[8] or 0) or 0), -(tonumber(rot[9] or 1) or 1))
+            return right, up, forward
         end
+        return Vector3(1,0,0), Vector3(0,1,0), Vector3(0,0,-1)
     end
 
-
-    -- v73: glossy 3D-looking ball around the player.
-    -- Important: this is NOT a fullscreen overlay.
-    -- It is a world-anchored billboard sphere: center/radius come from the player in world-space.
-    local function fog_dist2d_v73(a,b)
-        if not (a and b) then return nil end
-        local dx = (a.X or 0) - (b.X or 0)
-        local dy = (a.Y or 0) - (b.Y or 0)
-        return math.sqrt(dx*dx + dy*dy)
+    local function ec_v75_get_target_pos()
+        local pos = nil
+        pcall(function()
+            if rbx and rbx.local_head then
+                local head = rbx.local_head()
+                if head and head.get_position then pos = head:get_position() end
+            end
+        end)
+        if not pos then pos = get_hrp_pos() end
+        if not pos then return nil end
+        return Vector3(tonumber(pos.X or pos[1]) or 0, tonumber(pos.Y or pos[2]) or 0, tonumber(pos.Z or pos[3]) or 0)
     end
 
-    local function fog_screen_center_radius_v73(center, worldRadius)
-        local sc = world_to_screen(center)
-        if not sc then return nil,nil end
-
-        local sx = world_to_screen(center + Vector3(worldRadius,0,0))
-        local sy = world_to_screen(center + Vector3(0,worldRadius,0))
-        local sz = world_to_screen(center + Vector3(0,0,worldRadius))
-        local rr = 0
-
-        if sx then rr = math.max(rr, fog_dist2d_v73(sc,sx) or 0) end
-        if sy then rr = math.max(rr, fog_dist2d_v73(sc,sy) or 0) end
-        if sz then rr = math.max(rr, fog_dist2d_v73(sc,sz) or 0) end
-
-        if rr < 4 then rr = 4 end
-        if rr > 1800 then rr = 1800 end
-        return sc, rr
-    end
-
-    local function fog_lerp_v73(a,b,t)
-        if t < 0 then t = 0 end
-        if t > 1 then t = 1 end
-        return a + (b-a) * t
-    end
-
-    local function draw_glossy_ball_v73(cx,cy,rad,r,g,b,alpha,detail)
-        if rad <= 2 then return end
-
-        -- Base body: many filled circles from large to small = one solid sphere.
-        local layers = math.floor(18 + detail * 20)
-        if layers < 18 then layers = 18 end
-        if layers > 42 then layers = 42 end
-
-        for i=layers,1,-1 do
-            local k = i / layers
-            local rr = rad * k
-
-            -- make the outer body denser and more solid than before
-            local t = 1 - k
-            local cr = fog_lerp_v73(r, r * 0.78, t * 0.65)
-            local cg = fog_lerp_v73(g, g * 0.78, t * 0.65)
-            local cb = fog_lerp_v73(b, b * 0.88, t * 0.40)
-
-            local a = alpha * (0.020 + (1 - k) * 0.020)
-            circle(cx,cy,rr,cr,cg,cb,a)
+    local function draw_third_person()
+        if not (V.thirdPerson and V.thirdPerson.enabled == true) then
+            if V.thirdPerson then
+                V.thirdPerson.camPos = nil
+                V.thirdPerson.saved = false
+            end
+            return
         end
+        if not (aim and aim.set_camera_position and aim.set_camera_rotation and aim.look_at_matrix) then return end
 
-        -- strong center/body fill so it doesn't look hollow
-        circle(cx,cy,rad * 0.96,r,g,b,alpha * 0.030)
-        circle(cx,cy,rad * 0.74,r,g,b,alpha * 0.024)
+        local target = ec_v75_get_target_pos()
+        if not target then return end
 
-        -- lower-right soft darker shade
-        circle(cx + rad * 0.12, cy + rad * 0.14, rad * 0.92, r * 0.72, g * 0.72, b * 0.82, alpha * 0.050)
+        local dist = clamp(V.thirdPerson.distance or 12.0,4.0,35.0)
+        local height = clamp(V.thirdPerson.height or 2.4,0.0,10.0)
+        local side = clamp(V.thirdPerson.side or 0.0,-12.0,12.0)
+        local smooth = clamp(V.thirdPerson.smooth or 0.18,0.0,0.95)
 
-        -- glossy upper-left highlight, like the reference ball
-        local hr = fog_lerp_v73(r, 1.0, 0.42)
-        local hg = fog_lerp_v73(g, 1.0, 0.42)
-        local hb = fog_lerp_v73(b, 1.0, 0.42)
+        local right, up, forward = ec_v75_get_camera_vectors()
+        local lookTarget = target + Vector3(0,height,0)
+        local desired = lookTarget - (forward * dist) + (right * side)
 
-        circle(cx - rad * 0.18, cy - rad * 0.18, rad * 0.30, hr, hg, hb, alpha * 0.24)
-        circle(cx - rad * 0.28, cy - rad * 0.26, rad * 0.14, 1.0, 1.0, 1.0, alpha * 0.22)
+        local follow = 1.0 - smooth
+        if follow < 0.05 then follow = 0.05 end
+        if follow > 1.0 then follow = 1.0 end
 
-        -- small glossy streak
-        circle(cx - rad * 0.30, cy - rad * 0.02, rad * 0.09, 1.0, 1.0, 1.0, alpha * 0.08)
-    end
+        local camPos = ec_v75_lerp_vec(V.thirdPerson.camPos, desired, follow)
+        V.thirdPerson.camPos = camPos
 
-    local function draw_visual_fog()
-        if not (V.fog and V.fog.enabled == true) then return end
+        local mat = nil
+        pcall(function()
+            mat = aim.look_at_matrix(camPos, lookTarget)
+        end)
+        if not mat then return end
 
-        local hrp = get_hrp_pos()
-        if not hrp then return end
-
-        local radius = clamp(V.fog.radius or 22.0, 6.0, 80.0)
-        local opacity = clamp(V.fog.opacity or 0.26, 0.01, 0.80)
-        local detail = clamp(V.fog.density or 0.55, 0.10, 1.00)
-        local r,g,b = get_target_color("fog")
-
-        -- World-space anchor near the player, so the ball stays around the character.
-        -- Put the center slightly above the HRP so the sphere surrounds the body better.
-        local center = hrp + Vector3(0, radius * 0.22, 0)
-
-        local sc, sr = fog_screen_center_radius_v73(center, radius)
-        if not sc or not sr or sr < 6 then return end
-
-        draw_glossy_ball_v73(sc.X, sc.Y, sr, r, g, b, opacity, detail)
+        pcall(function() aim.set_camera_position(camPos) end)
+        pcall(function() aim.set_camera_rotation(mat) end)
     end
 
     -- Safe aura cache only. Original aura styles are NOT replaced.
@@ -15667,11 +15603,11 @@ local function picker_blocks_base(mx,my,cl)
     end
 
     if hooks and hooks.on_render then
-        hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_visual_fog) end)
+        hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_third_person) end)
     elseif callbacks and callbacks.paint then
-        callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_visual_fog) end)
+        callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_third_person) end)
     end
 
-    if notify and not __EC_V73_NOTIFIED then __EC_V73_NOTIFIED = true; notify("Eclipze v73 loaded", "success") end
+    if notify and not __EC_V75_NOTIFIED then __EC_V75_NOTIFIED = true; notify("Eclipze v75 loaded", "success") end
 end
-__EC_V73_PATCH()
+__EC_V75_PATCH()
