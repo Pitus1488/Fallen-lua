@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V60_PATCH()
+function __EC_V61_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v60_loaded then return end
-    V._v60_loaded = true
+    if V._v61_loaded then return end
+    V._v61_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 60 then
+    if T._defaults_version ~= 61 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V60_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 60
+        T._defaults_version = 61
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -14235,11 +14235,13 @@ function __EC_V60_PATCH()
     if V.squares.mode == nil then V.squares.mode = "Mixed" end
     V.fog = V.fog or {
         enabled = false,
+        radius = 22.0,
         opacity = 0.26,
         density = 0.55,
         speed = 0.55,
         color = {0.70, 0.74, 1.00, 1}
     }
+    if V.fog.radius == nil then V.fog.radius = 22.0 end
 
     local function now()
         return (tick and tick()) or (os and os.clock and os.clock()) or 0
@@ -14613,7 +14615,9 @@ function __EC_V60_PATCH()
 
     local function mini_dropdown(mx,my,cl,x,y,w,label,value,options,key)
         local th = theme()
-        value = tostring(value or options[1] or "")
+        V.dropdownValues = V.dropdownValues or {}
+        value = tostring(V.dropdownValues[key] or value or options[1] or "")
+
         text_left(x,y,label,th.dim[1],th.dim[2],th.dim[3],0.88)
 
         local bx = x
@@ -14629,30 +14633,123 @@ function __EC_V60_PATCH()
         if hov and V.newClick and not V.dropdownClickConsumed then
             V.dropdownOpen = open and nil or key
             V.dropdownClickConsumed = true
+            V.picker.open = nil
         end
 
         if V.dropdownOpen == key then
-            local oy = by + bh + 4
-            for i=1,#options do
-                local opt = tostring(options[i])
-                local yy = oy + (i-1) * bh
-                local oh = __ec16_in and __ec16_in(mx,my,bx,yy,bx+w,yy+bh)
-                round(bx,yy,bx+w,yy+bh,0.035,0.030,0.078,oh and 0.98 or 0.92,5)
-                if opt == value then
-                    rect(bx+2,yy+4,bx+5,yy+bh-4,th.acc[1],th.acc[2],th.acc[3],1)
-                    text_left(bx+12,yy+7,opt,1.00,0.82,0.96,0.98)
-                else
-                    text_left(bx+12,yy+7,opt,0.66,0.61,0.82,0.92)
-                end
-                if oh and V.newClick and not V.dropdownClickConsumed then
-                    value = opt
-                    V.dropdownOpen = nil
-                    V.dropdownClickConsumed = true
-                end
-            end
+            V.dropdownActive = {
+                key = key,
+                x = bx,
+                y = by + bh + 4,
+                mainX = bx,
+                mainY = by,
+                w = w,
+                bh = bh,
+                value = value,
+                options = options
+            }
         end
 
         return value
+    end
+
+    local function dropdown_index(options,value)
+        value = tostring(value or "")
+        for i=1,#options do
+            if tostring(options[i]) == value then return i end
+        end
+        return 1
+    end
+
+    function __ec16_tracer_style_dropdown(mx,my,cl,x,y,w)
+        EC_BT = EC_BT or {}
+        local options = {"Beam","Real Neon","Lightning","Gradient Laser","Wave Lightning","Image Lightning","Image Spark Trail"}
+        local val = math.floor(tonumber(EC_BT.style or 0) or 0)
+        if val < 0 then val = 0 end
+        if val > 6 then val = 6 end
+        local selected = mini_dropdown(mx,my,cl,x,y,w,"Tracer Style",options[val+1] or options[1],options,"tracer_style_overlay")
+        EC_BT.style = dropdown_index(options,selected) - 1
+    end
+
+    function __ec16_hitfx_style_dropdown(mx,my,cl,x,y,w)
+        EC_BT = EC_BT or {}
+        local options = {"Tesla Boom","Fallen Spark","Fallen SmokeRing","Fallen particles.js","Fallen Combo"}
+        local map = {3,9,10,11,12}
+        local rev = { [3]=1, [9]=2, [10]=3, [11]=4, [12]=5 }
+        local current = math.floor(tonumber(EC_BT.hitStyle or 12) or 12)
+        local idx = rev[current] or 5
+        local selected = mini_dropdown(mx,my,cl,x,y,w,"Hit Effect Style",options[idx] or options[5],options,"hitfx_style_overlay")
+        EC_BT.hitStyle = map[dropdown_index(options,selected)] or 12
+    end
+
+    function __ec16_aura_style_dropdown(mx,my,cl,x,y,w)
+        __EC16 = __EC16 or {}
+        local options = {"Default Neon","Double Helix","Pulse Rings","Orbit Sparks","Halo + Floor"}
+        local map = {0,5,6,7,8}
+        local rev = { [0]=1, [5]=2, [6]=3, [7]=4, [8]=5 }
+        local current = math.floor(tonumber(__EC16.selfAuraStyle or 0) or 0)
+        local idx = rev[current] or 1
+        local selected = mini_dropdown(mx,my,cl,x,y,w,"Aura Style",options[idx] or options[1],options,"aura_style_overlay")
+        __EC16.selfAuraStyle = map[dropdown_index(options,selected)] or 0
+    end
+
+    function __ec16_fov_style_dropdown(mx,my,cl,x,y,w)
+        local options = {"Default","Breathing","Rotating Gradient"}
+        local val = 0
+        if UIManager and UIManager.GetSliderIntValue then
+            val = UIManager.GetSliderIntValue("ap_fov_style_main") or 0
+        end
+        val = math.floor(tonumber(val or 0) or 0)
+        if val < 0 then val = 0 end
+        if val > 2 then val = 2 end
+        local selected = mini_dropdown(mx,my,cl,x,y,w,"FOV Style",options[val+1] or options[1],options,"fov_style_overlay")
+        local newVal = dropdown_index(options,selected) - 1
+        if UIManager and UIManager.SetSliderIntValue then
+            UIManager.SetSliderIntValue("ap_fov_style_main",newVal)
+        end
+    end
+
+    local function draw_dropdown_overlay(mx,my,cl)
+        local d = V.dropdownActive
+        if not (V.dropdownOpen and d and d.key == V.dropdownOpen) then return end
+        local th = theme()
+        local bx = d.x
+        local by = d.y
+        local w = d.w
+        local bh = d.bh or 24
+        local options = d.options or {}
+        local count = #options
+        if count <= 0 then return end
+
+        local totalH = count * bh
+        local inList = __ec16_in and __ec16_in(mx,my,bx,by,bx+w,by+totalH)
+        local inMain = __ec16_in and __ec16_in(mx,my,d.mainX,d.mainY,d.mainX+w,d.mainY+bh)
+
+        if V.newClick and not inList and not inMain and not V.dropdownClickConsumed then
+            V.dropdownOpen = nil
+            return
+        end
+
+        round(bx-2,by-2,bx+w+2,by+totalH+2,0.010,0.010,0.026,0.98,6)
+        for i=1,count do
+            local opt = tostring(options[i])
+            local yy = by + (i-1) * bh
+            local hov = __ec16_in and __ec16_in(mx,my,bx,yy,bx+w,yy+bh)
+            round(bx,yy,bx+w,yy+bh,0.035,0.030,0.078,hov and 0.98 or 0.94,5)
+            if opt == tostring(d.value or "") then
+                rect(bx+2,yy+4,bx+5,yy+bh-4,th.acc[1],th.acc[2],th.acc[3],1)
+                text_left(bx+12,yy+7,opt,1.00,0.82,0.96,0.98)
+            else
+                text_left(bx+12,yy+7,opt,0.66,0.61,0.82,0.92)
+            end
+
+            if hov and V.newClick and not V.dropdownClickConsumed then
+                V.dropdownValues = V.dropdownValues or {}
+                V.dropdownValues[d.key] = opt
+                V.dropdownOpen = nil
+                V.dropdownClickConsumed = true
+            end
+        end
     end
 
 local function picker_rect()
@@ -14780,6 +14877,7 @@ local function handle_top_tabs_when_visuals(mx,my,newClick)
 local function picker_blocks_base(mx,my,cl)
         if not cl then return false end
         if V.picker.open then return true end
+        if V.dropdownOpen then return true end
         return false
     end
 
@@ -14845,13 +14943,13 @@ local function picker_blocks_base(mx,my,cl)
 
         elseif V.section == "Fog" then
             V.fog = V.fog or {}
-            group(c1,sy,colW,360,"Fog")
+            group(c1,sy,colW,360,"Fog Sphere")
             color_button(mx,my,cl,c1+colW-42,sy+42,"fog")
-            V.fog.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Fog",V.fog.enabled == true)
-            V.fog.opacity = safe_float(mx,my,visual_control_click(cl),c1+18,sy+86,colW-36,"Opacity",V.fog.opacity or 0.26,0.02,0.75)
-            V.fog.density = safe_float(mx,my,visual_control_click(cl),c1+18,sy+146,colW-36,"Density",V.fog.density or 0.55,0.10,1.00)
-            V.fog.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+206,colW-36,"Fog Speed",V.fog.speed or 0.55,0.00,2.00)
-            text_left(c1+18,sy+286,"Screen-space fog overlay",th.dim[1],th.dim[2],th.dim[3],0.80)
+            V.fog.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Fog Sphere",V.fog.enabled == true)
+            V.fog.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+86,colW-36,"Distance",V.fog.radius or 22.0,6.0,60.0)
+            V.fog.opacity = safe_float(mx,my,visual_control_click(cl),c1+18,sy+146,colW-36,"Transparency",V.fog.opacity or 0.26,0.02,0.75)
+            V.fog.density = safe_float(mx,my,visual_control_click(cl),c1+18,sy+206,colW-36,"Sphere Detail",V.fog.density or 0.55,0.10,1.00)
+            V.fog.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+266,colW-36,"Animation",V.fog.speed or 0.55,0.00,2.00)
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
@@ -15257,36 +15355,100 @@ local function picker_blocks_base(mx,my,cl)
         end
     end
 
+    local function build_fog_ring_cache(steps)
+        V.fog = V.fog or {}
+        local c = V.fog.ringCache
+        if c and c.steps == steps then return c end
+        c = {steps=steps, cos={}, sin={}}
+        for i=0,steps do
+            local t = (i / steps) * 6.283185
+            c.cos[i] = math.cos(t)
+            c.sin[i] = math.sin(t)
+        end
+        V.fog.ringCache = c
+        return c
+    end
+
+    local function fog_line(p1,p2,r,g,b,a,core)
+        local s1 = world_to_screen(p1)
+        local s2 = world_to_screen(p2)
+        if not (s1 and s2) then return end
+        line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.22,5.6)
+        line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.38,2.8)
+        line(s1.X,s1.Y,s2.X,s2.Y,1,1,1,a*(core or 0.20),1.0)
+    end
+
+    local function draw_fog_ring(center,radius,yoff,axis,r,g,b,a,steps,phase)
+        local cache = build_fog_ring_cache(steps)
+        local prev = nil
+        for i=0,steps do
+            local c = cache.cos[i]
+            local s = cache.sin[i]
+            local p
+            if axis == "xz" then
+                p = center + Vector3(c*radius,yoff,s*radius)
+            elseif axis == "xy" then
+                p = center + Vector3(c*radius,s*radius,yoff)
+            else
+                p = center + Vector3(yoff,c*radius,s*radius)
+            end
+
+            if prev then
+                fog_line(prev,p,r,g,b,a,0.22)
+            end
+            prev = p
+        end
+    end
+
     local function draw_visual_fog()
         if not (V.fog and V.fog.enabled == true) then return end
-        local ss = ScreenSize and ScreenSize() or nil
-        local w = (ss and (ss.Width or ss.X)) or 1920
-        local h = (ss and (ss.Height or ss.Y)) or 1080
+        local center = get_hrp_pos()
+        if not center then return end
+
         local r,g,b = get_target_color("fog")
+        local radius = clamp(V.fog.radius or 22.0,6.0,80.0)
         local op = clamp(V.fog.opacity or 0.26,0.01,0.80)
-        local den = clamp(V.fog.density or 0.55,0.05,1.00)
+        local detail = clamp(V.fog.density or 0.55,0.10,1.00)
         local spd = clamp(V.fog.speed or 0.55,0.00,2.00)
         local tm = now() * spd
-        rect(0,0,w,h,r,g,b,op * 0.18)
-        local bands = math.floor(5 + den * 9)
-        for i=1,bands do
-            local k = i / bands
-            local yy = (h * (0.10 + 0.82 * k)) + math.sin(tm + i * 1.91) * h * 0.030
-            local hh = h * (0.055 + den * 0.035)
-            local a = op * (0.035 + 0.035 * math.sin(tm * 0.70 + i))
-            rect(0,yy-hh,w,yy+hh,r,g,b,a)
+
+        local steps = math.floor(28 + detail * 28)
+        if steps < 24 then steps = 24 end
+        if steps > 60 then steps = 60 end
+
+        -- Big fog sphere around player, not a screen overlay.
+        draw_fog_ring(center,radius,0,"xz",r,g,b,op*0.95,steps,tm)
+        draw_fog_ring(center,radius,0,"xy",r,g,b,op*0.72,steps,tm)
+        draw_fog_ring(center,radius,0,"yz",r,g,b,op*0.72,steps,tm)
+
+        local rings = math.floor(3 + detail * 5)
+        for i=1,rings do
+            local k = i / (rings + 1)
+            local y = (k * 2 - 1) * radius * 0.76
+            local rr = math.sqrt(math.max(radius*radius - y*y,0))
+            local wave = math.sin(tm + i * 1.37) * radius * 0.018
+            draw_fog_ring(center,rr,y + wave,"xz",r,g,b,op*(0.28 + 0.18*k),steps,tm)
         end
-        local clouds = math.floor(10 + den * 18)
-        for i=1,clouds do
-            local h1 = ec_hash01(i * 2.17)
-            local h2 = ec_hash01(i * 5.41)
-            local h3 = ec_hash01(i * 7.73)
-            local x = (h1 * w + tm * w * (0.020 + h3 * 0.025)) % (w + 220) - 110
-            local y = h * (0.12 + h2 * 0.82) + math.sin(tm * 0.85 + i) * h * 0.025
-            local sx = w * (0.040 + h3 * 0.075)
-            local sy = h * (0.012 + h1 * 0.030)
-            local a = op * (0.025 + h2 * 0.040)
-            rect(x-sx,y-sy,x+sx,y+sy,r,g,b,a)
+
+        -- floating fog arcs on the sphere surface
+        local wisps = math.floor(8 + detail * 14)
+        for i=1,wisps do
+            local h1 = ec_hash01(i * 3.11)
+            local h2 = ec_hash01(i * 6.27)
+            local h3 = ec_hash01(i * 9.73)
+            local ang = h1 * 6.283185 + tm * (0.18 + h3 * 0.35)
+            local elev = (h2 * 2 - 1) * 0.72
+            local y = elev * radius
+            local rr = math.sqrt(math.max(radius*radius - y*y,0))
+            local arc = 0.28 + h3 * 0.42
+            local last = nil
+            local segs = 10
+            for j=0,segs do
+                local t = ang + (j/segs - 0.5) * arc
+                local p = center + Vector3(math.cos(t)*rr,y + math.sin(tm+i)*radius*0.015,math.sin(t)*rr)
+                if last then fog_line(last,p,r,g,b,op*(0.14 + h2*0.10),0.16) end
+                last = p
+            end
         end
     end
 
@@ -15383,6 +15545,7 @@ local function picker_blocks_base(mx,my,cl)
             pcall(handle_top_tabs_when_visuals,mx,my,newClick)
 
             reset_color_buttons()
+            V.dropdownActive = nil
 
             local block = picker_blocks_base(mx,my,cl)
             local baseCl = cl
@@ -15398,6 +15561,7 @@ local function picker_blocks_base(mx,my,cl)
             pcall(draw_visuals_page,mx,my,visualCl)
 
             pcall(handle_picker_click,mx,my,newClick)
+            pcall(draw_dropdown_overlay,mx,my,cl)
             pcall(draw_color_picker_overlay,mx,my,cl)
 
             V.mouseDown = cl == true
@@ -15411,6 +15575,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_visual_fog) end)
     end
 
-    if notify then notify("v60: World Effects + Fog loaded", "success") end
+    if notify then notify("v61: overlay dropdowns + fog sphere loaded", "success") end
 end
-__EC_V60_PATCH()
+__EC_V61_PATCH()
