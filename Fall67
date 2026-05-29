@@ -14186,7 +14186,7 @@ end)()
 
 
 --[[
-Eclipze v54 Visuals tab fix + orbit squares
+Eclipze v55 syntax fixed + orbit squares
 - VISUALS is a real top tab.
 - AIM no longer shows Tracers / Aura.
 - Global replacement for old color hue sliders: all existing color rows use this custom square + overlay picker.
@@ -14198,12 +14198,12 @@ Eclipze v54 Visuals tab fix + orbit squares
 ;(function()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v54_loaded then return end
-    V._v54_loaded = true
+    if V._v55_loaded then return end
+    V._v55_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 54 then
+    if T._defaults_version ~= 55 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ Eclipze v54 Visuals tab fix + orbit squares
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 54
+        T._defaults_version = 55
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -15157,7 +15157,7 @@ local function picker_blocks_base(mx,my,cl)
 
             V.mouseDown = cl == true
             V.newClick = false
-        end        end
+        end
     end
 
     if hooks and hooks.on_render then
@@ -15166,5 +15166,5 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares) end)
     end
 
-    if notify then notify("v54: visuals fixed + orbit squares", "success") end
+    if notify then notify("v55: syntax fixed + orbit squares", "success") end
 end)()
