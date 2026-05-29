@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V59_PATCH()
+function __EC_V60_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v59_loaded then return end
-    V._v59_loaded = true
+    if V._v60_loaded then return end
+    V._v60_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 59 then
+    if T._defaults_version ~= 60 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V59_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 59
+        T._defaults_version = 60
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -14225,11 +14225,20 @@ function __EC_V59_PATCH()
     V.picker = V.picker or { open = nil, data = {}, buttons = {} }
     V.squares = V.squares or {
         enabled = false,
+        mode = "Mixed",
         amount = 42,
         radius = 9.5,
         speed = 1.10,
         size = 0.75,
         color = {0.92, 0.70, 1.00, 1}
+    }
+    if V.squares.mode == nil then V.squares.mode = "Mixed" end
+    V.fog = V.fog or {
+        enabled = false,
+        opacity = 0.26,
+        density = 0.55,
+        speed = 0.55,
+        color = {0.70, 0.74, 1.00, 1}
     }
 
     local function now()
@@ -14476,6 +14485,9 @@ function __EC_V59_PATCH()
         elseif id == "squares" then
             local c = (V.squares and V.squares.color) or {0.92,0.70,1.00,1}
             return c[1] or 0.92,c[2] or 0.70,c[3] or 1.00
+        elseif id == "fog" then
+            local c = (V.fog and V.fog.color) or {0.70,0.74,1.00,1}
+            return c[1] or 0.70,c[2] or 0.74,c[3] or 1.00
         end
         return 1,1,1
     end
@@ -14514,6 +14526,10 @@ function __EC_V59_PATCH()
             V.squares = V.squares or {}
             V.squares.color = {r,g,b,1}
             V.squares.hue = h or V.squares.hue or 0.78
+        elseif id == "fog" then
+            V.fog = V.fog or {}
+            V.fog.color = {r,g,b,1}
+            V.fog.hue = h or V.fog.hue or 0.63
         end
         if __ec16_apply_colors then pcall(__ec16_apply_colors) end
     end
@@ -14569,6 +14585,7 @@ function __EC_V59_PATCH()
 
     local function visual_control_click(cl)
         if V.colorClickConsumed then return false end
+        if V.dropdownClickConsumed then return false end
         if V.picker and V.picker.open and cl then return false end
         return cl
     end
@@ -14591,6 +14608,51 @@ function __EC_V59_PATCH()
             end
         end
         return nil
+    end
+
+
+    local function mini_dropdown(mx,my,cl,x,y,w,label,value,options,key)
+        local th = theme()
+        value = tostring(value or options[1] or "")
+        text_left(x,y,label,th.dim[1],th.dim[2],th.dim[3],0.88)
+
+        local bx = x
+        local by = y + 20
+        local bh = 24
+        local open = V.dropdownOpen == key
+        local hov = __ec16_in and __ec16_in(mx,my,bx,by,bx+w,by+bh)
+
+        round(bx,by,bx+w,by+bh,0.050,0.040,0.100,hov and 0.96 or 0.78,6)
+        text_left(bx+10,by+7,value,0.86,0.82,1.00,0.94)
+        text_left(bx+w-18,by+7,open and "▲" or "▼",0.86,0.82,1.00,0.94)
+
+        if hov and V.newClick and not V.dropdownClickConsumed then
+            V.dropdownOpen = open and nil or key
+            V.dropdownClickConsumed = true
+        end
+
+        if V.dropdownOpen == key then
+            local oy = by + bh + 4
+            for i=1,#options do
+                local opt = tostring(options[i])
+                local yy = oy + (i-1) * bh
+                local oh = __ec16_in and __ec16_in(mx,my,bx,yy,bx+w,yy+bh)
+                round(bx,yy,bx+w,yy+bh,0.035,0.030,0.078,oh and 0.98 or 0.92,5)
+                if opt == value then
+                    rect(bx+2,yy+4,bx+5,yy+bh-4,th.acc[1],th.acc[2],th.acc[3],1)
+                    text_left(bx+12,yy+7,opt,1.00,0.82,0.96,0.98)
+                else
+                    text_left(bx+12,yy+7,opt,0.66,0.61,0.82,0.92)
+                end
+                if oh and V.newClick and not V.dropdownClickConsumed then
+                    value = opt
+                    V.dropdownOpen = nil
+                    V.dropdownClickConsumed = true
+                end
+            end
+        end
+
+        return value
     end
 
 local function picker_rect()
@@ -14735,7 +14797,7 @@ local function picker_blocks_base(mx,my,cl)
         round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,1.00,8)
         if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.62,1) end
 
-        local sections = {"Trail","Squares","Bullet Tracers","Aura"}
+        local sections = {"Trail","World Effects","Fog","Bullet Tracers","Aura"}
         local secY = L.sideY + 74
         for _,name in ipairs(sections) do
             local ix1 = L.sideX + 10
@@ -14770,15 +14832,26 @@ local function picker_blocks_base(mx,my,cl)
             T.rainbow = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+72,"Rainbow Trail",T.rainbow == true)
             T.length = safe_float(mx,my,visual_control_click(cl),c1+18,sy+112,colW-36,"Trail Length",T.length or 46,8,220)
 
-        elseif V.section == "Squares" then
+        elseif V.section == "World Effects" then
             V.squares = V.squares or {}
-            group(c1,sy,colW,330,"Orbit Cubes")
+            group(c1,sy,colW,430,"World Effects")
             color_button(mx,my,cl,c1+colW-42,sy+42,"squares")
-            V.squares.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Orbit Cubes",V.squares.enabled == true)
-            V.squares.amount = safe_float(mx,my,visual_control_click(cl),c1+18,sy+86,colW-36,"Amount",V.squares.amount or 42,8,90)
-            V.squares.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+146,colW-36,"Radius",V.squares.radius or 9.5,5.5,24.0)
-            V.squares.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+206,colW-36,"Speed",V.squares.speed or 1.10,0.10,4.00)
-            V.squares.size = safe_float(mx,my,visual_control_click(cl),c1+18,sy+266,colW-36,"Cube Size",V.squares.size or 0.75,0.20,1.60)
+            V.squares.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"World Effects",V.squares.enabled == true)
+            V.squares.mode = mini_dropdown(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Type",V.squares.mode or "Mixed",{"Cubes","Stars","Circles","Mixed"},"world_effect_mode")
+            V.squares.amount = safe_float(mx,my,visual_control_click(cl),c1+18,sy+162,colW-36,"Amount",V.squares.amount or 42,8,90)
+            V.squares.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+222,colW-36,"Radius",V.squares.radius or 9.5,5.5,24.0)
+            V.squares.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+282,colW-36,"Speed",V.squares.speed or 1.10,0.10,4.00)
+            V.squares.size = safe_float(mx,my,visual_control_click(cl),c1+18,sy+342,colW-36,"Effect Size",V.squares.size or 0.75,0.20,1.60)
+
+        elseif V.section == "Fog" then
+            V.fog = V.fog or {}
+            group(c1,sy,colW,360,"Fog")
+            color_button(mx,my,cl,c1+colW-42,sy+42,"fog")
+            V.fog.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Fog",V.fog.enabled == true)
+            V.fog.opacity = safe_float(mx,my,visual_control_click(cl),c1+18,sy+86,colW-36,"Opacity",V.fog.opacity or 0.26,0.02,0.75)
+            V.fog.density = safe_float(mx,my,visual_control_click(cl),c1+18,sy+146,colW-36,"Density",V.fog.density or 0.55,0.10,1.00)
+            V.fog.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+206,colW-36,"Fog Speed",V.fog.speed or 0.55,0.00,2.00)
+            text_left(c1+18,sy+286,"Screen-space fog overlay",th.dim[1],th.dim[2],th.dim[3],0.80)
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
@@ -15029,22 +15102,19 @@ local function picker_blocks_base(mx,my,cl)
         local z1 = y * sx + z * cx
         y = y1
         z = z1
-
         local x2 = x * cy + z * sy
         local z2 = -x * sy + z * cy
         x = x2
         z = z2
-
         local x3 = x * cz - y * sz
         local y3 = x * sz + y * cz
         return x3,y3,z
     end
 
-    local function build_cube_cache(amount)
+    local function build_world_fx_cache(amount)
         V.squares = V.squares or {}
         local cache = V.squares.cache
         if cache and cache.amount == amount then return cache end
-
         cache = { amount = amount, items = {} }
         for i=1,amount do
             local h1 = ec_hash01(i * 1.37)
@@ -15053,7 +15123,6 @@ local function picker_blocks_base(mx,my,cl)
             local h4 = ec_hash01(i * 5.77)
             local h5 = ec_hash01(i * 7.31)
             local h6 = ec_hash01(i * 9.19)
-
             cache.items[i] = {
                 h1=h1,h2=h2,h3=h3,h4=h4,h5=h5,h6=h6,
                 dir=(h3 > 0.5) and 1 or -1,
@@ -15071,7 +15140,6 @@ local function picker_blocks_base(mx,my,cl)
                 sizeMul=0.78 + h6 * 0.72
             }
         end
-
         V.squares.cache = cache
         return cache
     end
@@ -15082,7 +15150,6 @@ local function picker_blocks_base(mx,my,cl)
             local s1 = scr[e[1]]
             local s2 = scr[e[2]]
             if s1 and s2 then
-                -- same visual quality: glow + inner line, but screen points are cached per cube
                 line(s1.X,s1.Y,s2.X,s2.Y,cr,cg,cb,alpha * 0.10,5.6)
                 line(s1.X,s1.Y,s2.X,s2.Y,cr,cg,cb,alpha * 0.22,2.6)
                 line(s1.X,s1.Y,s2.X,s2.Y,1.00,0.94,1.00,alpha * 0.55,1.05)
@@ -15090,59 +15157,136 @@ local function picker_blocks_base(mx,my,cl)
         end
     end
 
-    local function draw_orbit_squares()
-        if not (V.squares and V.squares.enabled == true) then return end
-        local center = get_hrp_pos()
-        if not center then return end
+    local function draw_screen_circle(cx,cy,rad,r,g,b,a)
+        if Drawing and Drawing.DrawCircle then
+            Drawing.DrawCircle(cx,cy,rad,r,g,b,a,1.1)
+            Drawing.DrawCircle(cx,cy,rad*1.10,r,g,b,a*0.24,3.4)
+            return
+        end
+        local steps = 18
+        local px,py = nil,nil
+        for i=0,steps do
+            local t = (i / steps) * 6.283185
+            local x = cx + math.cos(t) * rad
+            local y = cy + math.sin(t) * rad
+            if px then line(px,py,x,y,r,g,b,a,1.1) end
+            px,py = x,y
+        end
+    end
 
-        local tm = now()
-        local amount = math.floor(clamp(V.squares.amount or 42,8,90)+0.5)
-        local radius = clamp(V.squares.radius or 9.5,5.5,24.0)
-        local speed = clamp(V.squares.speed or 1.10,0.05,4.0)
-        local baseSize = clamp(V.squares.size or 0.75,0.15,1.8)
-        local cr,cg,cb = get_target_color("squares")
+    local function draw_star_screen(cx,cy,rad,r,g,b,a,rot)
+        local pts = {}
+        local count = 10
+        for i=1,count do
+            local rr = (i % 2 == 0) and (rad * 0.45) or rad
+            local t = rot + (i / count) * 6.283185
+            pts[i] = {x = cx + math.cos(t) * rr, y = cy + math.sin(t) * rr}
+        end
+        for i=1,count do
+            local p1 = pts[i]
+            local p2 = pts[(i % count) + 1]
+            line(p1.x,p1.y,p2.x,p2.y,r,g,b,a*0.18,4.4)
+            line(p1.x,p1.y,p2.x,p2.y,r,g,b,a*0.62,1.1)
+        end
+        line(cx-rad*0.55,cy,cx+rad*0.55,cy,1,1,1,a*0.20,1.0)
+        line(cx,cy-rad*0.55,cx,cy+rad*0.55,1,1,1,a*0.20,1.0)
+    end
 
-        -- no quality drop: up to 80 cubes, but with cached per-cube params and 8 W2S calls per cube instead of 24
-        local drawAmount = math.min(amount,80)
-        local cache = build_cube_cache(drawAmount)
-
-        for i=1,drawAmount do
-            local it = cache.items[i]
-            local dir = it.dir
-            local orbit = tm * speed * dir * (0.44 + it.h1 * 0.92) + it.phase
-
-            -- different radii, but never close enough to cut into the player
-            local dist = math.max(5.8, radius * it.rMul)
-            local wob = math.sin(tm * speed * (0.50 + it.h3) + it.h5 * 6.283185) * (radius * 0.10)
-            local px = math.cos(orbit) * (dist + wob)
-            local pz = math.sin(orbit + math.sin(tm * 0.35 + it.h2 * 6.283185) * 0.16) * (dist - wob * 0.35)
-            local lift = it.yBase + math.sin(tm * speed * (0.65 + it.h1) + it.yPhase) * it.yAmp
-
-            local pos = center + Vector3(px,lift,pz)
-
-            -- equal side length on X/Y/Z: cube stays square, no rectangle scaling
-            local s = baseSize * it.sizeMul
-            local rx = tm * speed * it.spinX + it.spinPX
-            local ry = tm * speed * it.spinY + it.spinPY
-            local rz = tm * speed * it.spinZ + it.spinPZ
-
+    local function draw_world_effect_item(mode,pos,s,rx,ry,rz,cr,cg,cb,alpha,i,tm)
+        if mode == "Cubes" then
             local cx = math.cos(rx)
             local sx = math.sin(rx)
             local cy = math.cos(ry)
             local sy = math.sin(ry)
             local cz = math.cos(rz)
             local sz = math.sin(rz)
-
             local scr = {}
             for ci=1,8 do
                 local c = __EC_CUBE_CORNERS[ci]
                 local x,y,z = ec_rotate3_cached(c[1] * s,c[2] * s,c[3] * s,cx,sx,cy,sy,cz,sz)
                 scr[ci] = world_to_screen(pos + Vector3(x,y,z))
             end
+            draw_cube_edges_screen(scr,cr,cg,cb,alpha)
+            return
+        end
+        local sp = world_to_screen(pos)
+        if not sp then return end
+        local sr = math.max(3.0, s * 9.0)
+        if mode == "Stars" then
+            draw_star_screen(sp.X,sp.Y,sr,cr,cg,cb,alpha,tm*0.95 + i)
+        elseif mode == "Circles" then
+            draw_screen_circle(sp.X,sp.Y,sr,cr,cg,cb,alpha*0.85)
+            draw_screen_circle(sp.X,sp.Y,sr*0.52,1,1,1,alpha*0.22)
+        end
+    end
 
+    local function draw_orbit_squares()
+        if not (V.squares and V.squares.enabled == true) then return end
+        local center = get_hrp_pos()
+        if not center then return end
+        local tm = now()
+        local amount = math.floor(clamp(V.squares.amount or 42,8,90)+0.5)
+        local radius = clamp(V.squares.radius or 9.5,5.5,24.0)
+        local speed = clamp(V.squares.speed or 1.10,0.05,4.0)
+        local baseSize = clamp(V.squares.size or 0.75,0.15,1.8)
+        local mode = tostring(V.squares.mode or "Mixed")
+        local cr,cg,cb = get_target_color("squares")
+        local drawAmount = math.min(amount,80)
+        local cache = build_world_fx_cache(drawAmount)
+        for i=1,drawAmount do
+            local it = cache.items[i]
+            local orbit = tm * speed * it.dir * (0.44 + it.h1 * 0.92) + it.phase
+            local dist = math.max(5.8, radius * it.rMul)
+            local wob = math.sin(tm * speed * (0.50 + it.h3) + it.h5 * 6.283185) * (radius * 0.10)
+            local px = math.cos(orbit) * (dist + wob)
+            local pz = math.sin(orbit + math.sin(tm * 0.35 + it.h2 * 6.283185) * 0.16) * (dist - wob * 0.35)
+            local lift = it.yBase + math.sin(tm * speed * (0.65 + it.h1) + it.yPhase) * it.yAmp
+            local pos = center + Vector3(px,lift,pz)
+            local s = baseSize * it.sizeMul
+            local rx = tm * speed * it.spinX + it.spinPX
+            local ry = tm * speed * it.spinY + it.spinPY
+            local rz = tm * speed * it.spinZ + it.spinPZ
             local alpha = 0.22 + 0.35 * (0.5 + 0.5 * math.sin(tm * 1.85 + i * 0.71))
             if it.h1 > 0.72 then alpha = alpha + 0.12 end
-            draw_cube_edges_screen(scr,cr,cg,cb,alpha)
+            local drawMode = mode
+            if mode == "Mixed" then
+                local m = i % 3
+                if m == 0 then drawMode = "Cubes" elseif m == 1 then drawMode = "Stars" else drawMode = "Circles" end
+            end
+            draw_world_effect_item(drawMode,pos,s,rx,ry,rz,cr,cg,cb,alpha,i,tm)
+        end
+    end
+
+    local function draw_visual_fog()
+        if not (V.fog and V.fog.enabled == true) then return end
+        local ss = ScreenSize and ScreenSize() or nil
+        local w = (ss and (ss.Width or ss.X)) or 1920
+        local h = (ss and (ss.Height or ss.Y)) or 1080
+        local r,g,b = get_target_color("fog")
+        local op = clamp(V.fog.opacity or 0.26,0.01,0.80)
+        local den = clamp(V.fog.density or 0.55,0.05,1.00)
+        local spd = clamp(V.fog.speed or 0.55,0.00,2.00)
+        local tm = now() * spd
+        rect(0,0,w,h,r,g,b,op * 0.18)
+        local bands = math.floor(5 + den * 9)
+        for i=1,bands do
+            local k = i / bands
+            local yy = (h * (0.10 + 0.82 * k)) + math.sin(tm + i * 1.91) * h * 0.030
+            local hh = h * (0.055 + den * 0.035)
+            local a = op * (0.035 + 0.035 * math.sin(tm * 0.70 + i))
+            rect(0,yy-hh,w,yy+hh,r,g,b,a)
+        end
+        local clouds = math.floor(10 + den * 18)
+        for i=1,clouds do
+            local h1 = ec_hash01(i * 2.17)
+            local h2 = ec_hash01(i * 5.41)
+            local h3 = ec_hash01(i * 7.73)
+            local x = (h1 * w + tm * w * (0.020 + h3 * 0.025)) % (w + 220) - 110
+            local y = h * (0.12 + h2 * 0.82) + math.sin(tm * 0.85 + i) * h * 0.025
+            local sx = w * (0.040 + h3 * 0.075)
+            local sy = h * (0.012 + h1 * 0.030)
+            local a = op * (0.025 + h2 * 0.040)
+            rect(x-sx,y-sy,x+sx,y+sy,r,g,b,a)
         end
     end
 
@@ -15222,6 +15366,7 @@ local function picker_blocks_base(mx,my,cl)
             local newClick = cl and not (V.mouseDown == true)
             V.newClick = newClick
             V.colorClickConsumed = false
+            V.dropdownClickConsumed = false
             V.tabClickConsumed = false
 
             -- Use previous frame button list to block old hitboxes before they can toggle.
@@ -15261,11 +15406,11 @@ local function picker_blocks_base(mx,my,cl)
     end
 
     if hooks and hooks.on_render then
-        hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares) end)
+        hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_visual_fog) end)
     elseif callbacks and callbacks.paint then
-        callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares) end)
+        callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_visual_fog) end)
     end
 
-    if notify then notify("v59: orbit cubes optimized", "success") end
+    if notify then notify("v60: World Effects + Fog loaded", "success") end
 end
-__EC_V59_PATCH()
+__EC_V60_PATCH()
