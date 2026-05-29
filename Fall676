@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V62_PATCH()
+function __EC_V63_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v62_loaded then return end
-    V._v62_loaded = true
+    if V._v63_loaded then return end
+    V._v63_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 62 then
+    if T._defaults_version ~= 63 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V62_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 62
+        T._defaults_version = 63
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -15365,7 +15365,7 @@ local function picker_blocks_base(mx,my,cl)
     local function filled_fog_circle(cx,cy,rad,r,g,b,alpha,detail,tm)
         if rad <= 2 then return end
 
-        -- Filled sphere: no rings/lines. Soft layered fill + glow edge.
+        -- Filled sphere: no ring lines, only soft filled layers.
         local layers = math.floor(10 + detail * 18)
         if layers < 8 then layers = 8 end
         if layers > 26 then layers = 26 end
@@ -15378,11 +15378,10 @@ local function picker_blocks_base(mx,my,cl)
             circle(cx,cy,rr,r,g,b,a)
         end
 
-        -- Soft outer haze, still filled circles, not line rings.
+        -- Soft outside haze, still filled, no lines.
         circle(cx,cy,rad * 1.045,r,g,b,alpha * 0.028)
         circle(cx,cy,rad * 0.985,1,1,1,alpha * 0.012)
 
-        -- Light moving fog patches inside the sphere.
         local clouds = math.floor(8 + detail * 18)
         for i=1,clouds do
             local h1 = ec_hash01(i * 2.17)
@@ -15433,4 +15432,129 @@ local function picker_blocks_base(mx,my,cl)
         filled_fog_circle(sc.X,sc.Y,sr,r,g,b,op,detail,tm)
     end
 
- 
+    -- Safe aura cache only. Original aura styles are NOT replaced.
+    __EC_AURA_SAFE_CACHE = __EC_AURA_SAFE_CACHE or {w2s={},frame=-1}
+    local AC = __EC_AURA_SAFE_CACHE
+
+    if type(EC_SAURA_POS) == "function" and not AC.pos_wrapped then
+        AC.pos_wrapped = true
+        local old_pos = EC_SAURA_POS
+        EC_SAURA_POS = function()
+            local f = math.floor(now()*120)
+            if AC.pos_frame == f and AC.pos_value then return AC.pos_value end
+            local p = old_pos()
+            AC.pos_frame = f
+            AC.pos_value = p
+            return p
+        end
+    end
+
+    if type(EC_SAURA_COLOR_TOP) == "function" and not AC.top_wrapped then
+        AC.top_wrapped = true
+        local old_top = EC_SAURA_COLOR_TOP
+        EC_SAURA_COLOR_TOP = function()
+            local f = math.floor(now()*60)
+            if AC.top_frame == f and AC.top_value then return AC.top_value[1],AC.top_value[2],AC.top_value[3] end
+            local r,g,b = old_top()
+            AC.top_frame = f
+            AC.top_value = {r,g,b}
+            return r,g,b
+        end
+    end
+
+    if type(EC_SAURA_COLOR_BOTTOM) == "function" and not AC.bottom_wrapped then
+        AC.bottom_wrapped = true
+        local old_bottom = EC_SAURA_COLOR_BOTTOM
+        EC_SAURA_COLOR_BOTTOM = function()
+            local f = math.floor(now()*60)
+            if AC.bottom_frame == f and AC.bottom_value then return AC.bottom_value[1],AC.bottom_value[2],AC.bottom_value[3] end
+            local r,g,b = old_bottom()
+            AC.bottom_frame = f
+            AC.bottom_value = {r,g,b}
+            return r,g,b
+        end
+    end
+
+    if type(EC_SAURA_W2S) == "function" and not AC.w2s_wrapped then
+        AC.w2s_wrapped = true
+        local old_w2s = EC_SAURA_W2S
+        EC_SAURA_W2S = function(pos)
+            if not pos then return nil,nil,false end
+            local f = math.floor(now()*120)
+            if AC.frame ~= f then AC.frame = f; AC.w2s = {} end
+            local x = tonumber(pos.X or pos[1]) or 0
+            local y = tonumber(pos.Y or pos[2]) or 0
+            local z = tonumber(pos.Z or pos[3]) or 0
+            local key = tostring(math.floor(x*10+0.5))..":"..tostring(math.floor(y*10+0.5))..":"..tostring(math.floor(z*10+0.5))
+            local c = AC.w2s[key]
+            if c then return c[1],c[2],c[3] end
+            local sx,sy,vis = old_w2s(pos)
+            AC.w2s[key] = {sx,sy,vis}
+            return sx,sy,vis
+        end
+    end
+
+    if type(__ec16_menu) == "function" and not V._menu_wrapped then
+        local old_menu = __ec16_menu
+        V._menu_wrapped = true
+        __ec16_menu = function(mx,my,cl,w,h)
+            if __EC16 and __EC16.mainTab == "aim" and (__EC16.aimSection == "Tracers" or __EC16.aimSection == "Aura") then
+                __EC16.aimSection = "General"
+            end
+            if __EC16 and __EC16.mainTab == "visuals" then
+                __EC16.visualsSection = __EC16.visualsSection or V.section or "Trail"
+            end
+
+            local newClick = cl and not (V.mouseDown == true)
+            V.newClick = newClick
+            V.colorClickConsumed = false
+            V.dropdownClickConsumed = false
+            V.tabClickConsumed = false
+
+            -- Use previous frame button list to block old hitboxes before they can toggle.
+            local prevBtn = button_hit_from_list(V.picker.buttons,mx,my)
+            if newClick and prevBtn then
+                if V.picker.open == prevBtn.id then
+                    V.picker.open = nil
+                else
+                    open_picker_for(prevBtn.id,prevBtn.x,prevBtn.y+prevBtn.h+8)
+                end
+                V.colorClickConsumed = true
+            end
+
+            pcall(handle_top_tabs_when_visuals,mx,my,newClick)
+
+            reset_color_buttons()
+            V.dropdownActive = nil
+
+            local block = picker_blocks_base(mx,my,cl)
+            local baseCl = cl
+            if block or V.colorClickConsumed then baseCl = false end
+            if __EC16 and __EC16.mainTab == "visuals" then
+                baseCl = false
+            end
+
+            old_menu(mx,my,baseCl,w,h)
+
+            local visualCl = cl
+            if block or V.colorClickConsumed then visualCl = false end
+            pcall(draw_visuals_page,mx,my,visualCl)
+
+            pcall(handle_picker_click,mx,my,newClick)
+            pcall(draw_dropdown_overlay,mx,my,cl)
+            pcall(draw_color_picker_overlay,mx,my,cl)
+
+            V.mouseDown = cl == true
+            V.newClick = false
+        end
+    end
+
+    if hooks and hooks.on_render then
+        hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_visual_fog) end)
+    elseif callbacks and callbacks.paint then
+        callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_visual_fog) end)
+    end
+
+    if notify then notify("v63: filled fog sphere fixed", "success") end
+end
+__EC_V63_PATCH()
