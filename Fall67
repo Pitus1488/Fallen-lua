@@ -8710,7 +8710,8 @@ rect(x+10,y+35,x2-10,y+37,accR,accG,accB,0.76)
 local tabs = {
 {id="aim", label="AIM", w=88},
 {id="esp", label="FALLEN ESP", w=132},
-{id="noclip", label="NOCLIP", w=102}
+{id="noclip", label="NOCLIP", w=102},
+{id="visuals", label="VISUALS", w=104}
 }
 local tx = x + 18
 local ty = y + 45
@@ -8760,7 +8761,7 @@ Drawing.DrawTextWithOutline(avatarX+52 + __ec16_text_w(uname) * 0.5, avatarY+10,
 Drawing.DrawTextWithOutline(avatarX+52 + __ec16_text_w("Local Player") * 0.5, avatarY+26, "Local Player", softR,softG,softB,0.90,0,0,0,0.9)
 local sections = {}
 if __EC16.mainTab == "aim" then
-sections = {"General","Target","TP","Tracers","Aura"}
+sections = {"General","Target","TP"}
 elseif __EC16.mainTab == "noclip" then
 sections = {"Noclip"}
 else
@@ -9718,7 +9719,8 @@ rect(x+10,y+35,x2-10,y+37,accR,accG,accB,0.88)
 local tabs = {
 {id="aim", label="AIM", w=88},
 {id="esp", label="FALLEN ESP", w=132},
-{id="noclip", label="NOCLIP", w=102}
+{id="noclip", label="NOCLIP", w=102},
+{id="visuals", label="VISUALS", w=104}
 }
 local tx = x + 18
 local ty = y + 45
@@ -9765,7 +9767,7 @@ Drawing.DrawTextWithOutline(avatarX+52 + __ec16_text_w(uname) * 0.5, avatarY+9, 
 Drawing.DrawTextWithOutline(avatarX+52 + __ec16_text_w("Local player") * 0.5, avatarY+25, "Local player", softR,softG,softB,0.82,0,0,0,0.82)
 local sections = {}
 if __EC16.mainTab == "aim" then
-sections = {"General","Target","TP","Tracers","Aura"}
+sections = {"General","Target","TP"}
 elseif __EC16.mainTab == "noclip" then
 sections = {"Noclip"}
 else
@@ -14184,7 +14186,7 @@ end)()
 
 
 --[[
-Eclipze v48 Visuals tab + custom color picker
+Eclipze v49 Visuals tab + custom color picker
 - Adds top VISUALS tab.
 - Visual features are collected there: Player Trail, Bullet Tracers / Hit Effects, Self Aura.
 - Custom handmade HSV color picker, no native/UIManager color picker.
@@ -14194,8 +14196,8 @@ Eclipze v48 Visuals tab + custom color picker
 ;(function()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v48_loaded then return end
-    V._v48_loaded = true
+    if V._v49_loaded then return end
+    V._v49_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
@@ -14435,7 +14437,6 @@ Eclipze v48 Visuals tab + custom color picker
         text_left(x,y,label,th.dim[1],th.dim[2],th.dim[3],0.95)
         round(x,y+22,x+38,y+48,r,g,b,0.96,5)
         round(x-1,y+21,x+39,y+49,1,1,1,0.09,6)
-        text_left(x+52,y+29,"Click to edit",th.soft[1],th.soft[2],th.soft[3],0.78)
 
         local hovered = __ec16_in and __ec16_in(mx,my,x,y+22,x+38,y+48)
         if hovered and cl and not (__EC16 and __EC16.lastClick) then
@@ -14591,9 +14592,11 @@ Eclipze v48 Visuals tab + custom color picker
 
         V.section = __EC16.visualsSection or V.section or "Trail"
 
-        -- Cover old ESP content/sidebar because base menu does not know the Visuals tab.
-        round(L.sideX+1,L.sideY+61,L.sideX+L.sideW-1,L.sideY2-1,0.024,0.022,0.048,0.94,9)
-        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,0.96,8)
+        -- Hard cover old ESP content/sidebar so nothing shows behind Visuals.
+        rect(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.024,0.022,0.048,1.00)
+        round(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.024,0.022,0.048,1.00,9)
+        rect(L.contentX,L.contentY,L.contentX2,L.contentY2,0.030,0.025,0.070,1.00)
+        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,1.00,8)
         if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.62,1) end
 
         local sections = {"Trail","Bullet Tracers","Aura"}
@@ -14632,7 +14635,6 @@ Eclipze v48 Visuals tab + custom color picker
 
             group(c2,sy,colW,330,"Trail Color")
             color_picker(mx,my,cl,c2+18,sy+44,"Trail Color","trail")
-            text_left(c1+18,sy+145,"Fixed Size: 1.67",th.dim[1],th.dim[2],th.dim[3],0.82)
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
@@ -14962,8 +14964,10 @@ Eclipze v48 Visuals tab + custom color picker
             if __EC16 and __EC16.mainTab == "aim" and (__EC16.aimSection == "Tracers" or __EC16.aimSection == "Aura") then
                 __EC16.aimSection = "General"
             end
+            if __EC16 and __EC16.mainTab == "visuals" then
+                __EC16.visualsSection = __EC16.visualsSection or V.section or "Trail"
+            end
             old_menu(mx,my,cl,w,h)
-            pcall(draw_visuals_top_tab,mx,my,cl)
             pcall(draw_visuals_page,mx,my,cl)
         end
     end
@@ -14974,5 +14978,5 @@ Eclipze v48 Visuals tab + custom color picker
         callbacks.paint(function() pcall(draw_player_trail) end)
     end
 
-    if notify then notify("v48: Visuals tab and custom color picker loaded", "success") end
+    if notify then notify("v49: Visuals tab fixed", "success") end
 end)()
