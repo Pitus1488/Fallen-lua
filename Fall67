@@ -14180,3 +14180,352 @@ ECLIPZE v37 Silent Aim visible + clean side glow
     pcall(ec37_apply_silent)
     notify("v37: Silent Aim visible + clean glow loaded", "success")
 end)()
+--[[
+ECLIPZE v38 Menu Trail patch
+- Adds a cursor trail effect for the custom menu.
+- Trail settings are drawn in FALLEN ESP > Misc.
+- Uses only Drawing, Windows, tick and the existing menu helpers.
+]]
+;(function()
+    __EC_TRAIL = __EC_TRAIL or {}
+    local T = __EC_TRAIL
+    if T._v38_loaded then return end
+    T._v38_loaded = true
+
+    if T.enabled == nil then T.enabled = false end
+    if T.rainbow == nil then T.rainbow = false end
+    if T.length == nil then T.length = 22 end
+    if T.size == nil then T.size = 6.0 end
+    if T.life == nil then T.life = 0.55 end
+    if T.opacity == nil then T.opacity = 0.90 end
+    if T.style == nil then T.style = 1 end
+    if T.hue == nil then T.hue = 0.92 end
+    if T.rainbowSpeed == nil then T.rainbowSpeed = 1.25 end
+    T.points = T.points or {}
+
+    local function tm()
+        return (tick and tick()) or (os and os.clock and os.clock()) or 0
+    end
+
+    local function clamp(v, a, b)
+        v = tonumber(v or 0) or 0
+        if v < a then return a end
+        if v > b then return b end
+        return v
+    end
+
+    local function ix(v)
+        return math.floor((tonumber(v) or 0) + 0.5)
+    end
+
+    local function tw(s)
+        s = tostring(s or "")
+        if __ec16_text_w then
+            local ok, res = pcall(__ec16_text_w, s)
+            if ok and res then return res end
+        end
+        return #s * 6
+    end
+
+    local function hsv(h)
+        h = (tonumber(h or 0) or 0) % 1
+        if __ec16_hsv_to_rgb then
+            local ok, c = pcall(__ec16_hsv_to_rgb, h)
+            if ok and c then return c[1] or 1, c[2] or 0, c[3] or 0 end
+        end
+        local i = math.floor(h * 6)
+        local f = h * 6 - i
+        local q = 1 - f
+        i = i % 6
+        if i == 0 then return 1, f, 0 end
+        if i == 1 then return q, 1, 0 end
+        if i == 2 then return 0, 1, f end
+        if i == 3 then return 0, q, 1 end
+        if i == 4 then return f, 0, 1 end
+        return 1, 0, q
+    end
+
+    local function rect(x1, y1, x2, y2, r, g, b, a)
+        if Drawing and Drawing.DrawBoxFilled then
+            Drawing.DrawBoxFilled(ix(x1), ix(y1), ix(x2), ix(y2), r, g, b, a or 1)
+        end
+    end
+
+    local function line(x1, y1, x2, y2, r, g, b, a, th)
+        if Drawing and Drawing.DrawLine then
+            Drawing.DrawLine(ix(x1), ix(y1), ix(x2), ix(y2), r, g, b, a or 1, th or 1)
+        end
+    end
+
+    local function circle(x, y, rad, r, g, b, a)
+        if Drawing and Drawing.DrawCircleFilled then
+            Drawing.DrawCircleFilled(ix(x), ix(y), rad, r, g, b, a or 1)
+        end
+    end
+
+    local function round(x1, y1, x2, y2, r, g, b, a, rad)
+        if __ec16_draw_round_rect then
+            pcall(__ec16_draw_round_rect, x1, y1, x2, y2, r, g, b, a or 1, rad or 8)
+            return
+        end
+        rad = math.floor(math.min(rad or 8, (x2 - x1) * 0.5, (y2 - y1) * 0.5))
+        if rad < 1 then rect(x1, y1, x2, y2, r, g, b, a) return end
+        for yy = 0, rad - 1 do
+            local dy = rad - yy
+            local dx = math.floor(math.sqrt(math.max(0, rad * rad - dy * dy)) + 0.5)
+            rect(x1 + rad - dx, y1 + yy, x2 - rad + dx, y1 + yy + 1, r, g, b, a)
+            rect(x1 + rad - dx, y2 - yy - 1, x2 - rad + dx, y2 - yy, r, g, b, a)
+        end
+        rect(x1, y1 + rad, x2, y2 - rad, r, g, b, a)
+    end
+
+    local function text_left(x, y, s, r, g, b, a)
+        s = tostring(s or "")
+        if Drawing and Drawing.DrawTextWithOutline then
+            Drawing.DrawTextWithOutline(ix(x + tw(s) * 0.5), ix(y), s, r or 0.92, g or 0.90, b or 1.00, a or 1, 0, 0, 0, 0.88 * (a or 1))
+        elseif Drawing and Drawing.DrawText then
+            Drawing.DrawText(ix(x), ix(y), s, r or 0.92, g or 0.90, b or 1.00, a or 1)
+        end
+    end
+
+    local function group(x, y, w, h, title)
+        round(x - 1, y - 1, x + w + 1, y + h + 1, 1.00, 0.00, 0.55, 0.045, 8)
+        round(x, y, x + w, y + h, 0.012, 0.010, 0.022, 0.72, 8)
+        round(x + 1, y + 1, x + w - 1, y + h - 1, 0.028, 0.020, 0.050, 0.38, 7)
+        rect(x + 10, y + 24, x + w - 10, y + 26, 1.00, 0.00, 0.55, 0.64)
+        text_left(x + 12, y + 8, title, 0.95, 0.91, 1.00, 0.96)
+    end
+
+    local function hue_slider(mx, my, cl, x, y, w, label, hue)
+        hue = clamp(hue or 0.92, 0, 1)
+        text_left(x, y, label, 0.72, 0.68, 0.80, 0.90)
+        local cr, cg, cb = hsv(hue)
+        round(x, y + 22, x + 34, y + 48, cr, cg, cb, 0.96, 5)
+        local sx = x + 48
+        local sy = y + 31
+        local sw = math.max(80, w - 48)
+        local sh = 8
+        local parts = 48
+        for i = 0, parts - 1 do
+            local rr, gg, bb = hsv(i / parts)
+            local x1 = sx + sw * (i / parts)
+            local x2 = sx + sw * ((i + 1) / parts)
+            rect(x1, sy, x2 + 1, sy + sh, rr, gg, bb, 1)
+        end
+        round(sx - 1, sy - 3, sx + sw + 1, sy + sh + 3, 0, 0, 0, 0.35, 4)
+        local kx = sx + sw * hue
+        rect(kx - 2, sy - 6, kx + 2, sy + sh + 6, 1, 1, 1, 0.95)
+        if __ec16_in and __ec16_in(mx, my, sx, sy - 12, sx + sw, sy + sh + 12) and cl then
+            hue = clamp((mx - sx) / math.max(sw, 1), 0, 1)
+        end
+        return hue
+    end
+
+    local function safe_bool(mx, my, cl, x, y, label, value)
+        if __ec16_bool_check then
+            local ok, res = pcall(__ec16_bool_check, mx, my, cl, x, y, label, value == true)
+            if ok then return res == true end
+        end
+        return value == true
+    end
+
+    local function safe_float(mx, my, cl, x, y, w, label, value, minv, maxv)
+        if __ec16_float_slider then
+            local ok, res = pcall(__ec16_float_slider, mx, my, cl, x, y, w, label, value, minv, maxv)
+            if ok and res then return tonumber(res) or value end
+        end
+        return tonumber(value or minv) or minv
+    end
+
+    local function calc_menu_cols()
+        if not __EC16 then return nil end
+        local reveal = 1
+        if __ec16_sm then
+            local ok, res = pcall(__ec16_sm, __EC16.anim or 1)
+            if ok and res then reveal = res end
+        end
+        local x = __EC16.x or 95
+        local y = __EC16.y or 70
+        local ww = __EC16.w or 960
+        local hh = (__EC16.h or 640) * reveal
+        local paneX = x + 14
+        local paneY = y + 78
+        local paneX2 = x + ww - 14
+        local paneY2 = y + hh - 14
+        local sideW = 178
+        local sideX = paneX + 12
+        local sideY = paneY + 12
+        local sideY2 = paneY2 - 12
+        local contentX = sideX + sideW + 14
+        local contentY = sideY
+        local contentX2 = paneX2 - 12
+        local innerGap = 14
+        local contentW = contentX2 - contentX
+        local colW = math.floor((contentW - innerGap * 4) / 3)
+        local c1 = contentX + innerGap
+        local c2 = c1 + colW + innerGap
+        local c3 = c2 + colW + innerGap
+        local sy = contentY + 18
+        return c1, c2, c3, sy, colW
+    end
+
+    local function draw_trail_menu_controls(mx, my, cl, w, h)
+        if not (__EC16 and __EC16.phase == "menu" and __EC16.mainTab == "esp" and __EC16.espSection == "Misc") then return end
+        local c1, c2, c3, sy, colW = calc_menu_cols()
+        if not c1 then return end
+
+        group(c2, sy, colW, 430, "Menu Trail")
+        T.enabled = safe_bool(mx, my, cl, c2 + 18, sy + 42, "Menu Trail", T.enabled == true)
+        T.rainbow = safe_bool(mx, my, cl, c2 + 18, sy + 72, "Rainbow Trail", T.rainbow == true)
+        T.length = safe_float(mx, my, cl, c2 + 18, sy + 112, colW - 36, "Trail Length", T.length or 22, 6, 44)
+        T.size = safe_float(mx, my, cl, c2 + 18, sy + 170, colW - 36, "Trail Size", T.size or 6, 2, 16)
+        T.life = safe_float(mx, my, cl, c2 + 18, sy + 228, colW - 36, "Trail Life", T.life or 0.55, 0.15, 1.50)
+        T.opacity = safe_float(mx, my, cl, c2 + 18, sy + 286, colW - 36, "Trail Opacity", T.opacity or 0.90, 0.15, 1.00)
+        T.style = math.floor(safe_float(mx, my, cl, c2 + 18, sy + 344, colW - 36, "Trail Style", T.style or 1, 0, 2) + 0.5)
+        if T.style < 0 then T.style = 0 end
+        if T.style > 2 then T.style = 2 end
+        local styleName = "Smooth"
+        if T.style == 0 then styleName = "Dots" elseif T.style == 2 then styleName = "Glow" end
+        text_left(c2 + 18, sy + 398, "Style: " .. styleName, 0.70, 0.66, 0.80, 0.86)
+
+        group(c3, sy, colW, 165, "Trail Color")
+        T.hue = hue_slider(mx, my, cl, c3 + 18, sy + 42, colW - 36, "Color", T.hue or 0.92)
+        local pr, pg, pb = hsv(T.hue or 0.92)
+        local px = c3 + 18
+        local py = sy + 112
+        line(px, py + 17, px + 120, py + 17, pr, pg, pb, 0.60, 2.5)
+        for i = 1, 7 do
+            local k = i / 7
+            local rr, gg, bb = pr, pg, pb
+            if T.rainbow then rr, gg, bb = hsv((T.hue or 0.92) + k * 0.30) end
+            circle(px + k * 120, py + 17, (T.size or 6) * (0.35 + k * 0.65), rr, gg, bb, 0.13 + k * 0.14)
+        end
+        text_left(c3 + 18, sy + 143, T.enabled and "Status: ON" or "Status: OFF", T.enabled and 0.45 or 0.72, T.enabled and 1.00 or 0.68, T.enabled and 0.62 or 0.80, 0.90)
+    end
+
+    local function menu_active()
+        return __EC16 and __EC16.phase == "menu" and __EC16.open ~= false and (__EC16.anim or 1) > 0.02
+    end
+
+    local function mouse_pos()
+        if Windows and Windows.GetMousePos then
+            local ok, m = pcall(Windows.GetMousePos)
+            if ok and m then return tonumber(m.X or m[1]) or 0, tonumber(m.Y or m[2]) or 0 end
+        end
+        return nil, nil
+    end
+
+    local function draw_menu_trail()
+        if not (Drawing and Drawing.DrawCircleFilled) then return end
+        if not menu_active() then
+            T.points = {}
+            return
+        end
+        if T.enabled ~= true then
+            T.points = {}
+            return
+        end
+
+        local mx, my = mouse_pos()
+        if not mx or not my then return end
+        local now = tm()
+        local pts = T.points or {}
+        T.points = pts
+        local last = pts[#pts]
+        local add = false
+        if not last then
+            add = true
+        else
+            local dx = mx - (last.x or mx)
+            local dy = my - (last.y or my)
+            if (dx * dx + dy * dy) >= 2.25 or (now - (last.t or now)) > 0.028 then add = true end
+        end
+        if add then
+            pts[#pts + 1] = { x = mx, y = my, t = now }
+        end
+
+        local life = clamp(T.life or 0.55, 0.10, 2.00)
+        local maxCount = math.floor(clamp(T.length or 22, 4, 64) + 0.5)
+        for i = #pts, 1, -1 do
+            if (now - (pts[i].t or now)) > life then table.remove(pts, i) end
+        end
+        while #pts > maxCount do table.remove(pts, 1) end
+
+        local count = #pts
+        if count <= 0 then return end
+        local baseSize = clamp(T.size or 6, 1.0, 24.0)
+        local opacity = clamp(T.opacity or 0.90, 0.05, 1.00)
+        local style = math.floor(tonumber(T.style or 1) or 1)
+        local reveal = clamp(__EC16.anim or 1, 0, 1)
+
+        for i = 1, count do
+            local p = pts[i]
+            local age = now - (p.t or now)
+            local k = clamp(1 - age / life, 0, 1)
+            local order = i / math.max(count, 1)
+            local a = opacity * k * k * reveal
+            if a > 0.015 then
+                local hue = T.hue or 0.92
+                if T.rainbow then hue = hue + now * (T.rainbowSpeed or 1.25) * 0.18 + order * 0.36 end
+                local r, g, b = hsv(hue)
+                local rad = baseSize * (0.25 + 0.85 * k) * (0.60 + order * 0.50)
+
+                if style >= 1 and i > 1 then
+                    local q = pts[i - 1]
+                    local th = math.max(1.0, rad * 0.34)
+                    line(q.x, q.y, p.x, p.y, r, g, b, a * 0.78, th)
+                end
+
+                if style == 2 then
+                    circle(p.x, p.y, rad * 3.0, r, g, b, a * 0.035)
+                    circle(p.x, p.y, rad * 1.9, r, g, b, a * 0.060)
+                    local off = rad * 1.4
+                    circle(p.x + math.sin(now * 9 + i) * off, p.y + math.cos(now * 7 + i) * off, rad * 0.26, r, g, b, a * 0.38)
+                else
+                    circle(p.x, p.y, rad * 1.8, r, g, b, a * 0.050)
+                end
+
+                circle(p.x, p.y, rad, r, g, b, a * 0.72)
+                circle(p.x, p.y, math.max(1.4, rad * 0.36), 1.00, 0.92, 1.00, a * 0.82)
+            end
+        end
+    end
+
+    pcall(function()
+        if UIManager and UIManager.CreateSeparator and UIManager.SetElementParent then
+            UIManager.CreateSeparator("ec_menu_trail_sep")
+            UIManager.SetElementParent("ec_menu_trail_sep", TAB_ID)
+            UIManager.CreateText("ec_menu_trail_title", "Menu Trail")
+            UIManager.SetElementParent("ec_menu_trail_title", TAB_ID)
+            UIManager.CreateCheckbox("ec_menu_trail_enabled", "Menu Trail", false)
+            UIManager.SetElementParent("ec_menu_trail_enabled", TAB_ID)
+            UIManager.CreateCheckbox("ec_menu_trail_rainbow", "Rainbow Trail", false)
+            UIManager.SetElementParent("ec_menu_trail_rainbow", TAB_ID)
+            UIManager.CreateSliderInt("ec_menu_trail_length", "Trail Length", 6, 44, 22)
+            UIManager.SetElementParent("ec_menu_trail_length", TAB_ID)
+            UIManager.CreateSliderInt("ec_menu_trail_size", "Trail Size", 2, 16, 6)
+            UIManager.SetElementParent("ec_menu_trail_size", TAB_ID)
+        end
+    end)
+
+    if type(__ec16_menu) == "function" and not T._menu_wrapped then
+        local old_menu = __ec16_menu
+        T._menu_wrapped = true
+        __ec16_menu = function(mx, my, cl, w, h)
+            old_menu(mx, my, cl, w, h)
+            pcall(draw_trail_menu_controls, mx, my, cl, w, h)
+        end
+    end
+
+    if hooks and hooks.on_render then
+        hooks.on_render(function()
+            pcall(draw_menu_trail)
+        end)
+    elseif callbacks and callbacks.paint then
+        callbacks.paint(function()
+            pcall(draw_menu_trail)
+        end)
+    end
+
+    if notify then notify("v38: Menu trail added", "success") end
+end)()
