@@ -14184,19 +14184,19 @@ end)()
 
 
 --[[
-Eclipze v44 Player Trail patch
-- Gradient line trail behind local HumanoidRootPart.
-- Only Length and Size sliders.
-- No dot/stamp drawing: trail is made from many smooth line segments.
-- Fixed screen-space thickness so distance does not make it bigger.
+Eclipze v45 Player Trail patch
+- Trail is ONLY lines, no dots/stamps/circles.
+- Many thin offset lines create glow, so it does not look like separate points.
+- Only Length and Size sliders are exposed.
+- Fixed pixel thickness, so distance does not scale the trail.
 ]]
 ;(function()
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._v44_loaded then return end
-    T._v44_loaded = true
+    if T._v45_loaded then return end
+    T._v45_loaded = true
 
-    if T._defaults_version ~= 44 then
+    if T._defaults_version ~= 45 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14205,10 +14205,10 @@ Eclipze v44 Player Trail patch
         T.opacity = 0.72
         T.hue = 0.56
         T.rainbowSpeed = 0.85
-        T.smoothPower = 0.20
+        T.smoothPower = 0.18
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 44
+        T._defaults_version = 45
     end
 
     T.points = T.points or {}
@@ -14372,7 +14372,6 @@ Eclipze v44 Player Trail patch
         local x = __EC16.x or 95
         local y = __EC16.y or 70
         local ww = __EC16.w or 960
-        local hh = (__EC16.h or 640) * reveal
         local paneX = x + 14
         local paneY = y + 78
         local paneX2 = x + ww - 14
@@ -14413,14 +14412,14 @@ Eclipze v44 Player Trail patch
         T.hue = hue_slider(mx,my,cl,c3+18,sy+42,colW-36,"Color",T.hue or 0.56)
 
         local br,bg,bb = hsv(T.hue or 0.56)
-        local gr,gg,gb = lerp_color(br,bg,bb,0.72,0.95,1.00,0.45)
-        local wr,wg,wb = lerp_color(br,bg,bb,1,1,1,0.82)
+        local gr,gg,gb = lerp_color(br,bg,bb,0.70,0.92,1.00,0.50)
+        local wr,wg,wb = lerp_color(br,bg,bb,1,1,1,0.84)
         local px = c3 + 18
         local py = sy + 122
-        line(px,py,px+124,py,gr,gg,gb,0.10,13.0)
-        line(px,py,px+124,py,gr,gg,gb,0.14,8.0)
-        line(px,py,px+124,py,wr,wg,wb,0.40,3.8)
-        line(px,py,px+124,py,0.98,0.99,1.00,0.95,1.25)
+        line(px,py,px+124,py,gr,gg,gb,0.10,10.0)
+        line(px,py,px+124,py,gr,gg,gb,0.16,5.8)
+        line(px,py,px+124,py,wr,wg,wb,0.42,2.7)
+        line(px,py,px+124,py,0.98,0.99,1.00,0.95,1.15)
         text_left(c3+18,sy+143,T.enabled and "Status: ON" or "Status: OFF",T.enabled and th.good[1] or th.dim[1],T.enabled and th.good[2] or th.dim[2],T.enabled and th.good[3] or th.dim[3],0.90)
     end
 
@@ -14480,7 +14479,7 @@ Eclipze v44 Player Trail patch
             local p1 = points[i]
             local p2 = points[i+1]
             local p3 = points[math.min(#points,i+2)]
-            local steps = 24
+            local steps = 14
             for s=0,steps-1 do
                 local t = s / steps
                 out[#out+1] = {
@@ -14494,44 +14493,70 @@ Eclipze v44 Player Trail patch
         return out
     end
 
-    local function gradient_color(hue, u, k)
+    local function color_at(u,k)
         if T.rainbow then
-            return hsv(hue + now()*(T.rainbowSpeed or 0.85)*0.10 + u*0.20)
+            return hsv((T.hue or 0.56) + now()*(T.rainbowSpeed or 0.85)*0.10 + u*0.18)
         end
 
-        local br,bg,bb = hsv(hue + (u - 0.5) * 0.045)
-        local cyanR,cyanG,cyanB = lerp_color(br,bg,bb,0.70,0.95,1.00,0.50)
-        local whiteMix = 0.34 + 0.38 * k
-        return lerp_color(cyanR,cyanG,cyanB,1.00,1.00,1.00,whiteMix)
+        local br,bg,bb = hsv((T.hue or 0.56) + (u - 0.5) * 0.035)
+        local gr,gg,gb = lerp_color(br,bg,bb,0.70,0.92,1.00,0.50)
+        return lerp_color(gr,gg,gb,1.00,1.00,1.00,0.28 + 0.34*k)
     end
 
-    local function draw_gradient_line(x1,y1,x2,y2,alpha,k,u)
+    local function draw_offset_line(x1,y1,x2,y2,off,r,g,b,a,th)
+        local dx = x2 - x1
+        local dy = y2 - y1
+        local len = math.sqrt(dx*dx + dy*dy)
+        if len < 0.001 then return end
+        local nx = -dy / len
+        local ny = dx / len
+        line(x1 + nx*off, y1 + ny*off, x2 + nx*off, y2 + ny*off, r,g,b,a,th)
+    end
+
+    local function draw_gradient_segment(a,b,alpha,k,u)
         if alpha <= 0.006 then return end
 
         local size = clamp(T.size or 1.67,0.55,8.0)
-        -- Fixed pixel thickness. It does not scale by distance or by depth.
-        local core = math.max(1.0, size * 0.56)
-        local mid  = math.max(1.7, size * 1.85)
-        local glow1 = math.max(3.0, size * 4.20)
-        local glow2 = math.max(5.5, size * 7.50)
 
-        local r,g,b = gradient_color(T.hue or 0.56, u, k)
-        local gr,gg,gb = lerp_color(r,g,b,0.48,0.86,1.00,0.44)
+        -- Fixed screen-space width. Nothing here depends on distance.
+        local glowRadius = math.max(3.0, size * 4.40)
+        local innerRadius = math.max(1.2, size * 1.35)
 
-        line(x1,y1,x2,y2,gr,gg,gb,alpha*0.060,glow2)
-        line(x1,y1,x2,y2,gr,gg,gb,alpha*0.105,glow1)
-        line(x1,y1,x2,y2,r,g,b,alpha*0.330,mid)
-        line(x1,y1,x2,y2,1.00,1.00,1.00,alpha*0.920,core)
+        local r,g,bc = color_at(u,k)
+        local gr,gg,gb = lerp_color(r,g,bc,0.45,0.82,1.00,0.45)
+
+        -- Glow is many thin offset lines, not fat short pieces and not dots.
+        local glowSteps = 6
+        for o=-glowSteps,glowSteps do
+            local p = math.abs(o) / glowSteps
+            local off = o * (glowRadius / glowSteps)
+            local aa = alpha * 0.052 * (1 - p) * (1 - p)
+            if aa > 0.002 then
+                draw_offset_line(a.x,a.y,b.x,b.y,off,gr,gg,gb,aa,1.0)
+            end
+        end
+
+        -- Colored body, also offset lines.
+        local innerSteps = 3
+        for o=-innerSteps,innerSteps do
+            local p = math.abs(o) / innerSteps
+            local off = o * (innerRadius / innerSteps)
+            local aa = alpha * 0.135 * (1 - p*0.72)
+            if aa > 0.004 then
+                draw_offset_line(a.x,a.y,b.x,b.y,off,r,g,bc,aa,1.0)
+            end
+        end
+
+        -- White core.
+        line(a.x,a.y,b.x,b.y,0.98,0.99,1.00,alpha*0.78,1.0)
     end
 
     local function draw_many_lines(curve, life)
         local opacity = clamp(T.opacity or 0.72,0.05,1.00)
-        local maxLines = 1600
-        local drawn = 0
         local total = math.max(#curve - 1, 1)
+        local drawn = 0
+        local maxLines = 1400
 
-        -- Every small segment is a separate line with slightly different color.
-        -- This gives 100+ gradient lines when the trail is long enough.
         for i=2,#curve do
             local a = curve[i-1]
             local b = curve[i]
@@ -14539,12 +14564,12 @@ Eclipze v44 Player Trail patch
             local dy = b.y - a.y
             local d = math.sqrt(dx*dx + dy*dy)
 
-            if d < 120 then
+            if d < 90 then
                 local age = b.age or 0
                 local k = clamp(1 - age/life,0,1)
-                local alpha = opacity * (0.030 + k*k*0.970)
+                local alpha = opacity * (0.025 + k*k*0.975)
                 local u = i / total
-                draw_gradient_line(a.x,a.y,b.x,b.y,alpha,k,u)
+                draw_gradient_segment(a,b,alpha,k,u)
                 drawn = drawn + 1
                 if drawn >= maxLines then return end
             end
@@ -14584,7 +14609,7 @@ Eclipze v44 Player Trail patch
                 T.smoothPos = sample
             else
                 local dt = tm - (T.lastSmoothTime or tm)
-                local follow = clamp((T.smoothPower or 0.20) + dt*2.55,0.10,0.42)
+                local follow = clamp((T.smoothPower or 0.18) + dt*2.20,0.09,0.36)
                 T.smoothPos = Vector3(
                     mix(T.smoothPos.X,sample.X,follow),
                     mix(T.smoothPos.Y,sample.Y,follow),
@@ -14610,7 +14635,7 @@ Eclipze v44 Player Trail patch
             local dy = sample.Y - lp.Y
             local dz = sample.Z - lp.Z
             local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
-            if dist >= 0.020 or (tm - (last.t or tm)) >= 0.005 then add = true end
+            if dist >= 0.035 or (tm - (last.t or tm)) >= 0.008 then add = true end
         end
 
         if add then
@@ -14658,5 +14683,5 @@ Eclipze v44 Player Trail patch
         callbacks.paint(function() pcall(draw_player_trail) end)
     end
 
-    if notify then notify("v44: gradient line player trail loaded", "success") end
+    if notify then notify("v45: offset gradient line trail loaded", "success") end
 end)()
