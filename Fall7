@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V75_PATCH()
+function __EC_V76_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v75_loaded then return end
-    V._v75_loaded = true
+    if V._v76_loaded then return end
+    V._v76_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 75 then
+    if T._defaults_version ~= 76 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V75_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 75
+        T._defaults_version = 76
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -14487,6 +14487,7 @@ function __EC_V75_PATCH()
         elseif id == "squares" then
             local c = (V.squares and V.squares.color) or {0.92,0.70,1.00,1}
             return c[1] or 0.92,c[2] or 0.70,c[3] or 1.00
+        end
 
         return 1,1,1
     end
@@ -14525,6 +14526,7 @@ function __EC_V75_PATCH()
             V.squares = V.squares or {}
             V.squares.color = {r,g,b,1}
             V.squares.hue = h or V.squares.hue or 0.78
+        end
 
         if __ec16_apply_colors then pcall(__ec16_apply_colors) end
     end
@@ -15608,6 +15610,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_third_person) end)
     end
 
-    if notify and not __EC_V75_NOTIFIED then __EC_V75_NOTIFIED = true; notify("Eclipze v75 loaded", "success") end
+    if notify and not __EC_V76_NOTIFIED then __EC_V76_NOTIFIED = true; notify("Eclipze v76 loaded", "success") end
 end
-__EC_V75_PATCH()
+__EC_V76_PATCH()
