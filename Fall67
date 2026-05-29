@@ -14196,8 +14196,8 @@ Eclipze v49 Visuals tab + custom color picker
 ;(function()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v49_loaded then return end
-    V._v49_loaded = true
+    if V._v50_loaded then return end
+    V._v50_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
@@ -14205,7 +14205,7 @@ Eclipze v49 Visuals tab + custom color picker
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
-        T.size = 1.67
+        T.size = 2.40
         T.life = 0.29
         T.opacity = 0.72
         T.hue = 0.56
@@ -14216,7 +14216,7 @@ Eclipze v49 Visuals tab + custom color picker
         T.smoothPos = nil
         T._defaults_version = 48
     end
-    T.size = 1.67
+    T.size = 2.40
     T.points = T.points or {}
 
     if V.section == nil then V.section = "Trail" end
@@ -14407,6 +14407,15 @@ Eclipze v49 Visuals tab + custom color picker
         elseif id == "aura_bottom" then
             local c = __EC16.selfAuraBottomColor or {1.00,0.45,0.75,1}
             return c[1] or 1.00, c[2] or 0.45, c[3] or 0.75
+        elseif id == "fov" then
+            local c = __EC16.fovColor or {1.00,0.00,0.55,1}
+            return c[1] or 1.00, c[2] or 0.00, c[3] or 0.55
+        elseif id == "armor_border" then
+            local c = __EC16.armorBorderColor or __EC16.armorColor or {1.00,0.00,0.55,1}
+            return c[1] or 1.00, c[2] or 0.00, c[3] or 0.55
+        elseif id == "armor_glow" then
+            local c = __EC16.armorGlowColor or {1.00,0.00,0.55,1}
+            return c[1] or 1.00, c[2] or 0.00, c[3] or 0.55
         end
         return 1,1,1
     end
@@ -14428,18 +14437,30 @@ Eclipze v49 Visuals tab + custom color picker
         elseif id == "aura_bottom" then
             __EC16.selfAuraBottomColor = {r,g,b,1}
             __EC16.selfAuraBottomHue = h or __EC16.selfAuraBottomHue or 0.92
+        elseif id == "fov" then
+            __EC16.fovColor = {r,g,b,1}
+            __EC16.fovHue = h or __EC16.fovHue or 0.92
+        elseif id == "armor_border" then
+            __EC16.armorBorderColor = {r,g,b,1}
+            __EC16.armorColor = {r,g,b,1}
+            __EC16.armorBorderHue = h or __EC16.armorBorderHue or 0.92
+        elseif id == "armor_glow" then
+            __EC16.armorGlowColor = {r,g,b,1}
+            __EC16.armorGlowHue = h or __EC16.armorGlowHue or 0.92
         end
+        if __ec16_apply_colors then pcall(__ec16_apply_colors) end
     end
 
-    local function color_picker(mx,my,cl,x,y,label,id)
-        local th = theme()
+    local function color_button(mx,my,cl,x,y,id)
+        V.picker.buttons = V.picker.buttons or {}
         local r,g,b = get_target_color(id)
-        text_left(x,y,label,th.dim[1],th.dim[2],th.dim[3],0.95)
-        round(x,y+22,x+38,y+48,r,g,b,0.96,5)
-        round(x-1,y+21,x+39,y+49,1,1,1,0.09,6)
+        local size = 20
+        local hov = __ec16_in and __ec16_in(mx,my,x,y,x+size,y+size)
+        round(x-1,y-1,x+size+1,y+size+1,1,1,1,hov and 0.18 or 0.08,5)
+        round(x,y,x+size,y+size,r,g,b,0.98,4)
+        V.picker.buttons[#V.picker.buttons + 1] = {id=id,x=x,y=y,w=size,h=size}
 
-        local hovered = __ec16_in and __ec16_in(mx,my,x,y+22,x+38,y+48)
-        if hovered and cl and not (__EC16 and __EC16.lastClick) then
+        if hov and cl and not (__EC16 and __EC16.lastClick) then
             if V.picker.open == id then
                 V.picker.open = nil
             else
@@ -14449,26 +14470,61 @@ Eclipze v49 Visuals tab + custom color picker
                 V.picker.data[id].h = h
                 V.picker.data[id].s = s
                 V.picker.data[id].v = v
+                V.picker.x = x
+                V.picker.y = y + size + 8
             end
         end
+    end
 
-        if V.picker.open ~= id then return 56 end
+    local function picker_button_under_mouse(mx,my)
+        local buttons = V.picker.buttons or {}
+        for i=1,#buttons do
+            local b = buttons[i]
+            if __ec16_in and __ec16_in(mx,my,b.x,b.y,b.x+b.w,b.y+b.h) then
+                return true, b.id
+            end
+        end
+        return false, nil
+    end
 
+    local function draw_color_picker_overlay(mx,my,cl)
+        if not (V.picker and V.picker.open) then return end
+        local id = V.picker.open
+        local r,g,b = get_target_color(id)
         local data = V.picker.data[id]
         if not data then
-            local h,s,vv = rgb_to_hsv(r,g,b)
-            data = {h=h,s=s,v=vv}
+            local h,s,v = rgb_to_hsv(r,g,b)
+            data = {h=h,s=s,v=v}
             V.picker.data[id] = data
         end
 
-        local px = x
-        local py = y + 58
-        local sq = 150
+        local L = layout and layout() or nil
+        local sq = 170
         local hueH = 12
-        round(px-5,py-5,px+sq+5,py+sq+hueH+24,0.015,0.014,0.034,0.98,8)
-        round(px-4,py-4,px+sq+4,py+sq+hueH+23,0.090,0.060,0.175,0.58,8)
+        local totalW = sq + 12
+        local totalH = sq + hueH + 34
+        local px = V.picker.x or ((__EC16 and __EC16.x or 95) + 320)
+        local py = V.picker.y or ((__EC16 and __EC16.y or 70) + 160)
 
-        local cells = 30
+        if L then
+            if px + totalW > L.x2 - 18 then px = L.x2 - totalW - 18 end
+            if py + totalH > L.y2 - 18 then py = L.y2 - totalH - 18 end
+            if px < L.x + 18 then px = L.x + 18 end
+            if py < L.y + 46 then py = L.y + 46 end
+        end
+
+        local inBox = __ec16_in and __ec16_in(mx,my,px-6,py-6,px+totalW+6,py+totalH+6)
+        local inButton = picker_button_under_mouse(mx,my)
+
+        if cl and not (__EC16 and __EC16.lastClick) and (not inBox) and (not inButton) then
+            V.picker.open = nil
+            return
+        end
+
+        round(px-6,py-6,px+totalW+6,py+totalH+6,0.010,0.010,0.025,0.98,8)
+        round(px-5,py-5,px+totalW+5,py+totalH+5,0.080,0.055,0.155,0.86,8)
+
+        local cells = 34
         for iy=0,cells-1 do
             local vv = 1 - (iy / (cells-1))
             for ix=0,cells-1 do
@@ -14481,37 +14537,36 @@ Eclipze v49 Visuals tab + custom color picker
                 rect(x1,y1,x2,y2,rr,gg,bb,1)
             end
         end
-        round(px-1,py-1,px+sq+1,py+sq+1,0,0,0,0.30,3)
 
+        round(px-1,py-1,px+sq+1,py+sq+1,0,0,0,0.35,3)
         local cx = px + data.s * sq
         local cy = py + (1 - data.v) * sq
-        circle(cx,cy,5,0,0,0,0.62)
-        circle(cx,cy,3,1,1,1,0.95)
+        circle(cx,cy,5,0,0,0,0.68)
+        circle(cx,cy,3,1,1,1,0.96)
 
-        local hy = py + sq + 12
-        local hParts = 54
+        local hy = py + sq + 14
+        local hParts = 60
         for i=0,hParts-1 do
             local rr,gg,bb = hsv_to_rgb(i / hParts, 1, 1)
             local x1 = px + (i / hParts) * sq
             local x2 = px + ((i+1) / hParts) * sq + 1
             rect(x1,hy,x2,hy+hueH,rr,gg,bb,1)
         end
-        round(px-1,hy-1,px+sq+1,hy+hueH+1,0,0,0,0.30,3)
+        round(px-1,hy-1,px+sq+1,hy+hueH+1,0,0,0,0.35,3)
         local hx = px + data.h * sq
-        rect(hx-2,hy-4,hx+2,hy+hueH+4,1,1,1,0.95)
+        rect(hx-2,hy-4,hx+2,hy+hueH+4,1,1,1,0.96)
 
         if cl then
             if __ec16_in and __ec16_in(mx,my,px,py,px+sq,py+sq) then
                 data.s = clamp((mx - px) / sq,0,1)
                 data.v = clamp(1 - ((my - py) / sq),0,1)
-            elseif __ec16_in and __ec16_in(mx,my,px,hy-6,px+sq,hy+hueH+6) then
+            elseif __ec16_in and __ec16_in(mx,my,px,hy-7,px+sq,hy+hueH+7) then
                 data.h = clamp((mx - px) / sq,0,1)
             end
         end
 
         local nr,ng,nb = hsv_to_rgb(data.h,data.s,data.v)
         apply_target_color(id,nr,ng,nb,data.h)
-        return sq + hueH + 90
     end
 
     local function layout()
@@ -14599,7 +14654,7 @@ Eclipze v49 Visuals tab + custom color picker
         round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,1.00,8)
         if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.62,1) end
 
-        local sections = {"Trail","Bullet Tracers","Aura"}
+        local sections = {"Trail","Bullet Tracers","Aura","FOV","Armor"}
         local secY = L.sideY + 74
         for _,name in ipairs(sections) do
             local ix1 = L.sideX + 10
@@ -14630,51 +14685,81 @@ Eclipze v49 Visuals tab + custom color picker
         if V.section == "Trail" then
             group(c1,sy,colW,174,"Player Trail")
             T.enabled = safe_bool(mx,my,cl,c1+18,sy+42,"Player Trail",T.enabled == true)
+            color_button(mx,my,cl,c1+colW-42,sy+42,"trail")
             T.rainbow = safe_bool(mx,my,cl,c1+18,sy+72,"Rainbow Trail",T.rainbow == true)
             T.length = safe_float(mx,my,cl,c1+18,sy+112,colW-36,"Trail Length",T.length or 46,8,220)
-
-            group(c2,sy,colW,330,"Trail Color")
-            color_picker(mx,my,cl,c2+18,sy+44,"Trail Color","trail")
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
             group(c1,sy,colW,485,"Bullet Tracers")
             EC_BT.enabled = safe_bool(mx,my,cl,c1+18,sy+42,"Bullet Tracers",EC_BT.enabled == true)
+            color_button(mx,my,cl,c1+colW-42,sy+42,"tracer")
             EC_BT.instant = safe_bool(mx,my,cl,c1+18,sy+72,"Instant Tracer",EC_BT.instant ~= false)
             EC_BT.alpha = safe_float(mx,my,cl,c1+18,sy+112,colW-36,"Tracer Opacity",EC_BT.alpha or 1.0,0.05,1.0)
             EC_BT.life = safe_float(mx,my,cl,c1+18,sy+172,colW-36,"Tracer Life",EC_BT.life or 4.0,0.10,8.0)
             EC_BT.revealTime = safe_float(mx,my,cl,c1+18,sy+232,colW-36,"Reveal Time",EC_BT.revealTime or 0.55,0.05,2.50)
             EC_BT.maxDist = safe_float(mx,my,cl,c1+18,sy+292,colW-36,"Tracer/HitFX Max Dist",EC_BT.maxDist or 1000,100,3000)
 
-            group(c2,sy,colW,520,"Colors")
-            local used1 = color_picker(mx,my,cl,c2+18,sy+44,"Tracer Color","tracer")
-            local y2 = sy + 44 + used1 + 10
-            color_picker(mx,my,cl,c2+18,y2,"Hit Effect Color","hitfx")
+            group(c2,sy,colW,230,"Hit Effects")
+            EC_BT.hitfx = safe_bool(mx,my,cl,c2+18,sy+42,"Hit Effects",EC_BT.hitfx == true)
+            color_button(mx,my,cl,c2+colW-42,sy+42,"hitfx")
+            EC_BT.hitSize = safe_float(mx,my,cl,c2+18,sy+86,colW-36,"Hit Effect Size",EC_BT.hitSize or 38,18,96)
 
-            group(c3,sy,colW,390,"Hit / Style")
+            group(c3,sy,colW,390,"Style")
             if __ec16_tracer_style_dropdown then
                 pcall(__ec16_tracer_style_dropdown,mx,my,cl,c3+18,sy+42,colW-36)
             end
-            EC_BT.hitfx = safe_bool(mx,my,cl,c3+18,sy+116,"Hit Effects",EC_BT.hitfx == true)
-            EC_BT.hitSize = safe_float(mx,my,cl,c3+18,sy+156,colW-36,"Hit Effect Size",EC_BT.hitSize or 38,18,96)
             if __ec16_hitfx_style_dropdown then
-                pcall(__ec16_hitfx_style_dropdown,mx,my,cl,c3+18,sy+226,colW-36)
+                pcall(__ec16_hitfx_style_dropdown,mx,my,cl,c3+18,sy+160,colW-36)
             end
 
         elseif V.section == "Aura" then
             if __EC16.selfAura == nil then __EC16.selfAura = false end
             if __EC16.selfAuraStyle == nil then __EC16.selfAuraStyle = 0 end
 
-            group(c1,sy,colW,180,"Self Aura")
+            group(c1,sy,colW,230,"Self Aura")
             __EC16.selfAura = safe_bool(mx,my,cl,c1+18,sy+42,"Self Aura",__EC16.selfAura == true)
+            color_button(mx,my,cl,c1+colW-42,sy+42,"aura_top")
+            text_left(c1+18,sy+78,"Aura Lower",th.dim[1],th.dim[2],th.dim[3],0.88)
+            color_button(mx,my,cl,c1+colW-42,sy+74,"aura_bottom")
             if __ec16_aura_style_dropdown then
-                pcall(__ec16_aura_style_dropdown,mx,my,cl,c1+18,sy+88,colW-36)
+                pcall(__ec16_aura_style_dropdown,mx,my,cl,c1+18,sy+120,colW-36)
             end
 
-            group(c2,sy,colW,520,"Aura Colors")
-            local used1 = color_picker(mx,my,cl,c2+18,sy+44,"Aura Upper Color","aura_top")
-            local y2 = sy + 44 + used1 + 10
-            color_picker(mx,my,cl,c2+18,y2,"Aura Lower Color","aura_bottom")
+        elseif V.section == "FOV" then
+            group(c1,sy,colW,360,"FOV")
+            if __ec16_check then __ec16_check(mx,my,cl,c1+18,sy+42,"FOV Enabled","ap_fov_show_main") end
+            color_button(mx,my,cl,c1+colW-42,sy+42,"fov")
+            __EC16.rainbowFov = safe_bool(mx,my,cl,c1+18,sy+72,"Rainbow FOV",__EC16.rainbowFov)
+            if __ec16_slider then
+                __ec16_slider(mx,my,cl,c1+18,sy+112,colW-36,"FOV Size","ap_fov_main",50,600)
+                __ec16_slider(mx,my,cl,c1+18,sy+170,colW-36,"FOV Transparency","ap_fov_alpha_main",0,100)
+            end
+            if __ec16_fov_style_dropdown then
+                pcall(__ec16_fov_style_dropdown,mx,my,cl,c1+18,sy+230,colW-36)
+            end
+
+        elseif V.section == "Armor" then
+            group(c1,sy,colW,250,"Armor ESP")
+            if __ec16_check then
+                __ec16_check(mx,my,cl,c1+18,sy+42,"Enabled","armoriso_target_enabled")
+                __ec16_check(mx,my,cl,c1+18,sy+72,"Show Weapon Slot","armoriso_show_weapon")
+                __ec16_check(mx,my,cl,c1+18,sy+102,"Rainbow Border","armoriso_rainbow_border")
+            end
+            __EC16.armorEspPlayers = safe_bool(mx,my,cl,c1+18,sy+132,"Armor ESP on Players",__EC16.armorEspPlayers)
+            color_button(mx,my,cl,c1+colW-42,sy+42,"armor_border")
+            text_left(c1+18,sy+168,"Armor Glow",th.dim[1],th.dim[2],th.dim[3],0.88)
+            color_button(mx,my,cl,c1+colW-42,sy+164,"armor_glow")
+
+            group(c2,sy,colW,392,"Settings")
+            if __ec16_slider then
+                __ec16_slider(mx,my,cl,c2+18,sy+42,colW-36,"Size","armoriso_target_size",20,96)
+                __ec16_slider(mx,my,cl,c2+18,sy+99,colW-36,"Max Distance","armoriso_max_distance",50,3000)
+                __ec16_slider(mx,my,cl,c2+18,sy+156,colW-36,"Glow Power","armoriso_glow_power",0,100)
+            end
+            __EC16.armorEspSize = safe_float(mx,my,cl,c2+18,sy+213,colW-36,"Armor ESP Size",__EC16.armorEspSize or 18,10,32)
+            __EC16.armorEspMaxDist = safe_float(mx,my,cl,c2+18,sy+270,colW-36,"Armor ESP Range",__EC16.armorEspMaxDist or 1200,100,3000)
+            __EC16.armorEspSmooth = safe_float(mx,my,cl,c2+18,sy+327,colW-36,"Armor ESP Smooth",__EC16.armorEspSmooth or 18,0,50)
         end
     end
 
@@ -14761,18 +14846,19 @@ Eclipze v49 Visuals tab + custom color picker
 
     local function draw_trail_segment(a,b,alpha,k,u)
         if alpha <= 0.006 then return end
-        local size = 1.67
-        local core = 1.0
-        local mid = size * 1.55
-        local glow1 = size * 3.35
-        local glow2 = size * 5.80
+        local size = 2.40
+        local core = 1.35
+        local mid = size * 1.80
+        local glow1 = size * 4.40
+        local glow2 = size * 7.60
         local r,g,bc = trail_color(u,k)
         local gr,gg,gb = lerp_color(r,g,bc,0.45,0.82,1.00,0.45)
 
-        line(a.x,a.y,b.x,b.y,gr,gg,gb,alpha*0.060,glow2)
-        line(a.x,a.y,b.x,b.y,gr,gg,gb,alpha*0.105,glow1)
-        line(a.x,a.y,b.x,b.y,r,g,bc,alpha*0.330,mid)
-        line(a.x,a.y,b.x,b.y,0.98,0.99,1.00,alpha*0.900,core)
+        line(a.x,a.y,b.x,b.y,gr,gg,gb,alpha*0.070,glow2)
+        line(a.x,a.y,b.x,b.y,gr,gg,gb,alpha*0.120,glow1)
+        line(a.x,a.y,b.x,b.y,1.00,1.00,1.00,alpha*0.180,size*3.10)
+        line(a.x,a.y,b.x,b.y,r,g,bc,alpha*0.350,mid)
+        line(a.x,a.y,b.x,b.y,0.98,0.99,1.00,alpha*1.000,core)
     end
 
     local function draw_trail_lines(curve, life, len)
@@ -14969,6 +15055,7 @@ Eclipze v49 Visuals tab + custom color picker
             end
             old_menu(mx,my,cl,w,h)
             pcall(draw_visuals_page,mx,my,cl)
+            pcall(draw_color_picker_overlay,mx,my,cl)
         end
     end
 
@@ -14978,5 +15065,5 @@ Eclipze v49 Visuals tab + custom color picker
         callbacks.paint(function() pcall(draw_player_trail) end)
     end
 
-    if notify then notify("v49: Visuals tab fixed", "success") end
+    if notify then notify("v50: Visuals picker fixed", "success") end
 end)()
