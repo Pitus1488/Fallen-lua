@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V78_PATCH()
+function __EC_V79_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v78_loaded then return end
-    V._v78_loaded = true
+    if V._v79_loaded then return end
+    V._v79_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 78 then
+    if T._defaults_version ~= 79 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V78_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 78
+        T._defaults_version = 79
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -14238,15 +14238,15 @@ function __EC_V78_PATCH()
         distance = 12.0,
         height = 2.4,
         side = 0.0,
-        smooth = 0.45,
+        smooth = 0.00,
         saved = false,
         camPos = nil
     }
     if V.thirdPerson._version ~= 78 then
         V.thirdPerson._version = 78
         V.thirdPerson.camPos = nil
-        if V.thirdPerson.smooth == nil or V.thirdPerson.smooth < 0.25 then
-            V.thirdPerson.smooth = 0.45
+        if V.thirdPerson.smooth == nil then
+            V.thirdPerson.smooth = 0.00
         end
     end
 
@@ -15406,7 +15406,7 @@ local function picker_blocks_base(mx,my,cl)
     end
 
 
-    local function ec_v78_lerp_vec(a,b,t)
+    local function ec_v79_lerp_vec(a,b,t)
         if not a then return b end
         if not b then return a end
         t = clamp(t or 1,0,1)
@@ -15417,7 +15417,7 @@ local function picker_blocks_base(mx,my,cl)
         )
     end
 
-    local function ec_v78_norm3(x,y,z, fallback)
+    local function ec_v79_norm3(x,y,z, fallback)
         x = tonumber(x or 0) or 0
         y = tonumber(y or 0) or 0
         z = tonumber(z or 0) or 0
@@ -15426,7 +15426,7 @@ local function picker_blocks_base(mx,my,cl)
         return Vector3(x/m,y/m,z/m)
     end
 
-    local function ec_v78_get_cam_rot()
+    local function ec_v79_get_cam_rot()
         local rot = nil
         pcall(function()
             if aim and aim.get_camera_rotation then
@@ -15436,40 +15436,29 @@ local function picker_blocks_base(mx,my,cl)
         return rot
     end
 
-    local function ec_v78_get_yaw_vectors()
-        local rot = ec_v78_get_cam_rot()
+    local function ec_v79_get_yaw_vectors()
+        local rot = ec_v79_get_cam_rot()
         if rot then
-            -- camera forward from rotation, but yaw-only.
-            -- Using pitch direction caused vertical feedback/jitter while moving mouse.
             local fx = -(tonumber(rot[7] or 0) or 0)
             local fz = -(tonumber(rot[9] or 1) or 1)
-            local forward = ec_v78_norm3(fx,0,fz,Vector3(0,0,-1))
-            local right = ec_v78_norm3(forward.Z,0,-forward.X,Vector3(1,0,0))
+            local forward = ec_v79_norm3(fx,0,fz,Vector3(0,0,-1))
+            local right = ec_v79_norm3(forward.Z,0,-forward.X,Vector3(1,0,0))
             return right, forward
         end
         return Vector3(1,0,0), Vector3(0,0,-1)
     end
 
-    local function ec_v78_get_root_pos()
-        -- Use HRP/root only. Head position bobs with animations and caused shaking.
+    local function ec_v79_get_root_pos()
         local pos = get_hrp_pos()
         if not pos then return nil end
         return Vector3(tonumber(pos.X or pos[1]) or 0, tonumber(pos.Y or pos[2]) or 0, tonumber(pos.Z or pos[3]) or 0)
     end
 
-    local function ec_v78_set_camera_pos(pos)
+    local function ec_v79_write_camera_pos(pos)
+        -- Only one camera writer. Double-writing through rbx.camera caused visible shaking on some builds.
         pcall(function()
             if aim and aim.set_camera_position then
                 aim.set_camera_position(pos)
-            end
-        end)
-        -- Some builds expose camera object too; use it if present, silently.
-        pcall(function()
-            if rbx and rbx.camera then
-                local cam = rbx.camera()
-                if cam and cam.set_camera_pos then
-                    cam:set_camera_pos(pos)
-                end
             end
         end)
     end
@@ -15478,35 +15467,40 @@ local function picker_blocks_base(mx,my,cl)
         if not (V.thirdPerson and V.thirdPerson.enabled == true) then
             if V.thirdPerson then
                 V.thirdPerson.camPos = nil
+                V.thirdPerson.targetPos = nil
                 V.thirdPerson.lastEnabled = false
             end
             return
         end
 
-        -- Do not touch camera rotation. Mouse stays free.
         if not (aim and aim.set_camera_position and aim.get_camera_rotation) then return end
 
-        local root = ec_v78_get_root_pos()
+        local root = ec_v79_get_root_pos()
         if not root then return end
 
         if V.thirdPerson.lastEnabled ~= true then
             V.thirdPerson.camPos = nil
+            V.thirdPerson.targetPos = nil
             V.thirdPerson.lastEnabled = true
         end
 
         local dist = clamp(V.thirdPerson.distance or 12.0,4.0,35.0)
         local height = clamp(V.thirdPerson.height or 2.4,0.0,10.0)
         local side = clamp(V.thirdPerson.side or 0.0,-12.0,12.0)
-        local smooth = clamp(V.thirdPerson.smooth or 0.45,0.0,0.95)
+        local smooth = clamp(V.thirdPerson.smooth or 0.00,0.0,0.95)
 
-        local right, forward = ec_v78_get_yaw_vectors()
+        local right, forward = ec_v79_get_yaw_vectors()
 
-        local base = root + Vector3(0,height,0)
-        local desired = base - (forward * dist) + (right * side)
+        -- Tiny root smoothing only. This removes HRP micro-jitter without making camera feel delayed.
+        local targetFollow = 0.55
+        V.thirdPerson.targetPos = ec_v79_lerp_vec(V.thirdPerson.targetPos, root, targetFollow)
+        local stableRoot = V.thirdPerson.targetPos or root
 
-        -- Smooth is now actually smoothing. Higher value = calmer camera.
+        local desired = (stableRoot + Vector3(0,height,0)) - (forward * dist) + (right * side)
+
+        -- Default Smooth=0 means no lag. Increasing slider makes it calmer if needed.
         local follow = 1.0 - smooth
-        if follow < 0.035 then follow = 0.035 end
+        if follow < 0.05 then follow = 0.05 end
         if follow > 1.0 then follow = 1.0 end
 
         if V.thirdPerson.camPos then
@@ -15514,14 +15508,15 @@ local function picker_blocks_base(mx,my,cl)
             local dy = desired.Y - V.thirdPerson.camPos.Y
             local dz = desired.Z - V.thirdPerson.camPos.Z
             local d = math.sqrt(dx*dx + dy*dy + dz*dz)
-            if d > 45 then
+            if d > 30 then
                 V.thirdPerson.camPos = desired
             end
         end
 
-        local camPos = ec_v78_lerp_vec(V.thirdPerson.camPos, desired, follow)
+        local camPos = ec_v79_lerp_vec(V.thirdPerson.camPos, desired, follow)
         V.thirdPerson.camPos = camPos
-        ec_v78_set_camera_pos(camPos)
+
+        ec_v79_write_camera_pos(camPos)
     end
 
     -- Safe aura cache only. Original aura styles are NOT replaced.
@@ -15643,10 +15638,11 @@ local function picker_blocks_base(mx,my,cl)
 
     if hooks and hooks.on_render then
         hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_third_person) end)
-    elseif callbacks and callbacks.paint then
-        callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_third_person) end)
+    end
+    if callbacks and callbacks.paint then
+        callbacks.paint(function() pcall(draw_third_person) end)
     end
 
-    if notify and not __EC_V78_NOTIFIED then __EC_V78_NOTIFIED = true; notify("Eclipze v78 loaded", "success") end
+    if notify and not __EC_V79_NOTIFIED then __EC_V79_NOTIFIED = true; notify("Eclipze v79 loaded", "success") end
 end
-__EC_V78_PATCH()
+__EC_V79_PATCH()
