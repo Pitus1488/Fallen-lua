@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V97_PATCH()
+function __EC_V98_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v97_loaded then return end
-    V._v97_loaded = true
+    if V._v98_loaded then return end
+    V._v98_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 97 then
+    if T._defaults_version ~= 98 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V97_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 97
+        T._defaults_version = 98
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -16008,9 +16008,9 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
     end
 
-    if notify and not __EC_V97_NOTIFIED then __EC_V97_NOTIFIED = true; notify("Eclipze v97 loaded", "success") end
+    if notify and not __EC_V98_NOTIFIED then __EC_V98_NOTIFIED = true; notify("Eclipze v98 loaded", "success") end
 end
-__EC_V97_PATCH()
+__EC_V98_PATCH()
 
 
 -- // ===== CLEAN ORCHID MENU v95 - OLD MENU OVERRIDDEN =====
@@ -16765,3 +16765,168 @@ function __ec16_menu(mx,my,cl,w,h)
     return ORCHID95.draw_menu(mx,my,cl,w,h)
 end
 -- // ===== END v97 GIANT SKIBIDI TRIGGER PATCH =====
+
+
+-- // ===== v98 RAT INTRO SAFE CHAOS PATCH =====
+__EC16 = __EC16 or {}
+__EC16.ratIntroUntil = nil
+__EC16.ratIntroStarted = __EC16.ratIntroStarted or false
+__EC16.ratParticles = __EC16.ratParticles or {}
+
+function ORCHID95.rat_start()
+    if __EC16.ratIntroStarted == true then return end
+    __EC16.ratIntroStarted = true
+    __EC16.ratIntroUntil = ORCHID95.tm() + 5.25
+    __EC16.ratParticles = {}
+    for i=1,90 do
+        __EC16.ratParticles[i] = {
+            x = math.random(0, 1400),
+            y = math.random(0, 900),
+            vx = (math.random()*2-1)*2.8,
+            vy = (math.random()*2-1)*2.8,
+            s = 3 + math.random()*9,
+            a = 0.35 + math.random()*0.45,
+            ph = math.random()*6.28
+        }
+    end
+end
+
+function ORCHID95.draw_gyroscooter(cx,cy,s,a)
+    a = a or 1
+    local t = ORCHID95.tm()
+    local lean = math.sin(t*5.2)*s*0.12
+
+    ORCHID95.cfill(cx-s*1.15,cy+s*0.30,s*0.28,0.05,0.04,0.07,0.95*a)
+    ORCHID95.cout(cx-s*1.15,cy+s*0.30,s*0.28,1,0.04,0.58,0.55*a,2)
+    ORCHID95.cfill(cx+s*1.15,cy+s*0.30,s*0.28,0.05,0.04,0.07,0.95*a)
+    ORCHID95.cout(cx+s*1.15,cy+s*0.30,s*0.28,1,0.04,0.58,0.55*a,2)
+
+    ORCHID95.box(cx-s*1.25,cy+s*0.05,cx+s*1.25,cy+s*0.22,0.72,0.08,0.46,0.90*a)
+    ORCHID95.out(cx-s*1.25,cy+s*0.05,cx+s*1.25,cy+s*0.22,1,0.75,1,0.30*a,1)
+    ORCHID95.line(cx,cy+s*0.08,cx+lean,cy-s*1.25,0.90,0.78,1.0,0.85*a,2)
+    ORCHID95.box(cx+lean-s*0.38,cy-s*1.35,cx+lean+s*0.38,cy-s*1.20,0.90,0.78,1.0,0.82*a)
+end
+
+function ORCHID95.draw_rat_intro(sw,sh)
+    ORCHID95.rat_start()
+    local untilT = __EC16.ratIntroUntil or 0
+    local now = ORCHID95.tm()
+    if now > untilT then return end
+
+    local left = untilT - now
+    local alpha = ORCHID95.clamp(left / 5.25,0,1)
+    local pulse = (math.sin(now*11.0)+1)*0.5
+    local cx = sw*0.5
+    local cy = sh*0.50
+
+    -- bounded "chaos", not destructive object spam
+    ORCHID95.cfill(cx,cy,260+pulse*55,1.00,0.00,0.35,0.045*alpha)
+    ORCHID95.cfill(cx,cy,160+pulse*35,0.70,0.00,1.00,0.060*alpha)
+
+    for i,p in ipairs(__EC16.ratParticles or {}) do
+        p.x = p.x + p.vx
+        p.y = p.y + p.vy
+        if p.x < -30 then p.x = sw+30 end
+        if p.x > sw+30 then p.x = -30 end
+        if p.y < -30 then p.y = sh+30 end
+        if p.y > sh+30 then p.y = -30 end
+
+        local q = (math.sin(now*7 + p.ph)+1)*0.5
+        ORCHID95.cube(p.x,p.y,p.s*(0.75+q*0.45),1.0,0.05,0.55,(p.a or 0.5)*alpha)
+    end
+
+    -- huge fake RAT text
+    ORCHID95.center(cx-420,cx+420,cy-160,"RAT ACTIVATED",1.00,0.04,0.18,0.98*alpha)
+    ORCHID95.center(cx-420,cx+420,cy-122,"SAFE VISUAL CHAOS MODE",1.00,0.80,1.00,0.72*alpha)
+
+    -- controlled dramatic skeleton + gyroscooter
+    ORCHID95.skibidi_cube_skeleton(cx,cy+70,35+pulse*7,0.96*alpha)
+    ORCHID95.draw_gyroscooter(cx,cy+230,34,0.95*alpha)
+
+    ORCHID95.bass_bars(cx,cy+310,520,150,alpha)
+end
+
+-- redraw menu with RAT intro overlay active right after inject
+function ORCHID95.draw_menu(mx,my,cl,w,h)
+    local sw,sh = w or 1280,h or 720
+    local ww,hh = 748,448
+
+    -- RAT ACTIVATED intro can show even before menu is opened.
+    ORCHID95.draw_rat_intro(sw,sh)
+
+    if not (__EC16 and __EC16.open) then ORCHID95.last = cl == true return end
+    __EC16.mainTab = __EC16.mainTab or "aimbot"
+
+    if not ORCHID95.x then
+        ORCHID95.x = math.floor((sw-ww)/2)
+        ORCHID95.y = math.floor((sh-hh)/2)
+    end
+
+    if ORCHID95.inr(mx,my,ORCHID95.x,ORCHID95.y,ORCHID95.x+ww,ORCHID95.y+28) and cl and not ORCHID95.last then
+        ORCHID95.drag = true
+        ORCHID95.dx = mx-ORCHID95.x
+        ORCHID95.dy = my-ORCHID95.y
+    end
+    if not cl then ORCHID95.drag = false end
+    if ORCHID95.drag then
+        ORCHID95.x = mx - (ORCHID95.dx or 0)
+        ORCHID95.y = my - (ORCHID95.dy or 0)
+    end
+
+    local x,y = ORCHID95.x, ORCHID95.y
+    local nav = 140
+
+    ORCHID95.draw_screen_skeletons(sw,sh)
+    ORCHID95.draw_skibidi_burst(sw,sh)
+    if __EC16.skibidiDance == true then
+        ORCHID95.skibidi_cube_skeleton(sw*0.83, sh*0.62, 18, 0.92)
+    end
+
+    ORCHID95.out(x-1,y-1,x+ww+1,y+hh+1,0.96,0.0,0.60,0.42,2)
+    ORCHID95.box(x,y,x+ww,y+hh,0.16,0.0,0.26,0.97)
+    ORCHID95.box(x,y,x+ww,y+hh,0.26,0.00,0.36,0.18)
+    ORCHID95.box(x,y,x+ww,y+72,0.31,0.0,0.52,0.82)
+    ORCHID95.box(x,y+72,x+ww,y+hh,0.10,0.0,0.20,0.94)
+    ORCHID95.box(x+nav,y,x+nav+1,y+hh,0.70,0.0,0.48,0.40)
+    ORCHID95.center(x+nav,x+ww,y+16,"ORCHIDCHEATS - REMASTERED",0.96,0.90,1,0.92)
+
+    ORCHID95.center(x,x+nav,y+48,"ORCHID",0.96,0.80,1,1)
+    ORCHID95.center(x,x+nav,y+64,"CHEATS",0.94,0.72,1,0.88)
+    ORCHID95.center(x,x+nav,y+86,"☠",1,0.0,0.62,1)
+
+    local ty = y+100
+    ORCHID95.tab(mx,my,cl,x+10,ty,120,40,"AIMBOT","aimbot")
+    ORCHID95.tab(mx,my,cl,x+10,ty+48,120,40,"TRIGGERBOT","trigger")
+    ORCHID95.tab(mx,my,cl,x+10,ty+96,120,40,"VISUALS","visuals")
+    ORCHID95.tab(mx,my,cl,x+10,ty+144,120,40,"MISCELLANEOUS","misc")
+    ORCHID95.tab(mx,my,cl,x+10,ty+192,120,40,"SKINCHANGER","skins")
+    ORCHID95.tab(mx,my,cl,x+10,ty+240,120,40,"COLORS","colors")
+    ORCHID95.tab(mx,my,cl,x+10,ty+288,120,40,"CONFIGS","configs")
+
+    local cx,cy,cw,ch = x+nav+12,y+74,ww-nav-24,hh-86
+    if __EC16.mainTab == "aimbot" then
+        ORCHID95.draw_aim(mx,my,cl,cx,cy,cw,ch)
+    elseif __EC16.mainTab == "visuals" then
+        ORCHID95.draw_visuals(mx,my,cl,cx,cy,cw,ch)
+    elseif __EC16.mainTab == "misc" then
+        ORCHID95.draw_misc(mx,my,cl,cx,cy,cw,ch)
+    elseif __EC16.mainTab == "trigger" then
+        ORCHID95.draw_simple(mx,my,cl,cx,cy,cw,ch,"TRIGGERBOT")
+    elseif __EC16.mainTab == "skins" then
+        ORCHID95.draw_simple(mx,my,cl,cx,cy,cw,ch,"SKINCHANGER")
+    elseif __EC16.mainTab == "colors" then
+        ORCHID95.section(cx,cy,cw,ch,"COLORS")
+        ORCHID95.color(mx,my,cl,cx+24,cy+42,240,"Trail","trail")
+        ORCHID95.color(mx,my,cl,cx+24,cy+120,240,"World","world")
+        ORCHID95.color(mx,my,cl,cx+24,cy+198,240,"Target","target")
+    else
+        ORCHID95.draw_simple(mx,my,cl,cx,cy,cw,ch,"CONFIGS")
+    end
+
+    ORCHID95.last = cl == true
+end
+
+function __ec16_menu(mx,my,cl,w,h)
+    return ORCHID95.draw_menu(mx,my,cl,w,h)
+end
+-- // ===== END v98 RAT INTRO SAFE CHAOS PATCH =====
