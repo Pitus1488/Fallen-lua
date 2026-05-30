@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V94_PATCH()
+function __EC_V95_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v94_loaded then return end
-    V._v94_loaded = true
+    if V._v95_loaded then return end
+    V._v95_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 94 then
+    if T._defaults_version ~= 95 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V94_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 94
+        T._defaults_version = 95
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -16008,356 +16008,337 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
     end
 
-    if notify and not __EC_V94_NOTIFIED then __EC_V94_NOTIFIED = true; notify("Eclipze v94 loaded", "success") end
+    if notify and not __EC_V95_NOTIFIED then __EC_V95_NOTIFIED = true; notify("Eclipze v95 loaded", "success") end
 end
-__EC_V94_PATCH()
+__EC_V95_PATCH()
 
 
-pcall(function()
-    local __ec_v94_chunk = loadstring([==[
+-- // ===== CLEAN ORCHID MENU v95 - OLD MENU OVERRIDDEN =====
+ORCHID95 = ORCHID95 or {}
+ORCHID95.x = ORCHID95.x or nil
+ORCHID95.y = ORCHID95.y or nil
+ORCHID95.drag = false
+ORCHID95.last = false
+ORCHID95.drop = nil
 
--- // ===== ORCHID MENU REBUILD v94 =====
-do
-    __EC16 = __EC16 or {}
-    __EC16.mainTab = __EC16.mainTab or "aimbot"
-    __EC16.orchid2 = __EC16.orchid2 or {x=nil,y=nil,drag=false,dx=0,dy=0,lastClick=false,drop=nil}
+function ORCHID95.clamp(v,a,b)
+    v = tonumber(v or a) or a
+    if v < a then return a end
+    if v > b then return b end
+    return v
+end
 
-    local S = __EC16.orchid2
+function ORCHID95.inr(mx,my,x1,y1,x2,y2)
+    return mx and my and mx >= x1 and mx <= x2 and my >= y1 and my <= y2
+end
 
-    local function clamp(v,a,b)
-        if v < a then return a end
-        if v > b then return b end
-        return v
+function ORCHID95.w(s)
+    s = tostring(s or "")
+    if __ec16_text_w then return __ec16_text_w(s) end
+    return #s * 7
+end
+
+function ORCHID95.box(x1,y1,x2,y2,r,g,b,a)
+    if __ec16_rect then __ec16_rect(x1,y1,x2,y2,r,g,b,a or 1) end
+end
+
+function ORCHID95.out(x1,y1,x2,y2,r,g,b,a,t)
+    if __ec16_out then __ec16_out(x1,y1,x2,y2,r,g,b,a or 1,t or 1) end
+end
+
+function ORCHID95.round(x1,y1,x2,y2,r,g,b,a)
+    if __ec16_draw_round_rect then
+        __ec16_draw_round_rect(x1,y1,x2,y2,r,g,b,a or 1,4)
+    else
+        ORCHID95.box(x1,y1,x2,y2,r,g,b,a or 1)
     end
+end
 
-    local function inside(mx,my,x1,y1,x2,y2)
-        return mx and my and mx >= x1 and mx <= x2 and my >= y1 and my <= y2
+function ORCHID95.text(x,y,s,r,g,b,a)
+    s = tostring(s or "")
+    if Drawing and Drawing.DrawTextWithOutline then
+        Drawing.DrawTextWithOutline(x + ORCHID95.w(s)*0.5, y, s, r or 1,g or 1,b or 1,a or 1, 0,0,0,(a or 1)*0.90)
     end
+end
 
-    local function tw(s)
-        s = tostring(s or "")
-        if __ec16_text_w then return __ec16_text_w(s) end
-        return #s * 7
+function ORCHID95.center(x1,x2,y,s,r,g,b,a)
+    ORCHID95.text((x1+x2)*0.5 - ORCHID95.w(s)*0.5, y, s, r,g,b,a)
+end
+
+function ORCHID95.cb(id)
+    local ok,v = pcall(function()
+        return UIManager and UIManager.GetCheckboxValue and UIManager.GetCheckboxValue(id)
+    end)
+    return ok and v == true
+end
+
+function ORCHID95.setcb(id,v)
+    v = v == true
+    pcall(function()
+        if UIManager and UIManager.SetCheckboxValue then UIManager.SetCheckboxValue(id,v) end
+    end)
+    if id == "ap_aim_enable_fixed_click" then ap_enabled = v end
+    if id == "ap_team_main" then ap_team_check = v end
+    if id == "ap_prediction_main" then ap_prediction_enabled = v end
+    if id == "ap_sticky_main" then ap_sticky_aim = v end
+    if id == "ap_tp_target_main" then ap_tp_target_enabled = v end
+    if id == "ap_target_strafe_main" then ap_target_strafe_enabled = v end
+    if id == "ap_fov_show_main" then __EC16.fovEnabled = v end
+end
+
+function ORCHID95.si(id,d)
+    local ok,v = pcall(function()
+        return UIManager and UIManager.GetSliderIntValue and UIManager.GetSliderIntValue(id)
+    end)
+    if ok and v ~= nil then return tonumber(v) or d end
+    return d
+end
+
+function ORCHID95.setsi(id,v)
+    v = math.floor(tonumber(v or 0) or 0)
+    pcall(function()
+        if UIManager and UIManager.SetSliderIntValue then UIManager.SetSliderIntValue(id,v) end
+    end)
+end
+
+function ORCHID95.toggle(mx,my,cl,x,y,label,val,setter)
+    local hot = ORCHID95.inr(mx,my,x,y,x+210,y+18)
+    if hot and cl and not ORCHID95.last then
+        val = not val
+        pcall(setter,val)
     end
+    ORCHID95.round(x,y+3,x+28,y+16, val and 0.02 or 0.88, val and 0.82 or 0.08, val and 0.08 or 0.08, 1)
+    ORCHID95.round(x + (val and 14 or 1),y+2,x+(val and 29 or 16),y+17,0.96,0.96,0.98,1)
+    ORCHID95.text(x+38,y,label,0.94,0.90,0.99,hot and 1 or 0.90)
+end
 
-    local function txt(x,y,s,r,g,b,a)
-        s = tostring(s or "")
-        if Drawing and Drawing.DrawTextWithOutline then
-            Drawing.DrawTextWithOutline(x + tw(s)*0.5, y, s, r or 1,g or 1,b or 1,a or 1, 0,0,0,(a or 1)*0.92)
-        end
+function ORCHID95.slider(mx,my,cl,x,y,w,label,val,minv,maxv,setter,fmt)
+    val = tonumber(val or minv) or minv
+    local hot = ORCHID95.inr(mx,my,x,y+20,x+w,y+38)
+    if hot and cl then
+        val = minv + (maxv-minv)*ORCHID95.clamp((mx-x)/w,0,1)
+        pcall(setter,val)
     end
+    local f = ORCHID95.clamp((val-minv)/(maxv-minv),0,1)
+    local ts = fmt and fmt(val) or tostring(math.floor(val+0.5))
+    ORCHID95.text(x,y,label,0.92,0.88,0.98,0.90)
+    ORCHID95.text(x+w-ORCHID95.w(ts),y,ts,0.86,0.80,0.95,0.88)
+    ORCHID95.round(x,y+23,x+w,y+39,0.45,0.05,0.29,0.92)
+    ORCHID95.box(x,y+23,x+w*f,y+39,0.65,0.02,0.43,1)
+    ORCHID95.box(x+w*f-2,y+20,x+w*f+2,y+42,0.75,0.68,0.82,1)
+end
 
-    local function txtl(x,y,s,r,g,b,a)
-        s = tostring(s or "")
-        if Drawing and Drawing.DrawTextWithOutline then
-            Drawing.DrawTextWithOutline(x + tw(s)*0.5, y, s, r or 1,g or 1,b or 1,a or 1, 0,0,0,(a or 1)*0.92)
-        end
+function ORCHID95.dropbox(mx,my,cl,x,y,w,label,key,val,opts,setter)
+    local hot = ORCHID95.inr(mx,my,x,y+19,x+w,y+42)
+    ORCHID95.text(x,y,label,0.92,0.88,0.98,0.88)
+    ORCHID95.round(x,y+20,x+w,y+42,0.46,0.05,0.30,0.96)
+    ORCHID95.text(x+8,y+25,tostring(val),0.96,0.92,1,0.95)
+    ORCHID95.text(x+w-16,y+25,ORCHID95.drop == key and "^" or "v",0.96,0.88,1,0.95)
+    if hot and cl and not ORCHID95.last then
+        ORCHID95.drop = (ORCHID95.drop == key) and nil or key
     end
-
-    local function rect(x1,y1,x2,y2,r,g,b,a)
-        if __ec16_rect then __ec16_rect(x1,y1,x2,y2,r,g,b,a or 1) end
-    end
-
-    local function out(x1,y1,x2,y2,r,g,b,a,t)
-        if __ec16_out then __ec16_out(x1,y1,x2,y2,r,g,b,a or 1,t or 1) end
-    end
-
-    local function rrect(x1,y1,x2,y2,r,g,b,a)
-        if __ec16_draw_round_rect then __ec16_draw_round_rect(x1,y1,x2,y2,r,g,b,a or 1,4)
-        else rect(x1,y1,x2,y2,r,g,b,a or 1) end
-    end
-
-    local function getcb(id)
-        local ok,v = pcall(function() return UIManager and UIManager.GetCheckboxValue and UIManager.GetCheckboxValue(id) end)
-        return ok and v == true
-    end
-
-    local function setcb(id,v)
-        v = v == true
-        pcall(function() if UIManager and UIManager.SetCheckboxValue then UIManager.SetCheckboxValue(id,v) end end)
-
-        if id == "ap_aim_enable_fixed_click" then ap_enabled = v end
-        if id == "ap_team_main" then ap_team_check = v end
-        if id == "ap_prediction_main" then ap_prediction_enabled = v end
-        if id == "ap_sticky_main" then ap_sticky_aim = v end
-        if id == "ap_tp_target_main" then ap_tp_target_enabled = v end
-        if id == "ap_target_strafe_main" then ap_target_strafe_enabled = v end
-    end
-
-    local function getsi(id,d)
-        local ok,v = pcall(function() return UIManager and UIManager.GetSliderIntValue and UIManager.GetSliderIntValue(id) end)
-        if ok and v ~= nil then return tonumber(v) or d end
-        return d
-    end
-
-    local function setsi(id,v)
-        v = math.floor(tonumber(v or 0) or 0)
-        pcall(function() if UIManager and UIManager.SetSliderIntValue then UIManager.SetSliderIntValue(id,v) end end)
-    end
-
-    local function tgl(mx,my,cl,x,y,label,state,setter)
-        local hov = inside(mx,my,x,y,x+220,y+18)
-        if hov and cl and not S.lastClick then setter(not state) state = not state end
-        rrect(x,y+2,x+27,y+15, state and 0.15 or 0.48, state and 0.88 or 0.14, state and 0.16 or 0.15, 1)
-        rrect(x + (state and 14 or 1),y+1,x+(state and 28 or 15),y+16,0.96,0.96,0.98,1)
-        txtl(x+39,y,label,0.95,0.92,0.99, hov and 1 or 0.90)
-    end
-
-    local function slid(mx,my,cl,x,y,w,label,val,minv,maxv,setter,fmt)
-        local hov = inside(mx,my,x,y+20,x+w,y+37)
-        if hov and cl then
-            local f = clamp((mx-x)/w,0,1)
-            val = minv + (maxv-minv)*f
-            setter(val)
-        end
-        local f = clamp((val-minv)/(maxv-minv),0,1)
-        txtl(x,y,label,0.88,0.84,0.96,0.92)
-        local t = fmt and fmt(val) or tostring(math.floor(val+0.5))
-        txtl(x+w-tw(t),y,t,0.90,0.88,0.98,0.88)
-        rrect(x,y+22,x+w,y+35,0.37,0.08,0.27,0.95)
-        rect(x,y+22,x+w*f,y+35,0.66,0.03,0.43,1)
-        rect(x+w*f-2,y+19,x+w*f+2,y+38,0.78,0.70,0.85,1)
-    end
-
-    local function dd(mx,my,cl,x,y,w,label,stateKey,cur,opts,setter)
-        local hov = inside(mx,my,x,y+18,x+w,y+40)
-        txtl(x,y,label,0.94,0.90,0.98,0.90)
-        rrect(x,y+18,x+w,y+40,0.47,0.06,0.30,0.95)
-        txtl(x+8,y+23,cur,0.96,0.93,1.0,0.95)
-        txtl(x+w-14,y+23,(S.drop==stateKey) and "^" or "v",0.96,0.88,1.0,0.95)
-        if hov and cl and not S.lastClick then
-            S.drop = (S.drop == stateKey) and nil or stateKey
-        end
-        if S.drop == stateKey then
-            for i,opt in ipairs(opts) do
-                local yy = y+42+(i-1)*20
-                local hh = inside(mx,my,x,yy,x+w,yy+20)
-                rect(x,yy,x+w,yy+20, hh and 0.62 or 0.27, hh and 0.07 or 0.04, hh and 0.39 or 0.21, 0.97)
-                txtl(x+8,yy+4,opt,0.98,0.94,1.0,hh and 1 or 0.90)
-                if hh and cl and not S.lastClick then
-                    setter(opt)
-                    S.drop = nil
-                end
+    if ORCHID95.drop == key then
+        for i,opt in ipairs(opts) do
+            local yy = y+44+(i-1)*21
+            local h = ORCHID95.inr(mx,my,x,yy,x+w,yy+21)
+            ORCHID95.box(x,yy,x+w,yy+21,h and 0.61 or 0.24,h and 0.07 or 0.03,h and 0.39 or 0.20,0.98)
+            ORCHID95.text(x+8,yy+5,opt,0.96,0.92,1,h and 1 or 0.86)
+            if h and cl and not ORCHID95.last then
+                pcall(setter,opt)
+                ORCHID95.drop = nil
             end
         end
     end
-
-    local function section(x,y,w,h,title)
-        out(x,y,x+w,y+h,0.75,0.00,0.47,0.22,1)
-        rect(x,y,x+w,y+h,0.24,0.02,0.28,0.45)
-        txt((x+x+w)*0.5*0.5,y-18,title,0.96,0.94,1.0,0.94)
-    end
-
-    local function btn(mx,my,cl,x,y,w,h,label,id)
-        local hov = inside(mx,my,x,y,x+w,y+h)
-        rrect(x,y,x+w,y+h, hov and 0.72 or 0.56, hov and 0.10 or 0.06, hov and 0.44 or 0.33, 0.97)
-        txt((x+x+w)*0.5*0.5,y+7,label,0.97,0.94,1.0,0.95)
-        if hov and cl and not S.lastClick and id then __EC16.mainTab = id end
-    end
-
-    local function color_row(mx,my,cl,x,y,w,label,key)
-        __EC16.orchidColors = __EC16.orchidColors or {}
-        local C = __EC16.orchidColors
-        C[key] = C[key] or {1,0,0.55,1}
-        local c = C[key]
-        txtl(x,y,label,0.92,0.88,0.98,0.92)
-        rect(x+w-16,y+1,x+w,y+15,c[1],c[2],c[3],c[4])
-        local barw = w-22
-        for i=0,35 do
-            local h = i/36
-            local r,g,b
-            local k = h*6
-            local ii = math.floor(k)
-            local f = k-ii
-            local p = 0
-            local q = 1-f
-            local t = f
-            ii = ii % 6
-            if ii==0 then r,g,b=1,t,p elseif ii==1 then r,g,b=q,1,p elseif ii==2 then r,g,b=p,1,t elseif ii==3 then r,g,b=p,q,1 elseif ii==4 then r,g,b=t,p,1 else r,g,b=1,p,q end
-            rect(x+barw*(i/36),y+22,x+barw*((i+1)/36)+1,y+28,r,g,b,1)
-        end
-        if inside(mx,my,x,y+18,x+barw,y+31) and cl then
-            local f = clamp((mx-x)/barw,0,1)
-            local k = f*6
-            local ii = math.floor(k)
-            local ff = k-ii
-            local p = 0
-            local q = 1-ff
-            local t = ff
-            ii = ii % 6
-            local r,g,b = 1,0,1
-            if ii==0 then r,g,b=1,t,p elseif ii==1 then r,g,b=q,1,p elseif ii==2 then r,g,b=p,1,t elseif ii==3 then r,g,b=p,q,1 elseif ii==4 then r,g,b=t,p,1 else r,g,b=1,p,q end
-            c[1],c[2],c[3] = r,g,b
-        end
-        rect(x+barw*c[4]-1,y+34,x+barw*c[4]+1,y+46,1,1,1,0.95)
-        rect(x,y+36,x+barw,y+44,0.20,0.18,0.22,1)
-        rect(x,y+36,x+barw*c[4],y+44,c[1],c[2],c[3],1)
-        if inside(mx,my,x,y+32,x+barw,y+47) and cl then
-            c[4] = clamp((mx-x)/barw,0.02,1)
-        end
-
-        if key == "target" then __EC_VISUALS = __EC_VISUALS or {}; __EC_VISUALS.targetFx = __EC_VISUALS.targetFx or {}; __EC_VISUALS.targetFx.color = {c[1],c[2],c[3],c[4]} end
-        if key == "world" then __EC_VISUALS = __EC_VISUALS or {}; __EC_VISUALS.squares = __EC_VISUALS.squares or {}; __EC_VISUALS.squares.color = {c[1],c[2],c[3],c[4]} end
-        if key == "trail" then __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}; __EC_PLAYER_TRAIL.color = {c[1],c[2],c[3],c[4]} end
-    end
-
-    function __ec16_menu(mx,my,cl,w,h)
-        if not (__EC16 and __EC16.open) then S.lastClick = cl == true return end
-
-        local sw,sh = w or 1280, h or 720
-        pcall(function()
-            local ss = ScreenSize and ScreenSize()
-            if ss then sw = ss.Width or ss.X or sw; sh = ss.Height or ss.Y or sh end
-        end)
-
-        local ww,hh = 745,446
-        if not S.x then S.x = math.floor((sw-ww)/2) S.y = math.floor((sh-hh)/2) end
-        if inside(mx,my,S.x,S.y,S.x+ww,S.y+26) and cl and not S.lastClick then
-            S.drag = true
-            S.dx = mx-S.x
-            S.dy = my-S.y
-        end
-        if not cl then S.drag = false end
-        if S.drag then
-            S.x = mx - S.dx
-            S.y = my - S.dy
-        end
-
-        local x,y = S.x,S.y
-        local navW = 132
-
-        out(x-1,y-1,x+ww+1,y+hh+1,0.97,0.00,0.58,0.40,2)
-        rect(x,y,x+ww,y+hh,0.22,0.00,0.33,0.95)
-        rect(x,y,x+ww,y+hh,0.16,0.00,0.23,0.52)
-        rect(x+navW,y,x+navW+1,y+hh,0.65,0.00,0.45,0.42)
-        rect(x,y,x+ww,y+30,0.29,0.00,0.46,0.86)
-        txt((x+x+ww)*0.5*0.5,y+12,"ORCHIDCHEATS - REMASTERED",0.95,0.90,1.0,0.92)
-
-        txt(x+40,y+54,"ORCHID",0.95,0.82,1.0,1)
-        txt(x+42,y+70,"CHEATS",0.95,0.82,1.0,0.86)
-        txt(x+65,y+86,"<>",1.00,0.14,0.70,1)
-
-        local bx,by,bw,bh = x+10,y+98,112,38
-        btn(mx,my,cl,bx,by,bw,bh,"AIMBOT","aimbot")
-        btn(mx,my,cl,bx,by+46,bw,bh,"TRIGGERBOT","trigger")
-        btn(mx,my,cl,bx,by+92,bw,bh,"VISUALS","visuals")
-        btn(mx,my,cl,bx,by+138,bw,bh,"MISCELLANEOUS","misc")
-        btn(mx,my,cl,bx,by+184,bw,bh,"SKINCHANGER","skins")
-        btn(mx,my,cl,bx,by+230,bw,bh,"COLORS","colors")
-        btn(mx,my,cl,bx,by+276,bw,bh,"CONFIGS","configs")
-
-        local cx,cy,cw,ch = x+navW+16,y+46,ww-navW-28,hh-58
-
-        if __EC16.mainTab == "aimbot" then
-            local lw,rw = 276, 286
-            section(cx,cy+18,lw,ch-28,"")
-            section(cx+lw+12,cy+18,rw,ch-28,"")
-
-            tgl(mx,my,cl,cx+18,cy+36,"Enable Aimbot", getcb("ap_aim_enable_fixed_click"), function(v) setcb("ap_aim_enable_fixed_click",v) end)
-            tgl(mx,my,cl,cx+18,cy+61,"On Key", getcb("ap_sticky_main"), function(v) setcb("ap_sticky_main",v) end)
-
-            dd(mx,my,cl,cx+18,cy+86,102,"HitBox","aim_mode", tostring(__EC16.orchidAimMode or "HitBox"), {"HitBox","Closest","Nearest"}, function(v) __EC16.orchidAimMode=v end)
-            txtl(cx+126,cy+104,"Aim-Mode",0.92,0.88,0.98,0.92)
-
-            dd(mx,my,cl,cx+18,cy+118,102,"Stomach","hitbox_sel", tostring(__EC16.orchidHitbox or "Stomach"), {"Head","Torso","Stomach"}, function(v) __EC16.orchidHitbox=v end)
-            txtl(cx+126,cy+136,"Hitbox",0.92,0.88,0.98,0.92)
-
-            dd(mx,my,cl,cx+18,cy+150,120,"AWP","weapon_sel", tostring(__EC16.orchidWeapon or "AWP"), {"AWP","Current Weapon","Auto","Pistol"}, function(v) __EC16.orchidWeapon=v end)
-
-            tgl(mx,my,cl,cx+22,cy+188,"Current Weapon", getcb("ap_prediction_main"), function(v) setcb("ap_prediction_main",v) end)
-            tgl(mx,my,cl,cx+22,cy+213,"Target Teammates", getcb("ap_team_main"), function(v) setcb("ap_team_main",v) end)
-            tgl(mx,my,cl,cx+22,cy+238,"Aim through Smoke", __EC16.orchidSmoke == true, function(v) __EC16.orchidSmoke=v end)
-            tgl(mx,my,cl,cx+22,cy+263,"Aim While Flashed", __EC16.orchidFlash == true, function(v) __EC16.orchidFlash=v end)
-            tgl(mx,my,cl,cx+22,cy+288,"Aim In-Jump", __EC16.orchidJump == true, function(v) __EC16.orchidJump=v end)
-            tgl(mx,my,cl,cx+130,cy+288,"Silent Aim", __EC16.orchidSilent == true, function(v) __EC16.orchidSilent=v end)
-            tgl(mx,my,cl,cx+22,cy+313,"On Scope", __EC16.orchidScope == true, function(v) __EC16.orchidScope=v end)
-            tgl(mx,my,cl,cx+130,cy+313,"BackTracking", __EC16.orchidBacktrack == true, function(v) __EC16.orchidBacktrack=v end)
-            tgl(mx,my,cl,cx+22,cy+338,"Auto-Fire", __EC16.orchidAutoFire == true, function(v) __EC16.orchidAutoFire=v end)
-            tgl(mx,my,cl,cx+22,cy+363,"Enable RCS", __EC16.orchidRcs == true, function(v) __EC16.orchidRcs=v end)
-            tgl(mx,my,cl,cx+130,cy+363,"RCS View Fov", __EC16.orchidRcsView == true, function(v) __EC16.orchidRcsView=v end)
-            tgl(mx,my,cl,cx+22,cy+388,"Auto-Wall", __EC16.orchidWall == true, function(v) __EC16.orchidWall=v end)
-
-            local rx = cx+lw+24
-            dd(mx,my,cl,rx,cy+36,132,"FOV","fov_prio", tostring(__EC16.orchidPrio or "Priority"), {"Priority","Distance","Health"}, function(v) __EC16.orchidPrio=v end)
-            dd(mx,my,cl,rx,cy+68,132,"Static","fov_mode", tostring(__EC16.orchidFovMode or "Fov"), {"Fov","Distance","Hybrid"}, function(v) __EC16.orchidFovMode=v end)
-            dd(mx,my,cl,rx,cy+100,142,"RCS Based On FOV","rcs_type", tostring(__EC16.orchidRcsType or "RCS Type"), {"RCS Type","View","Mouse"}, function(v) __EC16.orchidRcsType=v end)
-
-            slid(mx,my,cl,rx,cy+136,186,"Aimbot Fov", getsi("ap_fov_main",120), 10, 600, function(v) setsi("ap_fov_main",v) end, function(v) return string.format("%.2f",v) end)
-            slid(mx,my,cl,rx,cy+174,186,"Aim Smooth", __EC16.orchidAimSmooth or 24.91, 1, 100, function(v) __EC16.orchidAimSmooth=v end, function(v) return string.format("%.2f",v) end)
-            slid(mx,my,cl,rx,cy+212,186,"Silent Fov", __EC16.orchidSilentFov or 2.47, 0, 30, function(v) __EC16.orchidSilentFov=v end, function(v) return string.format("%.2f",v) end)
-            slid(mx,my,cl,rx,cy+250,186,"Silent Smooth", __EC16.orchidSilentSmooth or 32, 1, 100, function(v) __EC16.orchidSilentSmooth=v end)
-            slid(mx,my,cl,rx,cy+288,186,"BackTrack Tick", __EC16.orchidBtTick or 6, 0, 20, function(v) __EC16.orchidBtTick=v end)
-            slid(mx,my,cl,rx,cy+326,186,"RCS X", __EC16.orchidRcsX or 100, 0, 100, function(v) __EC16.orchidRcsX=v end)
-            slid(mx,my,cl,rx,cy+364,186,"RCS Y", __EC16.orchidRcsY or 100, 0, 100, function(v) __EC16.orchidRcsY=v end)
-            slid(mx,my,cl,rx,cy+402,186,"Ignore Shots", __EC16.orchidIgnore or 2, 0, 10, function(v) __EC16.orchidIgnore=v end)
-
-        elseif __EC16.mainTab == "trigger" then
-            section(cx,cy+18,cw,ch-28,"")
-            txt((cx+cx+cw)*0.5*0.5,cy+38,"TRIGGERBOT",0.96,0.92,1.0,0.95)
-            tgl(mx,my,cl,cx+18,cy+68,"Enable Triggerbot", __EC16.orchidTrigger == true, function(v) __EC16.orchidTrigger=v end)
-            slid(mx,my,cl,cx+18,cy+104,240,"Delay", __EC16.orchidTriggerDelay or 35, 0, 200, function(v) __EC16.orchidTriggerDelay=v end)
-            slid(mx,my,cl,cx+18,cy+146,240,"Hitchance", __EC16.orchidTriggerChance or 75, 0, 100, function(v) __EC16.orchidTriggerChance=v end)
-
-        elseif __EC16.mainTab == "visuals" then
-            local col = (cw-24)/2
-            section(cx,cy+18,col,ch-28,"")
-            section(cx+col+12,cy+18,col,ch-28,"")
-
-            txt((cx+cx+col)*0.5*0.5,cy+38,"VISUALS",0.96,0.92,1.0,0.95)
-            tgl(mx,my,cl,cx+18,cy+68,"Player Trail", __EC_PLAYER_TRAIL and __EC_PLAYER_TRAIL.enabled == true, function(v) __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}; __EC_PLAYER_TRAIL.enabled=v end)
-            tgl(mx,my,cl,cx+18,cy+93,"Rainbow Trail", __EC_PLAYER_TRAIL and __EC_PLAYER_TRAIL.rainbow == true, function(v) __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}; __EC_PLAYER_TRAIL.rainbow=v end)
-            slid(mx,my,cl,cx+18,cy+126,230,"Trail Length", (__EC_PLAYER_TRAIL and __EC_PLAYER_TRAIL.length) or 46, 5, 120, function(v) __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}; __EC_PLAYER_TRAIL.length=v end)
-            color_row(mx,my,cl,cx+18,cy+176,230,"Trail Color","trail")
-
-            __EC_VISUALS = __EC_VISUALS or {}; __EC_VISUALS.squares = __EC_VISUALS.squares or {}; __EC_VISUALS.targetFx = __EC_VISUALS.targetFx or {}
-            tgl(mx,my,cl,cx+18,cy+260,"World Effects", __EC_VISUALS.squares.enabled == true, function(v) __EC_VISUALS.squares.enabled=v end)
-            dd(mx,my,cl,cx+18,cy+286,120,"Mixed","w_mode", tostring(__EC_VISUALS.squares.mode or "Mixed"), {"Mixed","Cubes","Stars","Circles"}, function(v) __EC_VISUALS.squares.mode=v end)
-            slid(mx,my,cl,cx+18,cy+330,230,"Amount", (__EC_VISUALS.squares.amount or 42), 4, 80, function(v) __EC_VISUALS.squares.amount=v end)
-            slid(mx,my,cl,cx+18,cy+372,230,"Radius", (__EC_VISUALS.squares.radius or 9.5), 2, 18, function(v) __EC_VISUALS.squares.radius=v end)
-
-            local rx = cx+col+30
-            txt((rx+rx+col-18)*0.5*0.5,cy+38,"TARGET FX / TRACERS",0.96,0.92,1.0,0.95)
-            tgl(mx,my,cl,rx,cy+68,"Target Effects", __EC_VISUALS.targetFx.enabled == true, function(v) __EC_VISUALS.targetFx.enabled=v end)
-            dd(mx,my,cl,rx,cy+94,132,"Combo","t_mode", tostring(__EC_VISUALS.targetFx.style or "Combo"), {"Combo","Small Cubes","Aura Swirl","Helix","Pulse Rings"}, function(v) __EC_VISUALS.targetFx.style=v end)
-            tgl(mx,my,cl,rx,cy+156,"Bullet Tracers", EC_BT and EC_BT.enabled == true, function(v) EC_BT = EC_BT or {}; EC_BT.enabled=v end)
-            tgl(mx,my,cl,rx,cy+181,"Self Aura", __EC16.selfAura == true, function(v) __EC16.selfAura=v end)
-            slid(mx,my,cl,rx,cy+214,230,"Tracer Life", (EC_BT and EC_BT.life) or 4, 0.1, 8, function(v) EC_BT = EC_BT or {}; EC_BT.life=v end, function(v) return string.format("%.2f",v) end)
-            color_row(mx,my,cl,rx,cy+264,230,"World Color","world")
-            color_row(mx,my,cl,rx,cy+338,230,"Target Color","target")
-
-        elseif __EC16.mainTab == "misc" then
-            section(cx,cy+18,cw,ch-28,"")
-            tgl(mx,my,cl,cx+18,cy+54,"Fullbright Overlay", getcb("ec_fullbright_enabled"), function(v) setcb("ec_fullbright_enabled",v) end)
-            slid(mx,my,cl,cx+18,cy+90,260,"Fullbright Opacity", getsi("ec_fullbright_opacity",20), 0, 80, function(v) setsi("ec_fullbright_opacity",v) end)
-            tgl(mx,my,cl,cx+18,cy+140,"Moderator Panel", __EC16.moderatorPanel == true, function(v) __EC16.moderatorPanel=v end)
-            tgl(mx,my,cl,cx+18,cy+165,"Keybind Panel", __EC16.keybindsPanel == true, function(v) __EC16.keybindsPanel=v end)
-
-        elseif __EC16.mainTab == "skins" then
-            section(cx,cy+18,cw,ch-28,"")
-            txt((cx+cx+cw)*0.5*0.5,cy+46,"SKINCHANGER",0.96,0.92,1.0,0.95)
-            txt((cx+cx+cw)*0.5*0.5,cy+90,"placeholder page",0.84,0.78,0.94,0.90)
-
-        elseif __EC16.mainTab == "colors" then
-            local col = (cw-24)/2
-            section(cx,cy+18,col,ch-28,"")
-            section(cx+col+12,cy+18,col,ch-28,"")
-            color_row(mx,my,cl,cx+18,cy+58,230,"Trail Color","trail")
-            color_row(mx,my,cl,cx+18,cy+132,230,"World Effects","world")
-            color_row(mx,my,cl,cx+18,cy+206,230,"Target Effects","target")
-            color_row(mx,my,cl,cx+col+30,cy+58,230,"Extra 1","extra1")
-            color_row(mx,my,cl,cx+col+30,cy+132,230,"Extra 2","extra2")
-
-        elseif __EC16.mainTab == "configs" then
-            section(cx,cy+18,cw,ch-28,"")
-            txt((cx+cx+cw)*0.5*0.5,cy+46,"CONFIGS",0.96,0.92,1.0,0.95)
-            txt((cx+cx+cw)*0.5*0.5,cy+90,"placeholder page",0.84,0.78,0.94,0.90)
-        end
-
-        S.lastClick = cl == true
-    end
 end
--- // ===== END ORCHID MENU REBUILD v94 =====
 
-]==])
-    if __ec_v94_chunk then __ec_v94_chunk() end
-end)
+function ORCHID95.tab(mx,my,cl,x,y,w,h,label,id)
+    local active = (__EC16.mainTab == id)
+    local hot = ORCHID95.inr(mx,my,x,y,x+w,y+h)
+    if hot and cl and not ORCHID95.last then __EC16.mainTab = id end
+    ORCHID95.round(x,y,x+w,y+h,active and 0.63 or 0.38,active and 0.08 or 0.04,active and 0.43 or 0.25,active and 0.98 or (hot and 0.85 or 0.72))
+    if active then ORCHID95.box(x,y,x+4,y+h,1.0,0.0,0.56,1) end
+    ORCHID95.text(x+16,y+12,label,0.96,0.92,1,active and 1 or 0.82)
+end
+
+function ORCHID95.section(x,y,w,h,title)
+    ORCHID95.out(x,y,x+w,y+h,0.80,0.00,0.50,0.24,1)
+    ORCHID95.box(x,y,x+w,y+h,0.24,0.02,0.28,0.48)
+    ORCHID95.box(x,y,x+w,y+1,0.85,0.00,0.55,0.55)
+    if title and title ~= "" then ORCHID95.center(x,x+w,y+8,title,0.95,0.91,1,0.94) end
+end
+
+function ORCHID95.color(mx,my,cl,x,y,w,label,key)
+    ORCHID95.colors = ORCHID95.colors or {}
+    local c = ORCHID95.colors[key] or {1,0,0.55,1,0.92}
+    ORCHID95.colors[key] = c
+    ORCHID95.text(x,y,label,0.92,0.88,0.98,0.90)
+    ORCHID95.round(x+w-20,y,x+w,y+18,c[1],c[2],c[3],c[4])
+    for i=0,40 do
+        local h = i/40
+        local r,g,b = 1,0,0.5
+        local k = h*6
+        local n = math.floor(k)%6
+        local f = k-math.floor(k)
+        if n==0 then r,g,b=1,f,0 elseif n==1 then r,g,b=1-f,1,0 elseif n==2 then r,g,b=0,1,f elseif n==3 then r,g,b=0,1-f,1 elseif n==4 then r,g,b=f,0,1 else r,g,b=1,0,1-f end
+        ORCHID95.box(x+(w-28)*(i/40),y+26,x+(w-28)*((i+1)/40)+1,y+34,r,g,b,1)
+    end
+    if ORCHID95.inr(mx,my,x,y+20,x+w-28,y+40) and cl then
+        local h = ORCHID95.clamp((mx-x)/(w-28),0,1)
+        c[5] = h
+        local k = h*6
+        local n = math.floor(k)%6
+        local f = k-math.floor(k)
+        if n==0 then c[1],c[2],c[3]=1,f,0 elseif n==1 then c[1],c[2],c[3]=1-f,1,0 elseif n==2 then c[1],c[2],c[3]=0,1,f elseif n==3 then c[1],c[2],c[3]=0,1-f,1 elseif n==4 then c[1],c[2],c[3]=f,0,1 else c[1],c[2],c[3]=1,0,1-f end
+    end
+    ORCHID95.box(x,y+45,x+w-28,y+53,0.18,0.16,0.20,1)
+    ORCHID95.box(x,y+45,x+(w-28)*c[4],y+53,c[1],c[2],c[3],1)
+    if ORCHID95.inr(mx,my,x,y+40,x+w-28,y+58) and cl then c[4] = ORCHID95.clamp((mx-x)/(w-28),0.02,1) end
+    if key == "trail" then __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}; __EC_PLAYER_TRAIL.color={c[1],c[2],c[3],c[4]} end
+    if key == "world" then __EC_VISUALS = __EC_VISUALS or {}; __EC_VISUALS.squares = __EC_VISUALS.squares or {}; __EC_VISUALS.squares.color={c[1],c[2],c[3],c[4]} end
+    if key == "target" then __EC_VISUALS = __EC_VISUALS or {}; __EC_VISUALS.targetFx = __EC_VISUALS.targetFx or {}; __EC_VISUALS.targetFx.color={c[1],c[2],c[3],c[4]} end
+end
+
+function ORCHID95.draw_aim(mx,my,cl,x,y,w,h)
+    ORCHID95.section(x,y,278,h,"")
+    ORCHID95.section(x+290,y,w-290,h,"")
+
+    ORCHID95.toggle(mx,my,cl,x+12,y+10,"Enable Aimbot",ORCHID95.cb("ap_aim_enable_fixed_click"),function(v) ORCHID95.setcb("ap_aim_enable_fixed_click",v) end)
+    ORCHID95.toggle(mx,my,cl,x+12,y+36,"On Key",ORCHID95.cb("ap_sticky_main"),function(v) ORCHID95.setcb("ap_sticky_main",v) end)
+    ORCHID95.dropbox(mx,my,cl,x+12,y+62,106,"HitBox","aimmode",__EC16.aimMode or "HitBox",{"HitBox","Closest","Nearest"},function(v) __EC16.aimMode=v end)
+    ORCHID95.text(x+126,y+88,"Aim-Mode",0.92,0.88,0.98,0.88)
+    ORCHID95.dropbox(mx,my,cl,x+12,y+94,106,"Stomach","hitbox",__EC16.hitboxMode or "Stomach",{"Head","Torso","Stomach"},function(v) __EC16.hitboxMode=v end)
+    ORCHID95.text(x+126,y+120,"Hitbox",0.92,0.88,0.98,0.88)
+    ORCHID95.dropbox(mx,my,cl,x+12,y+126,126,"AWP","weapon",__EC16.weaponMode or "AWP",{"AWP","Current Weapon","Auto"},function(v) __EC16.weaponMode=v end)
+
+    ORCHID95.toggle(mx,my,cl,x+16,y+166,"Current Weapon",ORCHID95.cb("ap_prediction_main"),function(v) ORCHID95.setcb("ap_prediction_main",v) end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+192,"Target Teammates",ORCHID95.cb("ap_team_main"),function(v) ORCHID95.setcb("ap_team_main",v) end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+218,"Aim through Smoke",__EC16.smokeAim==true,function(v) __EC16.smokeAim=v end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+244,"Aim While Flashed",__EC16.flashAim==true,function(v) __EC16.flashAim=v end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+270,"Aim In-Jump",__EC16.jumpAim==true,function(v) __EC16.jumpAim=v end)
+    ORCHID95.toggle(mx,my,cl,x+138,y+270,"Silent Aim",__EC16.silentAim==true,function(v) __EC16.silentAim=v end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+296,"On Scope",__EC16.scopeAim==true,function(v) __EC16.scopeAim=v end)
+    ORCHID95.toggle(mx,my,cl,x+138,y+296,"BackTracking",__EC16.backtrack==true,function(v) __EC16.backtrack=v end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+322,"Auto-Fire",__EC16.autofire==true,function(v) __EC16.autofire=v end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+348,"Enable RCS",__EC16.rcsOn==true,function(v) __EC16.rcsOn=v end)
+    ORCHID95.toggle(mx,my,cl,x+138,y+348,"RCS View Fov",__EC16.rcsView==true,function(v) __EC16.rcsView=v end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+374,"Auto-Wall",__EC16.autowall==true,function(v) __EC16.autowall=v end)
+
+    local rx = x+306
+    ORCHID95.dropbox(mx,my,cl,rx,y+10,128,"FOV","prio",__EC16.prio or "Priority",{"Priority","Distance","Health"},function(v) __EC16.prio=v end)
+    ORCHID95.dropbox(mx,my,cl,rx,y+42,128,"Static","static",__EC16.staticMode or "Fov",{"Fov","Static","Dynamic"},function(v) __EC16.staticMode=v end)
+    ORCHID95.dropbox(mx,my,cl,rx,y+74,142,"RCS Based On FOV","rcstype",__EC16.rcsType or "RCS Type",{"RCS Type","Mouse","View"},function(v) __EC16.rcsType=v end)
+    ORCHID95.slider(mx,my,cl,rx,y+112,186,"Aimbot Fov",ORCHID95.si("ap_fov_main",120),10,600,function(v) ORCHID95.setsi("ap_fov_main",v) end,function(v) return string.format("%.2f",v) end)
+    ORCHID95.slider(mx,my,cl,rx,y+150,186,"Aim Smooth",__EC16.aimSmooth or 24.91,1,100,function(v) __EC16.aimSmooth=v end,function(v) return string.format("%.2f",v) end)
+    ORCHID95.slider(mx,my,cl,rx,y+188,186,"Silent Fov",__EC16.silentFov or 2.47,0,30,function(v) __EC16.silentFov=v end,function(v) return string.format("%.2f",v) end)
+    ORCHID95.slider(mx,my,cl,rx,y+226,186,"Silent Smooth",__EC16.silentSmooth or 32,1,100,function(v) __EC16.silentSmooth=v end)
+    ORCHID95.slider(mx,my,cl,rx,y+264,186,"BackTrack Tick",__EC16.btTick or 6,0,20,function(v) __EC16.btTick=v end)
+    ORCHID95.slider(mx,my,cl,rx,y+302,186,"RCS View Fov",__EC16.rcsFov or 4.52,0,20,function(v) __EC16.rcsFov=v end,function(v) return string.format("%.2f",v) end)
+    ORCHID95.slider(mx,my,cl,rx,y+340,186,"RCS X",__EC16.rcsx or 100,0,100,function(v) __EC16.rcsx=v end)
+    ORCHID95.slider(mx,my,cl,rx,y+378,186,"RCS Y",__EC16.rcsy or 100,0,100,function(v) __EC16.rcsy=v end)
+end
+
+function ORCHID95.draw_visuals(mx,my,cl,x,y,w,h)
+    __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
+    __EC_VISUALS = __EC_VISUALS or {}
+    __EC_VISUALS.squares = __EC_VISUALS.squares or {}
+    __EC_VISUALS.targetFx = __EC_VISUALS.targetFx or {}
+    EC_BT = EC_BT or {}
+    ORCHID95.section(x,y,278,h,"VISUALS")
+    ORCHID95.section(x+290,y,w-290,h,"EFFECTS")
+    ORCHID95.toggle(mx,my,cl,x+16,y+34,"Player Trail",__EC_PLAYER_TRAIL.enabled==true,function(v) __EC_PLAYER_TRAIL.enabled=v end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+60,"Rainbow Trail",__EC_PLAYER_TRAIL.rainbow==true,function(v) __EC_PLAYER_TRAIL.rainbow=v end)
+    ORCHID95.slider(mx,my,cl,x+16,y+96,220,"Trail Length",__EC_PLAYER_TRAIL.length or 46,5,120,function(v) __EC_PLAYER_TRAIL.length=v end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+148,"World Effects",__EC_VISUALS.squares.enabled==true,function(v) __EC_VISUALS.squares.enabled=v end)
+    ORCHID95.dropbox(mx,my,cl,x+16,y+174,128,"Mixed","worldmode",__EC_VISUALS.squares.mode or "Mixed",{"Mixed","Cubes","Stars","Circles"},function(v) __EC_VISUALS.squares.mode=v end)
+    ORCHID95.slider(mx,my,cl,x+16,y+220,220,"Amount",__EC_VISUALS.squares.amount or 42,4,80,function(v) __EC_VISUALS.squares.amount=v end)
+    ORCHID95.slider(mx,my,cl,x+16,y+258,220,"Radius",__EC_VISUALS.squares.radius or 9.5,2,18,function(v) __EC_VISUALS.squares.radius=v end)
+    ORCHID95.color(mx,my,cl,x+16,y+315,220,"World Color","world")
+
+    local rx = x+306
+    ORCHID95.toggle(mx,my,cl,rx,y+34,"Target Effects",__EC_VISUALS.targetFx.enabled==true,function(v) __EC_VISUALS.targetFx.enabled=v end)
+    ORCHID95.dropbox(mx,my,cl,rx,y+60,150,"Combo","targetmode",__EC_VISUALS.targetFx.style or "Combo",{"Combo","Small Cubes","Aura Swirl","Helix","Pulse Rings"},function(v) __EC_VISUALS.targetFx.style=v end)
+    ORCHID95.toggle(mx,my,cl,rx,y+124,"Bullet Tracers",EC_BT.enabled==true,function(v) EC_BT.enabled=v end)
+    ORCHID95.toggle(mx,my,cl,rx,y+150,"Hit Effects",EC_BT.hitfx==true,function(v) EC_BT.hitfx=v end)
+    ORCHID95.toggle(mx,my,cl,rx,y+176,"Self Aura",__EC16.selfAura==true,function(v) __EC16.selfAura=v end)
+    ORCHID95.slider(mx,my,cl,rx,y+212,220,"Tracer Life",EC_BT.life or 4,0.1,8,function(v) EC_BT.life=v end,function(v) return string.format("%.2f",v) end)
+    ORCHID95.color(mx,my,cl,rx,y+270,220,"Trail Color","trail")
+    ORCHID95.color(mx,my,cl,rx,y+344,220,"Target Color","target")
+end
+
+function ORCHID95.draw_simple(mx,my,cl,x,y,w,h,name)
+    ORCHID95.section(x,y,w,h,name)
+    ORCHID95.center(x,x+w,y+44,name,0.98,0.92,1,0.96)
+    ORCHID95.text(x+20,y+80,"Page rebuilt. Controls will be filled in after visual pass.",0.82,0.76,0.92,0.88)
+end
+
+function ORCHID95.draw_menu(mx,my,cl,w,h)
+    if not (__EC16 and __EC16.open) then ORCHID95.last = cl == true return end
+    __EC16.mainTab = __EC16.mainTab or "aimbot"
+
+    local sw,sh = w or 1280,h or 720
+    local ww,hh = 748,448
+    if not ORCHID95.x then
+        ORCHID95.x = math.floor((sw-ww)/2)
+        ORCHID95.y = math.floor((sh-hh)/2)
+    end
+
+    if ORCHID95.inr(mx,my,ORCHID95.x,ORCHID95.y,ORCHID95.x+ww,ORCHID95.y+28) and cl and not ORCHID95.last then
+        ORCHID95.drag = true
+        ORCHID95.dx = mx-ORCHID95.x
+        ORCHID95.dy = my-ORCHID95.y
+    end
+    if not cl then ORCHID95.drag = false end
+    if ORCHID95.drag then
+        ORCHID95.x = mx - (ORCHID95.dx or 0)
+        ORCHID95.y = my - (ORCHID95.dy or 0)
+    end
+
+    local x,y = ORCHID95.x, ORCHID95.y
+    local nav = 140
+    ORCHID95.out(x-1,y-1,x+ww+1,y+hh+1,0.96,0.0,0.60,0.42,2)
+    ORCHID95.box(x,y,x+ww,y+hh,0.16,0.0,0.26,0.97)
+    ORCHID95.box(x,y,x+ww,y+72,0.31,0.0,0.52,0.82)
+    ORCHID95.box(x,y+72,x+ww,y+hh,0.10,0.0,0.20,0.94)
+    ORCHID95.box(x+nav,y,x+nav+1,y+hh,0.70,0.0,0.48,0.40)
+    ORCHID95.center(x+nav,x+ww,y+16,"ORCHIDCHEATS - REMASTERED",0.96,0.90,1,0.92)
+
+    ORCHID95.center(x,x+nav,y+48,"ORCHID",0.96,0.80,1,1)
+    ORCHID95.center(x,x+nav,y+64,"CHEATS",0.94,0.72,1,0.88)
+    ORCHID95.center(x,x+nav,y+86,"⌁",1,0.0,0.62,1)
+
+    local ty = y+100
+    ORCHID95.tab(mx,my,cl,x+10,ty,120,40,"AIMBOT","aimbot")
+    ORCHID95.tab(mx,my,cl,x+10,ty+48,120,40,"TRIGGERBOT","trigger")
+    ORCHID95.tab(mx,my,cl,x+10,ty+96,120,40,"VISUALS","visuals")
+    ORCHID95.tab(mx,my,cl,x+10,ty+144,120,40,"MISCELLANEOUS","misc")
+    ORCHID95.tab(mx,my,cl,x+10,ty+192,120,40,"SKINCHANGER","skins")
+    ORCHID95.tab(mx,my,cl,x+10,ty+240,120,40,"COLORS","colors")
+    ORCHID95.tab(mx,my,cl,x+10,ty+288,120,40,"CONFIGS","configs")
+
+    local cx,cy,cw,ch = x+nav+12,y+74,ww-nav-24,hh-86
+    if __EC16.mainTab == "aimbot" then
+        ORCHID95.draw_aim(mx,my,cl,cx,cy,cw,ch)
+    elseif __EC16.mainTab == "visuals" then
+        ORCHID95.draw_visuals(mx,my,cl,cx,cy,cw,ch)
+    elseif __EC16.mainTab == "trigger" then
+        ORCHID95.draw_simple(mx,my,cl,cx,cy,cw,ch,"TRIGGERBOT")
+    elseif __EC16.mainTab == "misc" then
+        ORCHID95.draw_simple(mx,my,cl,cx,cy,cw,ch,"MISCELLANEOUS")
+    elseif __EC16.mainTab == "skins" then
+        ORCHID95.draw_simple(mx,my,cl,cx,cy,cw,ch,"SKINCHANGER")
+    elseif __EC16.mainTab == "colors" then
+        ORCHID95.section(cx,cy,cw,ch,"COLORS")
+        ORCHID95.color(mx,my,cl,cx+24,cy+42,240,"Trail","trail")
+        ORCHID95.color(mx,my,cl,cx+24,cy+120,240,"World","world")
+        ORCHID95.color(mx,my,cl,cx+24,cy+198,240,"Target","target")
+    else
+        ORCHID95.draw_simple(mx,my,cl,cx,cy,cw,ch,"CONFIGS")
+    end
+
+    ORCHID95.last = cl == true
+end
+
+function __ec16_menu(mx,my,cl,w,h)
+    return ORCHID95.draw_menu(mx,my,cl,w,h)
+end
+-- // ===== END CLEAN ORCHID MENU v95 =====
