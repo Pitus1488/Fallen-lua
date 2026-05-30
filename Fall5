@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V79_PATCH()
+function __EC_V81_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v79_loaded then return end
-    V._v79_loaded = true
+    if V._v81_loaded then return end
+    V._v81_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 79 then
+    if T._defaults_version ~= 81 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V79_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 79
+        T._defaults_version = 81
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -14233,22 +14233,16 @@ function __EC_V79_PATCH()
         color = {0.92, 0.70, 1.00, 1}
     }
     if V.squares.mode == nil then V.squares.mode = "Mixed" end
-    V.thirdPerson = V.thirdPerson or {
+    V.targetFx = V.targetFx or {
         enabled = false,
-        distance = 12.0,
-        height = 2.4,
-        side = 0.0,
-        smooth = 0.00,
-        saved = false,
-        camPos = nil
+        mode = "Mixed",
+        amount = 28,
+        radius = 3.8,
+        speed = 1.15,
+        size = 0.62,
+        color = {0.72, 0.42, 1.00, 1}
     }
-    if V.thirdPerson._version ~= 78 then
-        V.thirdPerson._version = 78
-        V.thirdPerson.camPos = nil
-        if V.thirdPerson.smooth == nil then
-            V.thirdPerson.smooth = 0.00
-        end
-    end
+    if V.targetFx.mode == nil then V.targetFx.mode = "Mixed" end
 
     local function now()
         return (tick and tick()) or (os and os.clock and os.clock()) or 0
@@ -14494,8 +14488,10 @@ function __EC_V79_PATCH()
         elseif id == "squares" then
             local c = (V.squares and V.squares.color) or {0.92,0.70,1.00,1}
             return c[1] or 0.92,c[2] or 0.70,c[3] or 1.00
+        elseif id == "targetfx" then
+            local c = (V.targetFx and V.targetFx.color) or {0.72,0.42,1.00,1}
+            return c[1] or 0.72,c[2] or 0.42,c[3] or 1.00
         end
-
         return 1,1,1
     end
 
@@ -14533,8 +14529,11 @@ function __EC_V79_PATCH()
             V.squares = V.squares or {}
             V.squares.color = {r,g,b,1}
             V.squares.hue = h or V.squares.hue or 0.78
+        elseif id == "targetfx" then
+            V.targetFx = V.targetFx or {}
+            V.targetFx.color = {r,g,b,1}
+            V.targetFx.hue = h or V.targetFx.hue or 0.74
         end
-
         if __ec16_apply_colors then pcall(__ec16_apply_colors) end
     end
 
@@ -14897,7 +14896,7 @@ local function picker_blocks_base(mx,my,cl)
         round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,1.00,8)
         if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.62,1) end
 
-        local sections = {"Trail","World Effects","Third Person","Bullet Tracers","Aura"}
+        local sections = {"Trail","World Effects","Target Effects","Bullet Tracers","Aura"}
         local secY = L.sideY + 74
         for _,name in ipairs(sections) do
             local ix1 = L.sideX + 10
@@ -14943,14 +14942,16 @@ local function picker_blocks_base(mx,my,cl)
             V.squares.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+282,colW-36,"Speed",V.squares.speed or 1.10,0.10,4.00)
             V.squares.size = safe_float(mx,my,visual_control_click(cl),c1+18,sy+342,colW-36,"Effect Size",V.squares.size or 0.75,0.20,1.60)
 
-        elseif V.section == "Third Person" then
-            V.thirdPerson = V.thirdPerson or {}
-            group(c1,sy,colW,330,"Third Person")
-            V.thirdPerson.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Third Person",V.thirdPerson.enabled == true)
-            V.thirdPerson.distance = safe_float(mx,my,visual_control_click(cl),c1+18,sy+86,colW-36,"Distance",V.thirdPerson.distance or 12.0,4.0,35.0)
-            V.thirdPerson.height = safe_float(mx,my,visual_control_click(cl),c1+18,sy+146,colW-36,"Height",V.thirdPerson.height or 2.4,0.0,10.0)
-            V.thirdPerson.side = safe_float(mx,my,visual_control_click(cl),c1+18,sy+206,colW-36,"Side Offset",V.thirdPerson.side or 0.0,-12.0,12.0)
-            V.thirdPerson.smooth = safe_float(mx,my,visual_control_click(cl),c1+18,sy+266,colW-36,"Smooth",V.thirdPerson.smooth or 0.18,0.0,0.95)
+        elseif V.section == "Target Effects" then
+            V.targetFx = V.targetFx or {}
+            group(c1,sy,colW,430,"Target Effects")
+            color_button(mx,my,cl,c1+colW-42,sy+42,"targetfx")
+            V.targetFx.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Target Effects",V.targetFx.enabled == true)
+            V.targetFx.mode = mini_dropdown(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Type",V.targetFx.mode or "Mixed",{"Mixed","Cubes","Stars","Circles","Halo"},"target_effect_mode")
+            V.targetFx.amount = safe_float(mx,my,visual_control_click(cl),c1+18,sy+162,colW-36,"Amount",V.targetFx.amount or 28,6,70)
+            V.targetFx.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+222,colW-36,"Radius",V.targetFx.radius or 3.8,1.5,9.0)
+            V.targetFx.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+282,colW-36,"Speed",V.targetFx.speed or 1.15,0.10,4.00)
+            V.targetFx.size = safe_float(mx,my,visual_control_click(cl),c1+18,sy+342,colW-36,"Effect Size",V.targetFx.size or 0.62,0.20,1.80)
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
@@ -15406,117 +15407,187 @@ local function picker_blocks_base(mx,my,cl)
     end
 
 
-    local function ec_v79_lerp_vec(a,b,t)
-        if not a then return b end
-        if not b then return a end
-        t = clamp(t or 1,0,1)
-        return Vector3(
-            (a.X or 0) + ((b.X or 0) - (a.X or 0)) * t,
-            (a.Y or 0) + ((b.Y or 0) - (a.Y or 0)) * t,
-            (a.Z or 0) + ((b.Z or 0) - (a.Z or 0)) * t
-        )
-    end
-
-    local function ec_v79_norm3(x,y,z, fallback)
-        x = tonumber(x or 0) or 0
-        y = tonumber(y or 0) or 0
-        z = tonumber(z or 0) or 0
-        local m = math.sqrt(x*x + y*y + z*z)
-        if m < 0.0001 then return fallback or Vector3(0,0,-1) end
-        return Vector3(x/m,y/m,z/m)
-    end
-
-    local function ec_v79_get_cam_rot()
-        local rot = nil
-        pcall(function()
-            if aim and aim.get_camera_rotation then
-                rot = aim.get_camera_rotation()
-            end
-        end)
-        return rot
-    end
-
-    local function ec_v79_get_yaw_vectors()
-        local rot = ec_v79_get_cam_rot()
-        if rot then
-            local fx = -(tonumber(rot[7] or 0) or 0)
-            local fz = -(tonumber(rot[9] or 1) or 1)
-            local forward = ec_v79_norm3(fx,0,fz,Vector3(0,0,-1))
-            local right = ec_v79_norm3(forward.Z,0,-forward.X,Vector3(1,0,0))
-            return right, forward
-        end
-        return Vector3(1,0,0), Vector3(0,0,-1)
-    end
-
-    local function ec_v79_get_root_pos()
-        local pos = get_hrp_pos()
+    local function ec_v81_to_vec3(pos)
         if not pos then return nil end
-        return Vector3(tonumber(pos.X or pos[1]) or 0, tonumber(pos.Y or pos[2]) or 0, tonumber(pos.Z or pos[3]) or 0)
+        local x = tonumber(pos.X or pos[1])
+        local y = tonumber(pos.Y or pos[2])
+        local z = tonumber(pos.Z or pos[3])
+        if not x or not y or not z then return nil end
+        return Vector3(x,y,z)
     end
 
-    local function ec_v79_write_camera_pos(pos)
-        -- Only one camera writer. Double-writing through rbx.camera caused visible shaking on some builds.
+    local function ec_v81_obj_pos(obj)
+        local pos = nil
+        if not obj then return nil end
+        pcall(function() if obj.get_position then pos = obj:get_position() end end)
+        pcall(function() if not pos and obj.Position then pos = obj.Position end end)
+        pcall(function() if not pos and obj.position then pos = obj.position end end)
+        return ec_v81_to_vec3(pos)
+    end
+
+    local function ec_v81_target_pos_from_object(t)
+        if not t then return nil,nil end
+
+        local root = ec_v81_to_vec3(t.root_pos or t.root_position or t.hrp_pos or t.body_pos or t.position)
+        local head = ec_v81_to_vec3(t.head_pos or t.head_position or t.camera_pos)
+
+        if not root then root = ec_v81_obj_pos(t) end
+        pcall(function() if not root and t.Parent then root = ec_v81_obj_pos(t.Parent) end end)
+
+        if t.parts then
+            for _,pt in pairs(t.parts) do
+                local p = nil
+                pcall(function()
+                    p = ec_v81_to_vec3(pt.pos or pt.position)
+                    if not p and pt.part then p = ec_v81_obj_pos(pt.part) end
+                end)
+                if p then
+                    if not root then root = p end
+                    if not head or p.Y > head.Y then head = p end
+                end
+            end
+        end
+
+        if root and not head then head = root + Vector3(0,3.0,0) end
+        return root, head
+    end
+
+    local function ec_v81_get_target()
+        local target = nil
         pcall(function()
-            if aim and aim.set_camera_position then
-                aim.set_camera_position(pos)
+            if EC_HITFX_GET_AIM_TARGET then target = EC_HITFX_GET_AIM_TARGET() end
+        end)
+
+        local root, head = ec_v81_target_pos_from_object(target)
+        if root then return root, head, target end
+
+        pcall(function()
+            if EC_BT_PICK_HIT_TARGET then
+                local t, hit = EC_BT_PICK_HIT_TARGET()
+                if t then
+                    target = t
+                    root, head = ec_v81_target_pos_from_object(t)
+                    if (not root) and hit then root = ec_v81_to_vec3(hit) end
+                    if root and not head then head = root + Vector3(0,3.0,0) end
+                end
             end
         end)
+
+        if root then return root, head, target end
+        return nil,nil,nil
     end
 
-    local function draw_third_person()
-        if not (V.thirdPerson and V.thirdPerson.enabled == true) then
-            if V.thirdPerson then
-                V.thirdPerson.camPos = nil
-                V.thirdPerson.targetPos = nil
-                V.thirdPerson.lastEnabled = false
-            end
-            return
+    local function ec_v81_line_world(a,b,r,g,bc,alpha,thick)
+        local s1 = world_to_screen(a)
+        local s2 = world_to_screen(b)
+        if s1 and s2 then
+            line(s1.X,s1.Y,s2.X,s2.Y,r,g,bc,alpha,thick or 1)
         end
+    end
 
-        if not (aim and aim.set_camera_position and aim.get_camera_rotation) then return end
+    local function ec_v81_draw_world_ring(center,rad,y,r,g,bc,alpha,segments,spin)
+        local prev = nil
+        segments = segments or 48
+        for i=0,segments do
+            local a = (i / segments) * 6.283185 + (spin or 0)
+            local p = center + Vector3(math.cos(a)*rad,y,math.sin(a)*rad)
+            if prev then
+                ec_v81_line_world(prev,p,r,g,bc,alpha*0.22,6.0)
+                ec_v81_line_world(prev,p,r,g,bc,alpha*0.55,2.4)
+                ec_v81_line_world(prev,p,1,1,1,alpha*0.12,1.0)
+            end
+            prev = p
+        end
+    end
 
-        local root = ec_v79_get_root_pos()
+    local function ec_v81_draw_target_cube(pos,s,rx,ry,rz,r,g,bc,alpha)
+        local cx = math.cos(rx)
+        local sx = math.sin(rx)
+        local cy = math.cos(ry)
+        local sy = math.sin(ry)
+        local cz = math.cos(rz)
+        local sz = math.sin(rz)
+
+        local scr = {}
+        for ci=1,8 do
+            local c = __EC_CUBE_CORNERS[ci]
+            local x,y,z = ec_rotate3_cached(c[1]*s,c[2]*s,c[3]*s,cx,sx,cy,sy,cz,sz)
+            scr[ci] = world_to_screen(pos + Vector3(x,y,z))
+        end
+        draw_cube_edges_screen(scr,r,g,bc,alpha)
+    end
+
+    local function ec_v81_draw_target_star(pos,s,r,g,bc,alpha,rot)
+        local sp = world_to_screen(pos)
+        if not sp then return end
+        draw_star_screen(sp.X,sp.Y,math.max(4,s*10),r,g,bc,alpha,rot)
+    end
+
+    local function ec_v81_draw_target_circle(pos,s,r,g,bc,alpha)
+        local sp = world_to_screen(pos)
+        if not sp then return end
+        draw_screen_circle(sp.X,sp.Y,math.max(3,s*9),r,g,bc,alpha)
+    end
+
+    local function draw_target_effects()
+        if not (V.targetFx and V.targetFx.enabled == true) then return end
+
+        local root, head = ec_v81_get_target()
         if not root then return end
+        if not head then head = root + Vector3(0,3.0,0) end
 
-        if V.thirdPerson.lastEnabled ~= true then
-            V.thirdPerson.camPos = nil
-            V.thirdPerson.targetPos = nil
-            V.thirdPerson.lastEnabled = true
-        end
+        local tm = now()
+        local mode = tostring(V.targetFx.mode or "Mixed")
+        local amount = math.floor(clamp(V.targetFx.amount or 28,6,70)+0.5)
+        local radius = clamp(V.targetFx.radius or 3.8,1.5,9.0)
+        local speed = clamp(V.targetFx.speed or 1.15,0.05,4.0)
+        local baseSize = clamp(V.targetFx.size or 0.62,0.15,2.0)
+        local r,g,bc = get_target_color("targetfx")
 
-        local dist = clamp(V.thirdPerson.distance or 12.0,4.0,35.0)
-        local height = clamp(V.thirdPerson.height or 2.4,0.0,10.0)
-        local side = clamp(V.thirdPerson.side or 0.0,-12.0,12.0)
-        local smooth = clamp(V.thirdPerson.smooth or 0.00,0.0,0.95)
+        local height = math.abs((head.Y or root.Y) - (root.Y or 0))
+        if height < 2.5 then height = 3.2 end
+        if height > 8.0 then height = 8.0 end
+        local center = root + Vector3(0,height*0.48,0)
 
-        local right, forward = ec_v79_get_yaw_vectors()
+        -- Video-style target glow: halo rings and purple particles around current target.
+        ec_v81_draw_world_ring(root,radius*0.82,0.05,r,g,bc,0.64,54,tm*speed*0.55)
+        ec_v81_draw_world_ring(root,radius*0.55,height*0.44,r,g,bc,0.32,44,-tm*speed*0.38)
+        ec_v81_draw_world_ring(root,radius*0.36,height*0.86,r,g,bc,0.22,36,tm*speed*0.72)
 
-        -- Tiny root smoothing only. This removes HRP micro-jitter without making camera feel delayed.
-        local targetFollow = 0.55
-        V.thirdPerson.targetPos = ec_v79_lerp_vec(V.thirdPerson.targetPos, root, targetFollow)
-        local stableRoot = V.thirdPerson.targetPos or root
+        -- Rotating cube/diamond shell on target body.
+        ec_v81_draw_target_cube(center,baseSize*1.85,tm*speed*0.9,tm*speed*1.25,tm*speed*0.55,r,g,bc,0.42)
 
-        local desired = (stableRoot + Vector3(0,height,0)) - (forward * dist) + (right * side)
+        for i=1,amount do
+            local h1 = ec_hash01(i*1.77)
+            local h2 = ec_hash01(i*4.91)
+            local h3 = ec_hash01(i*7.33)
+            local h4 = ec_hash01(i*9.19)
 
-        -- Default Smooth=0 means no lag. Increasing slider makes it calmer if needed.
-        local follow = 1.0 - smooth
-        if follow < 0.05 then follow = 0.05 end
-        if follow > 1.0 then follow = 1.0 end
+            local a = h1*6.283185 + tm*speed*(0.35+h2*0.75)
+            local rr = radius*(0.38+h3*0.72)
+            local y = height*(0.05+h2*0.95) + math.sin(tm*speed*1.2+i)*0.25
+            local pos = root + Vector3(math.cos(a)*rr,y,math.sin(a)*rr)
 
-        if V.thirdPerson.camPos then
-            local dx = desired.X - V.thirdPerson.camPos.X
-            local dy = desired.Y - V.thirdPerson.camPos.Y
-            local dz = desired.Z - V.thirdPerson.camPos.Z
-            local d = math.sqrt(dx*dx + dy*dy + dz*dz)
-            if d > 30 then
-                V.thirdPerson.camPos = desired
+            local alpha = 0.34 + 0.30*math.sin(tm*2.2+i)
+            if alpha < 0.18 then alpha = 0.18 end
+            local size = baseSize*(0.55+h4*0.85)
+
+            local drawMode = mode
+            if drawMode == "Mixed" then
+                local m = i % 3
+                if m == 0 then drawMode = "Cubes" elseif m == 1 then drawMode = "Stars" else drawMode = "Circles" end
+            end
+
+            if drawMode == "Cubes" then
+                ec_v81_draw_target_cube(pos,size,tm*speed+h1*6.28,tm*speed*0.75+h2*6.28,tm*speed*1.15+h3*6.28,r,g,bc,alpha)
+            elseif drawMode == "Stars" then
+                ec_v81_draw_target_star(pos,size,r,g,bc,alpha,tm*speed+h1*6.28)
+            elseif drawMode == "Circles" then
+                ec_v81_draw_target_circle(pos,size,r,g,bc,alpha)
+            elseif drawMode == "Halo" then
+                ec_v81_draw_world_ring(root,rr*0.70,y,r,g,bc,alpha*0.35,28,tm*speed+h1)
             end
         end
-
-        local camPos = ec_v79_lerp_vec(V.thirdPerson.camPos, desired, follow)
-        V.thirdPerson.camPos = camPos
-
-        ec_v79_write_camera_pos(camPos)
     end
 
     -- Safe aura cache only. Original aura styles are NOT replaced.
@@ -15637,12 +15708,11 @@ local function picker_blocks_base(mx,my,cl)
     end
 
     if hooks and hooks.on_render then
-        hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_third_person) end)
-    end
-    if callbacks and callbacks.paint then
-        callbacks.paint(function() pcall(draw_third_person) end)
+        hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
+    elseif callbacks and callbacks.paint then
+        callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
     end
 
-    if notify and not __EC_V79_NOTIFIED then __EC_V79_NOTIFIED = true; notify("Eclipze v79 loaded", "success") end
+    if notify and not __EC_V81_NOTIFIED then __EC_V81_NOTIFIED = true; notify("Eclipze v81 loaded", "success") end
 end
-__EC_V79_PATCH()
+__EC_V81_PATCH()
