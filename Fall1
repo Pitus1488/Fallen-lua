@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V86_PATCH()
+function __EC_V87_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v86_loaded then return end
-    V._v86_loaded = true
+    if V._v87_loaded then return end
+    V._v87_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 86 then
+    if T._defaults_version ~= 87 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V86_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 86
+        T._defaults_version = 87
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -15499,7 +15499,7 @@ local function picker_blocks_base(mx,my,cl)
 
 
 
-    local function ec_v83_to_vec3(pos)
+    local function ec_v81_to_vec3(pos)
         if not pos then return nil end
         local x = tonumber(pos.X or pos[1])
         local y = tonumber(pos.Y or pos[2])
@@ -15508,282 +15508,187 @@ local function picker_blocks_base(mx,my,cl)
         return Vector3(x,y,z)
     end
 
-    local function ec_v83_dist(a,b)
-        if not (a and b) then return 999999 end
-        local dx=(a.X or 0)-(b.X or 0)
-        local dy=(a.Y or 0)-(b.Y or 0)
-        local dz=(a.Z or 0)-(b.Z or 0)
-        return math.sqrt(dx*dx+dy*dy+dz*dz)
-    end
-
-    local function ec_v83_obj_pos(obj)
-        local pos=nil
+    local function ec_v81_obj_pos(obj)
+        local pos = nil
         if not obj then return nil end
-        pcall(function() if obj.get_position then pos=obj:get_position() end end)
-        pcall(function() if not pos and obj.Position then pos=obj.Position end end)
-        pcall(function() if not pos and obj.position then pos=obj.position end end)
-        return ec_v83_to_vec3(pos)
+        pcall(function() if obj.get_position then pos = obj:get_position() end end)
+        pcall(function() if not pos and obj.Position then pos = obj.Position end end)
+        pcall(function() if not pos and obj.position then pos = obj.position end end)
+        return ec_v81_to_vec3(pos)
     end
 
-    local function ec_v83_target_pos_from_object(t)
+    local function ec_v81_target_pos_from_object(t)
         if not t then return nil,nil end
 
-        local root=ec_v83_to_vec3(t.root_pos or t.root_position or t.hrp_pos or t.body_pos or t.position)
-        local head=ec_v83_to_vec3(t.head_pos or t.head_position or t.camera_pos)
+        local root = ec_v81_to_vec3(t.root_pos or t.root_position or t.hrp_pos or t.body_pos or t.position)
+        local head = ec_v81_to_vec3(t.head_pos or t.head_position or t.camera_pos)
 
-        if not root then root=ec_v83_obj_pos(t) end
-        pcall(function() if not root and t.Parent then root=ec_v83_obj_pos(t.Parent) end end)
+        if not root then root = ec_v81_obj_pos(t) end
+        pcall(function() if not root and t.Parent then root = ec_v81_obj_pos(t.Parent) end end)
 
         if t.parts then
             for _,pt in pairs(t.parts) do
-                local p=nil
+                local p = nil
                 pcall(function()
-                    p=ec_v83_to_vec3(pt.pos or pt.position)
-                    if not p and pt.part then p=ec_v83_obj_pos(pt.part) end
+                    p = ec_v81_to_vec3(pt.pos or pt.position)
+                    if not p and pt.part then p = ec_v81_obj_pos(pt.part) end
                 end)
                 if p then
-                    if not root then root=p end
-                    if not head or p.Y > head.Y then head=p end
+                    if not root then root = p end
+                    if not head or p.Y > head.Y then head = p end
                 end
             end
         end
 
-        if root and not head then head=root+Vector3(0,3.0,0) end
-        return root,head
+        if root and not head then head = root + Vector3(0,3.0,0) end
+        return root, head
     end
 
-    local function ec_v83_not_self(root)
-        local me=get_hrp_pos()
-        if not me or not root then return true end
-        -- 4.35 blocks both HRP and Head/upper-body self target.
-        return ec_v83_dist(me,root) > 4.35
-    end
-
-    local function ec_v83_get_target_cached()
-        V.targetFx = V.targetFx or {}
-        local C = V.targetFx.cache or {}
-        V.targetFx.cache = C
-
-        local tm = now()
-        if C.root and (tm - (C.t or 0)) < 0.040 then
-            if ec_v83_not_self(C.root) then return C.root, C.head end
-        end
-
-        local target=nil
+    local function ec_v81_get_target()
+        local target = nil
         pcall(function()
-            if EC_HITFX_GET_AIM_TARGET then target=EC_HITFX_GET_AIM_TARGET() end
+            if EC_HITFX_GET_AIM_TARGET then target = EC_HITFX_GET_AIM_TARGET() end
         end)
 
-        local root,head=ec_v83_target_pos_from_object(target)
+        local root, head = ec_v81_target_pos_from_object(target)
+        if root then return root, head, target end
 
-        if (not root) and EC_BT_PICK_HIT_TARGET then
-            pcall(function()
-                local t,hit=EC_BT_PICK_HIT_TARGET()
+        pcall(function()
+            if EC_BT_PICK_HIT_TARGET then
+                local t, hit = EC_BT_PICK_HIT_TARGET()
                 if t then
-                    root,head=ec_v83_target_pos_from_object(t)
-                    if not root and hit then root=ec_v83_to_vec3(hit) end
-                    if root and not head then head=root+Vector3(0,3.0,0) end
+                    target = t
+                    root, head = ec_v81_target_pos_from_object(t)
+                    if (not root) and hit then root = ec_v81_to_vec3(hit) end
+                    if root and not head then head = root + Vector3(0,3.0,0) end
                 end
-            end)
-        end
+            end
+        end)
 
-        if root and ec_v83_not_self(root) then
-            C.root=root
-            C.head=head or (root+Vector3(0,3.0,0))
-            C.t=tm
-            return C.root,C.head
-        end
-
-        C.root=nil
-        C.head=nil
-        C.t=tm
-        return nil,nil
+        if root then return root, head, target end
+        return nil,nil,nil
     end
 
-    local function ec_v83_line_world(a,b,r,g,bc,alpha,thick)
-        local s1=world_to_screen(a)
-        local s2=world_to_screen(b)
+    local function ec_v81_line_world(a,b,r,g,bc,alpha,thick)
+        local s1 = world_to_screen(a)
+        local s2 = world_to_screen(b)
         if s1 and s2 then
             line(s1.X,s1.Y,s2.X,s2.Y,r,g,bc,alpha,thick or 1)
         end
     end
 
-    local function ec_v83_hex(cx,cy,rad,r,g,bc,alpha,rot)
-        local px,py=nil,nil
-        local fx,fy=nil,nil
-        for k=0,5 do
-            local a=rot+(k/6)*6.283185
-            local x=cx+math.cos(a)*rad
-            local y=cy+math.sin(a)*rad
-            if px then
-                line(px,py,x,y,r,g,bc,alpha*0.22,3.5)
-                line(px,py,x,y,1,1,1,alpha*0.36,1.0)
-            else
-                fx,fy=x,y
-            end
-            px,py=x,y
-        end
-        if px and fx then
-            line(px,py,fx,fy,r,g,bc,alpha*0.22,3.5)
-            line(px,py,fx,fy,1,1,1,alpha*0.36,1.0)
-        end
-    end
-
-    local function ec_v83_diamond(cx,cy,rad,r,g,bc,alpha,rot)
-        local pts={}
-        for k=0,3 do
-            local a=rot+(k/4)*6.283185
-            pts[#pts+1]={x=cx+math.cos(a)*rad,y=cy+math.sin(a)*rad}
-        end
-        for k=1,4 do
-            local p1=pts[k]
-            local p2=pts[(k%4)+1]
-            line(p1.x,p1.y,p2.x,p2.y,r,g,bc,alpha*0.22,4.0)
-            line(p1.x,p1.y,p2.x,p2.y,1,1,1,alpha*0.36,1.0)
-        end
-    end
-
-    local function ec_v83_ring(center,rad,y,r,g,bc,alpha,seg,spin)
-        local prev=nil
-        seg=seg or 34
-        for i=0,seg do
-            local a=(i/seg)*6.283185+(spin or 0)
-            local p=center+Vector3(math.cos(a)*rad,y,math.sin(a)*rad)
+    local function ec_v81_draw_world_ring(center,rad,y,r,g,bc,alpha,segments,spin)
+        local prev = nil
+        segments = segments or 48
+        for i=0,segments do
+            local a = (i / segments) * 6.283185 + (spin or 0)
+            local p = center + Vector3(math.cos(a)*rad,y,math.sin(a)*rad)
             if prev then
-                ec_v83_line_world(prev,p,r,g,bc,alpha*0.12,3.0)
-                ec_v83_line_world(prev,p,1,1,1,alpha*0.10,1.0)
+                ec_v81_line_world(prev,p,r,g,bc,alpha*0.22,6.0)
+                ec_v81_line_world(prev,p,r,g,bc,alpha*0.55,2.4)
+                ec_v81_line_world(prev,p,1,1,1,alpha*0.12,1.0)
             end
-            prev=p
+            prev = p
         end
     end
 
-    local function ec_v83_cross_screen(x,y,s,r,g,bc,a,rot)
-        local c=math.cos(rot)
-        local sn=math.sin(rot)
-        local x1,y1=x-c*s,y-sn*s
-        local x2,y2=x+c*s,y+sn*s
-        local x3,y3=x+sn*s,y-c*s
-        local x4,y4=x-sn*s,y+c*s
-        line(x1,y1,x2,y2,r,g,bc,a*0.25,3.2)
-        line(x3,y3,x4,y4,r,g,bc,a*0.25,3.2)
-        line(x1,y1,x2,y2,1,1,1,a*0.36,1.0)
-        line(x3,y3,x4,y4,1,1,1,a*0.36,1.0)
+    local function ec_v81_draw_target_cube(pos,s,rx,ry,rz,r,g,bc,alpha)
+        local cx = math.cos(rx)
+        local sx = math.sin(rx)
+        local cy = math.cos(ry)
+        local sy = math.sin(ry)
+        local cz = math.cos(rz)
+        local sz = math.sin(rz)
+
+        local scr = {}
+        for ci=1,8 do
+            local c = __EC_CUBE_CORNERS[ci]
+            local x,y,z = ec_rotate3_cached(c[1]*s,c[2]*s,c[3]*s,cx,sx,cy,sy,cz,sz)
+            scr[ci] = world_to_screen(pos + Vector3(x,y,z))
+        end
+        draw_cube_edges_screen(scr,r,g,bc,alpha)
     end
 
-    local function ec_v86_body_anchor(root,head)
-        local base = root
-        local height = 3.0
-
-        if head and root then
-            height = math.abs((head.Y or root.Y) - (root.Y or 0))
-            -- If target resolver gave head as root, force the effect DOWN to torso.
-            if height < 1.15 or (root.Y and head.Y and root.Y > head.Y - 0.85) then
-                base = head - Vector3(0,3.05,0)
-                height = 3.05
-            else
-                base = root
-                if height < 2.4 then height = 3.0 end
-                if height > 6.0 then height = 6.0 end
-            end
-        elseif root then
-            -- Most bad target resolvers return head position here; place visual below it.
-            base = root - Vector3(0,2.05,0)
-            height = 3.0
-        end
-
-        local center = base + Vector3(0,height*0.52,0)
-        return center,height,base
+    local function ec_v81_draw_target_star(pos,s,r,g,bc,alpha,rot)
+        local sp = world_to_screen(pos)
+        if not sp then return end
+        draw_star_screen(sp.X,sp.Y,math.max(4,s*10),r,g,bc,alpha,rot)
     end
 
-    local function ec_v86_draw_contact(base,center,height,r,g,bc,tm,a)
-        local sp=world_to_screen(center)
-        if sp then
-            circle(sp.X,sp.Y,16,r,g,bc,0.060*a)
-            circle(sp.X,sp.Y,7,1,1,1,0.120*a)
-        end
-
-        for i=1,6 do
-            local ang=tm*1.05+(i/6)*6.283185
-            local pos=base+Vector3(math.cos(ang)*0.88,height*(0.34+0.08*(i%3)),math.sin(ang)*0.88)
-            local s=world_to_screen(pos)
-            if s then ec_v83_hex(s.X,s.Y,4.1,r,g,bc,0.44*a,ang) end
-        end
-        ec_v83_ring(base,1.06,0.06,r,g,bc,0.27*a,30,tm*0.78)
-    end
-
-    local function ec_v86_draw_pulse(base,center,height,r,g,bc,tm,a)
-        local sp=world_to_screen(center)
-        if sp then
-            local pulse=13+math.sin(tm*2.45)*2.8
-            circle(sp.X,sp.Y,pulse,r,g,bc,0.080*a)
-            circle(sp.X,sp.Y,pulse*0.45,1,1,1,0.120*a)
-        end
-        ec_v83_ring(base,1.20,0.06,r,g,bc,0.31*a,34,tm*0.72)
-        ec_v83_ring(base,0.64,height*0.50,r,g,bc,0.16*a,26,-tm*0.55)
-    end
-
-    local function ec_v86_draw_orbs(base,center,height,r,g,bc,tm,a)
-        for i=1,8 do
-            local h1=ec_hash01(i*2.37)
-            local ang=tm*(0.80+h1*0.22)+(i/8)*6.283185
-            local rr=0.72+ec_hash01(i*5.19)*0.44
-            local y=height*(0.28+ec_hash01(i*8.31)*0.45)
-            local p=base+Vector3(math.cos(ang)*rr,y,math.sin(ang)*rr)
-            local s=world_to_screen(p)
-            if s then
-                circle(s.X,s.Y,3.2,r,g,bc,0.23*a)
-                circle(s.X,s.Y,1.6,1,1,1,0.15*a)
-            end
-        end
-    end
-
-    local function ec_v86_draw_shards(base,center,height,r,g,bc,tm,a)
-        for i=1,9 do
-            local h1=ec_hash01(i*1.91)
-            local h2=ec_hash01(i*4.11)
-            local ang=tm*(0.68+h1*0.48)+(i/9)*6.283185
-            local rr=0.66+h1*0.56
-            local y=height*(0.18+h2*0.66)
-            local p=base+Vector3(math.cos(ang)*rr,y,math.sin(ang)*rr)
-            local s=world_to_screen(p)
-            if s then ec_v83_diamond(s.X,s.Y,4.4+h2*1.6,r,g,bc,0.42*a,tm+i) end
-        end
-    end
-
-    local function ec_v86_draw_ring(base,center,height,r,g,bc,tm,a)
-        ec_v83_ring(base,1.22,0.06,r,g,bc,0.36*a,38,tm*0.70)
-        ec_v83_ring(base,0.82,height*0.45,r,g,bc,0.20*a,30,-tm*0.55)
-        ec_v83_ring(base,0.42,height*0.76,r,g,bc,0.13*a,22,tm*0.90)
+    local function ec_v81_draw_target_circle(pos,s,r,g,bc,alpha)
+        local sp = world_to_screen(pos)
+        if not sp then return end
+        draw_screen_circle(sp.X,sp.Y,math.max(3,s*9),r,g,bc,alpha)
     end
 
     local function draw_target_effects()
         if not (V.targetFx and V.targetFx.enabled == true) then return end
 
-        local root,head=ec_v83_get_target_cached()
+        local root, head = ec_v81_get_target()
         if not root then return end
-        if not ec_v83_not_self(root) then return end
-        if not head then head=root+Vector3(0,3.0,0) end
 
-        local tm=now()
-        local r,g,bc=get_target_color("targetfx")
-        local alpha=get_target_alpha("targetfx")
-        local center,height,base=ec_v86_body_anchor(root,head)
-        local style=tostring(V.targetFx.style or "Contact")
+        local me = get_hrp_pos()
+        if me and root then
+            local dx = (root.X or 0) - (me.X or 0)
+            local dy = (root.Y or 0) - (me.Y or 0)
+            local dz = (root.Z or 0) - (me.Z or 0)
+            if math.sqrt(dx*dx + dy*dy + dz*dz) < 4.35 then return end
+        end
 
-        if style == "Contact" then
-            ec_v86_draw_contact(base,center,height,r,g,bc,tm,alpha)
-        elseif style == "Pulse" then
-            ec_v86_draw_pulse(base,center,height,r,g,bc,tm,alpha)
-        elseif style == "Orbs" then
-            ec_v86_draw_orbs(base,center,height,r,g,bc,tm,alpha)
-        elseif style == "Shards" then
-            ec_v86_draw_shards(base,center,height,r,g,bc,tm,alpha)
-        elseif style == "Ring" then
-            ec_v86_draw_ring(base,center,height,r,g,bc,tm,alpha)
-        else
-            ec_v86_draw_contact(base,center,height,r,g,bc,tm,alpha)
-            ec_v86_draw_orbs(base,center,height,r,g,bc,tm,alpha)
-            ec_v86_draw_shards(base,center,height,r,g,bc,tm,alpha)
+        if not head then head = root + Vector3(0,3.0,0) end
+
+        local tm = now()
+        local mode = tostring(V.targetFx.mode or "Mixed")
+        local amount = math.floor(clamp(V.targetFx.amount or 28,6,70)+0.5)
+        local radius = clamp(V.targetFx.radius or 3.8,1.5,9.0)
+        local speed = clamp(V.targetFx.speed or 1.15,0.05,4.0)
+        local baseSize = clamp(V.targetFx.size or 0.62,0.15,2.0)
+        local r,g,bc = get_target_color("targetfx")
+        local alphaMul = get_target_alpha("targetfx")
+
+        local height = math.abs((head.Y or root.Y) - (root.Y or 0))
+        if height < 2.5 then height = 3.2 end
+        if height > 8.0 then height = 8.0 end
+        local center = root + Vector3(0,height*0.48,0)
+
+        -- Video-style target glow: halo rings and purple particles around current target.
+        ec_v81_draw_world_ring(root,radius*0.82,0.05,r,g,bc,0.64*alphaMul,54,tm*speed*0.55)
+        ec_v81_draw_world_ring(root,radius*0.55,height*0.44,r,g,bc,0.32*alphaMul,44,-tm*speed*0.38)
+        ec_v81_draw_world_ring(root,radius*0.36,height*0.86,r,g,bc,0.22*alphaMul,36,tm*speed*0.72)
+
+        -- Rotating cube/diamond shell on target body.
+        ec_v81_draw_target_cube(center,baseSize*1.85,tm*speed*0.9,tm*speed*1.25,tm*speed*0.55,r,g,bc,0.42*alphaMul)
+
+        for i=1,amount do
+            local h1 = ec_hash01(i*1.77)
+            local h2 = ec_hash01(i*4.91)
+            local h3 = ec_hash01(i*7.33)
+            local h4 = ec_hash01(i*9.19)
+
+            local a = h1*6.283185 + tm*speed*(0.35+h2*0.75)
+            local rr = radius*(0.38+h3*0.72)
+            local y = height*(0.05+h2*0.95) + math.sin(tm*speed*1.2+i)*0.25
+            local pos = root + Vector3(math.cos(a)*rr,y,math.sin(a)*rr)
+
+            local alpha = (0.34 + 0.30*math.sin(tm*2.2+i)) * alphaMul
+            if alpha < 0.18 then alpha = 0.18 end
+            local size = baseSize*(0.55+h4*0.85)
+
+            local drawMode = mode
+            if drawMode == "Mixed" then
+                local m = i % 3
+                if m == 0 then drawMode = "Cubes" elseif m == 1 then drawMode = "Stars" else drawMode = "Circles" end
+            end
+
+            if drawMode == "Cubes" then
+                ec_v81_draw_target_cube(pos,size,tm*speed+h1*6.28,tm*speed*0.75+h2*6.28,tm*speed*1.15+h3*6.28,r,g,bc,alpha)
+            elseif drawMode == "Stars" then
+                ec_v81_draw_target_star(pos,size,r,g,bc,alpha,tm*speed+h1*6.28)
+            elseif drawMode == "Circles" then
+                ec_v81_draw_target_circle(pos,size,r,g,bc,alpha)
+            elseif drawMode == "Halo" then
+                ec_v81_draw_world_ring(root,rr*0.70,y,r,g,bc,alpha*0.35,28,tm*speed+h1)
+            end
         end
     end
 
@@ -15910,6 +15815,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
     end
 
-    if notify and not __EC_V86_NOTIFIED then __EC_V86_NOTIFIED = true; notify("Eclipze v86 loaded", "success") end
+    if notify and not __EC_V87_NOTIFIED then __EC_V87_NOTIFIED = true; notify("Eclipze v87 loaded", "success") end
 end
-__EC_V86_PATCH()
+__EC_V87_PATCH()
