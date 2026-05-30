@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V95_PATCH()
+function __EC_V96_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v95_loaded then return end
-    V._v95_loaded = true
+    if V._v96_loaded then return end
+    V._v96_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 95 then
+    if T._defaults_version ~= 96 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V95_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 95
+        T._defaults_version = 96
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -16008,9 +16008,9 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
     end
 
-    if notify and not __EC_V95_NOTIFIED then __EC_V95_NOTIFIED = true; notify("Eclipze v95 loaded", "success") end
+    if notify and not __EC_V96_NOTIFIED then __EC_V96_NOTIFIED = true; notify("Eclipze v96 loaded", "success") end
 end
-__EC_V95_PATCH()
+__EC_V96_PATCH()
 
 
 -- // ===== CLEAN ORCHID MENU v95 - OLD MENU OVERRIDDEN =====
@@ -16342,3 +16342,266 @@ function __ec16_menu(mx,my,cl,w,h)
     return ORCHID95.draw_menu(mx,my,cl,w,h)
 end
 -- // ===== END CLEAN ORCHID MENU v95 =====
+
+
+-- // ===== v96 FUN FX / SKIBIDI SKELETON PATCH =====
+__EC16 = __EC16 or {}
+__EC16.screenSkeletons = (__EC16.screenSkeletons ~= false)
+__EC16.heartFire = (__EC16.heartFire ~= false)
+if __EC16.skibidiDance == nil then __EC16.skibidiDance = false end
+
+function ORCHID95.tm()
+    return (tick and tick()) or os.clock() or 0
+end
+
+function ORCHID95.line(x1,y1,x2,y2,r,g,b,a,t)
+    if Drawing and Drawing.DrawLine then
+        Drawing.DrawLine(x1,y1,x2,y2,r or 1,g or 1,b or 1,a or 1,t or 1)
+    end
+end
+
+function ORCHID95.cfill(x,y,rad,r,g,b,a)
+    if Drawing and Drawing.DrawCircleFilled then
+        Drawing.DrawCircleFilled(x,y,rad,r or 1,g or 1,b or 1,a or 1)
+    end
+end
+
+function ORCHID95.cout(x,y,rad,r,g,b,a,t)
+    if Drawing and Drawing.DrawCircle then
+        Drawing.DrawCircle(x,y,rad,r or 1,g or 1,b or 1,a or 1,t or 1)
+    end
+end
+
+function ORCHID95.cube(x,y,s,r,g,b,a)
+    ORCHID95.box(x-s,y-s,x+s,y+s,r,g,b,a or 1)
+    ORCHID95.out(x-s,y-s,x+s,y+s,1,1,1,(a or 1)*0.16,1)
+end
+
+function ORCHID95.heartfire(x,y,s,a)
+    local aa = a or 1
+    if __EC16.heartFire ~= true then return end
+    ORCHID95.cfill(x,y-s*0.22,s*0.55,1.00,0.38,0.12,0.06*aa)
+    ORCHID95.cfill(x,y-s*0.05,s*0.40,1.00,0.58,0.16,0.11*aa)
+    ORCHID95.cfill(x-s*0.22,y-s*0.06,s*0.18,1.00,0.28,0.52,0.85*aa)
+    ORCHID95.cfill(x+s*0.22,y-s*0.06,s*0.18,1.00,0.28,0.52,0.85*aa)
+    ORCHID95.cfill(x,y+s*0.10,s*0.17,1.00,0.16,0.42,0.88*aa)
+end
+
+function ORCHID95.mini_skeleton(x,y,s,a,phase)
+    local aa = a or 1
+    local ph = phase or 0
+    local sway = math.sin(ORCHID95.tm()*1.6 + ph) * s * 0.15
+    local headY = y - s*0.92 + sway*0.15
+    local neckY = y - s*0.56
+    local hipY = y + s*0.08
+    local armY = y - s*0.30
+    local legY = y + s*0.86
+
+    ORCHID95.cfill(x,headY,s*0.20,0.98,0.96,1.00,0.82*aa)
+    ORCHID95.cout(x,headY,s*0.21,1,0.58,0.92,0.26*aa,1)
+    ORCHID95.line(x,headY+s*0.18,x,hipY,0.92,0.82,1.00,0.86*aa,1.4)
+    ORCHID95.line(x-s*0.34,armY,x+s*0.34,armY,0.92,0.82,1.00,0.82*aa,1.2)
+
+    local ar = math.sin(ORCHID95.tm()*2.0 + ph)
+    ORCHID95.line(x-s*0.34,armY,x-s*0.52,armY+s*0.18+s*0.20*ar,0.92,0.82,1.00,0.78*aa,1.0)
+    ORCHID95.line(x+s*0.34,armY,x+s*0.52,armY-s*0.18-s*0.20*ar,0.92,0.82,1.00,0.78*aa,1.0)
+    ORCHID95.line(x,hipY,x-s*0.30,legY,0.92,0.82,1.00,0.82*aa,1.2)
+    ORCHID95.line(x,hipY,x+s*0.30,legY,0.92,0.82,1.00,0.82*aa,1.2)
+
+    ORCHID95.heartfire(x,y-s*0.14,s*0.70,aa)
+end
+
+function ORCHID95.skibidi_cube_skeleton(cx,cy,scale,alpha)
+    local t = ORCHID95.tm()
+    local a = alpha or 1
+    local s = scale or 16
+    local bob = math.sin(t*4.0) * s*0.18
+    local side = math.sin(t*2.3) * s*0.34
+    local arm = math.sin(t*5.0) * 0.90
+    local leg = math.sin(t*5.0 + 1.57) * 0.78
+
+    local headx = cx + side*0.32
+    local heady = cy - s*3.10 + bob
+    local chestx = cx + side*0.18
+    local chesty = cy - s*1.45 + bob
+    local hipx = cx
+    local hipy = cy + bob
+
+    ORCHID95.cube(headx,heady,s*0.70,0.96,0.90,1.00,0.85*a)
+    ORCHID95.cube(chestx,chesty,s*0.52,0.88,0.34,0.98,0.90*a)
+    ORCHID95.cube(hipx,hipy,s*0.46,0.72,0.18,0.88,0.88*a)
+
+    local lx1 = chestx - s*1.05
+    local ly1 = chesty - s*0.08
+    local lx2 = lx1 - s*0.60
+    local ly2 = ly1 + s*0.55 + arm*s*0.65
+    local rx1 = chestx + s*1.05
+    local ry1 = chesty - s*0.08
+    local rx2 = rx1 + s*0.60
+    local ry2 = ry1 - s*0.55 - arm*s*0.65
+
+    ORCHID95.cube(lx1,ly1,s*0.26,0.92,0.82,1.00,0.88*a)
+    ORCHID95.cube(lx2,ly2,s*0.24,0.92,0.82,1.00,0.84*a)
+    ORCHID95.cube(rx1,ry1,s*0.26,0.92,0.82,1.00,0.88*a)
+    ORCHID95.cube(rx2,ry2,s*0.24,0.92,0.82,1.00,0.84*a)
+    ORCHID95.line(chestx-s*0.40,chesty,lx1,ly1,1,0.70,1,0.58*a,1.2)
+    ORCHID95.line(lx1,ly1,lx2,ly2,1,0.70,1,0.58*a,1.2)
+    ORCHID95.line(chestx+s*0.40,chesty,rx1,ry1,1,0.70,1,0.58*a,1.2)
+    ORCHID95.line(rx1,ry1,rx2,ry2,1,0.70,1,0.58*a,1.2)
+
+    local ll1x = hipx - s*0.50
+    local ll1y = hipy + s*0.82
+    local ll2x = ll1x - s*0.18
+    local ll2y = ll1y + s*0.86 + leg*s*0.55
+    local rl1x = hipx + s*0.50
+    local rl1y = hipy + s*0.82
+    local rl2x = rl1x + s*0.18
+    local rl2y = rl1y + s*0.86 - leg*s*0.55
+
+    ORCHID95.cube(ll1x,ll1y,s*0.24,0.92,0.82,1.00,0.88*a)
+    ORCHID95.cube(ll2x,ll2y,s*0.22,0.92,0.82,1.00,0.84*a)
+    ORCHID95.cube(rl1x,rl1y,s*0.24,0.92,0.82,1.00,0.88*a)
+    ORCHID95.cube(rl2x,rl2y,s*0.22,0.92,0.82,1.00,0.84*a)
+    ORCHID95.line(hipx-s*0.24,hipy,ll1x,ll1y,1,0.70,1,0.58*a,1.2)
+    ORCHID95.line(ll1x,ll1y,ll2x,ll2y,1,0.70,1,0.58*a,1.2)
+    ORCHID95.line(hipx+s*0.24,hipy,rl1x,rl1y,1,0.70,1,0.58*a,1.2)
+    ORCHID95.line(rl1x,rl1y,rl2x,rl2y,1,0.70,1,0.58*a,1.2)
+
+    ORCHID95.line(headx,heady+s*0.62,chestx,chesty-s*0.46,1,0.72,1,0.60*a,1.3)
+    ORCHID95.line(chestx,chesty+s*0.40,hipx,hipy-s*0.32,1,0.72,1,0.60*a,1.3)
+    ORCHID95.heartfire(chestx,chesty,s*0.86,a)
+end
+
+function ORCHID95.ensure_skellys(sw,sh)
+    ORCHID95.skellyList = ORCHID95.skellyList or {}
+    if #ORCHID95.skellyList >= 16 then return end
+    math.randomseed(os.time())
+    for i=#ORCHID95.skellyList+1,16 do
+        ORCHID95.skellyList[i] = {
+            x = math.random(20, math.max(40, sw-20)),
+            y = math.random(20, math.max(40, sh-20)),
+            s = math.random(12, 26),
+            vx = (math.random()*2-1) * 0.35,
+            vy = (math.random()*2-1) * 0.35,
+            ph = math.random() * 6.28,
+            a = 0.20 + math.random()*0.18
+        }
+    end
+end
+
+function ORCHID95.draw_screen_skeletons(sw,sh)
+    if __EC16.screenSkeletons ~= true then return end
+    ORCHID95.ensure_skellys(sw,sh)
+    local t = ORCHID95.tm()
+    for i,sk in ipairs(ORCHID95.skellyList or {}) do
+        sk.x = sk.x + math.sin(t*0.7 + sk.ph) * 0.12 + (sk.vx or 0)
+        sk.y = sk.y + math.cos(t*0.6 + sk.ph) * 0.10 + (sk.vy or 0)
+        if sk.x < -40 then sk.x = sw + 20 end
+        if sk.x > sw + 40 then sk.x = -20 end
+        if sk.y < -40 then sk.y = sh + 20 end
+        if sk.y > sh + 40 then sk.y = -20 end
+        ORCHID95.mini_skeleton(sk.x,sk.y,sk.s,sk.a,sk.ph+i)
+    end
+end
+
+function ORCHID95.draw_misc(mx,my,cl,x,y,w,h)
+    ORCHID95.section(x,y,278,h,"MISC / FUN")
+    ORCHID95.section(x+290,y,w-290,h,"SKIBIDI FX")
+    ORCHID95.toggle(mx,my,cl,x+16,y+36,"Screen Skeletons",__EC16.screenSkeletons==true,function(v) __EC16.screenSkeletons=v end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+62,"Heart Fire",__EC16.heartFire==true,function(v) __EC16.heartFire=v end)
+    ORCHID95.toggle(mx,my,cl,x+16,y+88,"Skibidi Skeleton Dance",__EC16.skibidiDance==true,function(v) __EC16.skibidiDance=v end)
+    ORCHID95.text(x+16,y+132,"При включении dance появляется кубический скилетик.",0.84,0.78,0.94,0.88)
+    ORCHID95.text(x+16,y+152,"Screen Skeletons = маленькие скелеты по всему экрану.",0.84,0.78,0.94,0.88)
+    ORCHID95.text(x+16,y+172,"Heart Fire = огонь в сердцах скелетиков.",0.84,0.78,0.94,0.88)
+
+    local px = x + 332
+    local py = y + 68
+    local pw = w - 356
+    local ph = h - 96
+    ORCHID95.out(px,py,px+pw,py+ph,0.88,0.14,0.58,0.18,1)
+    ORCHID95.box(px,py,px+pw,py+ph,0.18,0.03,0.25,0.35)
+    ORCHID95.text(px+16,py+12,"PREVIEW",0.96,0.90,1.00,0.94)
+    ORCHID95.mini_skeleton(px+70,py+120,24,0.55,1.5)
+    ORCHID95.mini_skeleton(px+140,py+178,18,0.42,2.3)
+    ORCHID95.mini_skeleton(px+230,py+110,20,0.48,0.8)
+    ORCHID95.skibidi_cube_skeleton(px + pw*0.68, py + ph*0.64, 15, __EC16.skibidiDance and 0.98 or 0.28)
+end
+
+function ORCHID95.draw_menu(mx,my,cl,w,h)
+    if not (__EC16 and __EC16.open) then ORCHID95.last = cl == true return end
+    __EC16.mainTab = __EC16.mainTab or "aimbot"
+
+    local sw,sh = w or 1280,h or 720
+    local ww,hh = 748,448
+    if not ORCHID95.x then
+        ORCHID95.x = math.floor((sw-ww)/2)
+        ORCHID95.y = math.floor((sh-hh)/2)
+    end
+
+    if ORCHID95.inr(mx,my,ORCHID95.x,ORCHID95.y,ORCHID95.x+ww,ORCHID95.y+28) and cl and not ORCHID95.last then
+        ORCHID95.drag = true
+        ORCHID95.dx = mx-ORCHID95.x
+        ORCHID95.dy = my-ORCHID95.y
+    end
+    if not cl then ORCHID95.drag = false end
+    if ORCHID95.drag then
+        ORCHID95.x = mx - (ORCHID95.dx or 0)
+        ORCHID95.y = my - (ORCHID95.dy or 0)
+    end
+
+    local x,y = ORCHID95.x, ORCHID95.y
+    local nav = 140
+
+    ORCHID95.draw_screen_skeletons(sw,sh)
+    if __EC16.skibidiDance == true then
+        ORCHID95.skibidi_cube_skeleton(sw*0.83, sh*0.62, 18, 0.92)
+    end
+
+    ORCHID95.out(x-1,y-1,x+ww+1,y+hh+1,0.96,0.0,0.60,0.42,2)
+    ORCHID95.box(x,y,x+ww,y+hh,0.16,0.0,0.26,0.97)
+    ORCHID95.box(x,y,x+ww,y+hh,0.26,0.00,0.36,0.18)
+    ORCHID95.box(x,y,x+ww,y+72,0.31,0.0,0.52,0.82)
+    ORCHID95.box(x,y+72,x+ww,y+hh,0.10,0.0,0.20,0.94)
+    ORCHID95.box(x+nav,y,x+nav+1,y+hh,0.70,0.0,0.48,0.40)
+    ORCHID95.center(x+nav,x+ww,y+16,"ORCHIDCHEATS - REMASTERED",0.96,0.90,1,0.92)
+
+    ORCHID95.center(x,x+nav,y+48,"ORCHID",0.96,0.80,1,1)
+    ORCHID95.center(x,x+nav,y+64,"CHEATS",0.94,0.72,1,0.88)
+    ORCHID95.center(x,x+nav,y+86,"☠",1,0.0,0.62,1)
+
+    local ty = y+100
+    ORCHID95.tab(mx,my,cl,x+10,ty,120,40,"AIMBOT","aimbot")
+    ORCHID95.tab(mx,my,cl,x+10,ty+48,120,40,"TRIGGERBOT","trigger")
+    ORCHID95.tab(mx,my,cl,x+10,ty+96,120,40,"VISUALS","visuals")
+    ORCHID95.tab(mx,my,cl,x+10,ty+144,120,40,"MISCELLANEOUS","misc")
+    ORCHID95.tab(mx,my,cl,x+10,ty+192,120,40,"SKINCHANGER","skins")
+    ORCHID95.tab(mx,my,cl,x+10,ty+240,120,40,"COLORS","colors")
+    ORCHID95.tab(mx,my,cl,x+10,ty+288,120,40,"CONFIGS","configs")
+
+    local cx,cy,cw,ch = x+nav+12,y+74,ww-nav-24,hh-86
+    if __EC16.mainTab == "aimbot" then
+        ORCHID95.draw_aim(mx,my,cl,cx,cy,cw,ch)
+    elseif __EC16.mainTab == "visuals" then
+        ORCHID95.draw_visuals(mx,my,cl,cx,cy,cw,ch)
+    elseif __EC16.mainTab == "misc" then
+        ORCHID95.draw_misc(mx,my,cl,cx,cy,cw,ch)
+    elseif __EC16.mainTab == "trigger" then
+        ORCHID95.draw_simple(mx,my,cl,cx,cy,cw,ch,"TRIGGERBOT")
+    elseif __EC16.mainTab == "skins" then
+        ORCHID95.draw_simple(mx,my,cl,cx,cy,cw,ch,"SKINCHANGER")
+    elseif __EC16.mainTab == "colors" then
+        ORCHID95.section(cx,cy,cw,ch,"COLORS")
+        ORCHID95.color(mx,my,cl,cx+24,cy+42,240,"Trail","trail")
+        ORCHID95.color(mx,my,cl,cx+24,cy+120,240,"World","world")
+        ORCHID95.color(mx,my,cl,cx+24,cy+198,240,"Target","target")
+    else
+        ORCHID95.draw_simple(mx,my,cl,cx,cy,cw,ch,"CONFIGS")
+    end
+
+    ORCHID95.last = cl == true
+end
+
+function __ec16_menu(mx,my,cl,w,h)
+    return ORCHID95.draw_menu(mx,my,cl,w,h)
+end
+-- // ===== END v96 FUN FX / SKIBIDI SKELETON PATCH =====
