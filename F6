@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V92_PATCH()
+function __EC_V93_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v92_loaded then return end
-    V._v92_loaded = true
+    if V._v93_loaded then return end
+    V._v93_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 92 then
+    if T._defaults_version ~= 93 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V92_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 92
+        T._defaults_version = 93
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -16008,12 +16008,17 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
     end
 
-    if notify and not __EC_V92_NOTIFIED then __EC_V92_NOTIFIED = true; notify("Eclipze v92 loaded", "success") end
+    if notify and not __EC_V93_NOTIFIED then __EC_V93_NOTIFIED = true; notify("Eclipze v93 loaded", "success") end
 end
-__EC_V92_PATCH()
+__EC_V93_PATCH()
 
 
--- // ===== ORCHID STYLE FULL MENU REBUILD v92 =====
+
+
+-- // v93 menu rebuild loaded as separate chunk to avoid Lua 200-local main chunk limit
+pcall(function()
+    local __ec_v93_menu_loader = loadstring([==[
+-- // ===== ORCHID STYLE FULL MENU REBUILD v93 =====
 do
     __EC16 = __EC16 or {}
     if not __EC16_ORCHID_V92 then
@@ -16550,4 +16555,7 @@ do
         __EC16.orchidLastClick = cl == true
     end
 end
--- // ===== END ORCHID STYLE FULL MENU REBUILD v92 =====
+-- // ===== END ORCHID STYLE FULL MENU REBUILD v93 =====
+]==])
+    if __ec_v93_menu_loader then __ec_v93_menu_loader() end
+end)
