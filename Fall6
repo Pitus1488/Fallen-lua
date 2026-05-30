@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V88_PATCH()
+function __EC_V89_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v88_loaded then return end
-    V._v88_loaded = true
+    if V._v89_loaded then return end
+    V._v89_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 88 then
+    if T._defaults_version ~= 89 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V88_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 88
+        T._defaults_version = 89
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -15538,14 +15538,66 @@ local function picker_blocks_base(mx,my,cl)
         return p
     end
 
+    local function ec_v89_choose_body_root(position,rootExplicit,head,low,high,objPart)
+        -- This is the important fix:
+        -- do NOT trust "position" blindly, because in this API it can be the Head / hit part.
+        local root = rootExplicit
+        local h = head or high
+
+        if not root and position and h then
+            local dy = (h.Y or 0) - (position.Y or 0)
+            if dy > 1.15 then
+                -- position is below head, likely body/root
+                root = position
+            else
+                -- position is too close to head => force down to body/base
+                root = h - Vector3(0,2.85,0)
+            end
+        elseif not root and position then
+            -- If we only have a hit/part position, it is usually where you aimed (often head).
+            -- Move down so the effect wraps the body instead of the head.
+            root = position - Vector3(0,2.35,0)
+        end
+
+        if not root and low and high then
+            local height = math.abs((high.Y or 0) - (low.Y or 0))
+            if height < 1.20 then
+                root = high - Vector3(0,2.85,0)
+                h = high
+            else
+                root = low
+                h = high
+            end
+        elseif not root and low then
+            root = low
+        elseif not root and high then
+            root = high - Vector3(0,2.85,0)
+            h = high
+        elseif not root and objPart then
+            root = objPart - Vector3(0,2.35,0)
+            h = objPart
+        end
+
+        if root and not h then h = root + Vector3(0,3.0,0) end
+
+        -- Final guard: if root and head are almost same Y, root is still head-ish.
+        if root and h then
+            local dy = (h.Y or 0) - (root.Y or 0)
+            if dy < 1.15 then
+                root = h - Vector3(0,2.85,0)
+            end
+        end
+
+        return root,h
+    end
+
     local function ec_v88_target_pos_from_object(t)
         if not t then return nil,nil,false end
 
-        -- IMPORTANT: body/root position is preferred over head.
-        local root = ec_v88_to_vec3(t.position or t.root_pos or t.root_position or t.hrp_pos or t.body_pos or t.body_position)
+        local rootExplicit = ec_v88_to_vec3(t.root_pos or t.root_position or t.hrp_pos or t.body_pos or t.body_position)
+        local position = ec_v88_to_vec3(t.position)
         local head = ec_v88_to_vec3(t.head_pos or t.head_position)
 
-        -- If parts exist, build a body from the lower/highest parts.
         local low, high = nil, nil
         if t.parts then
             for _,pt in pairs(t.parts) do
@@ -15557,26 +15609,14 @@ local function picker_blocks_base(mx,my,cl)
             end
         end
 
-        if not root and low then root = low end
-        if not head and high then head = high end
-
-        -- If the target itself is only a part (often Head), do NOT use that as torso.
-        -- Drop it down so effects are on body, not head.
-        local explicitBody = (t.position ~= nil) or (t.root_pos ~= nil) or (t.root_position ~= nil) or (t.hrp_pos ~= nil) or (t.body_pos ~= nil) or (t.body_position ~= nil)
-        if not root then
-            local p = ec_v88_obj_pos(t)
-            if p then
-                if explicitBody then
-                    root = p
-                else
-                    head = head or p
-                    root = p - Vector3(0,2.45,0)
-                end
-            end
+        local objPart = nil
+        if not rootExplicit and not position and not head and not low and not high then
+            objPart = ec_v88_obj_pos(t)
         end
 
-        if root and not head then head = root + Vector3(0,3.0,0) end
-        return root,head,root ~= nil
+        local root,h = ec_v89_choose_body_root(position,rootExplicit,head,low,high,objPart)
+        if root and not h then h = root + Vector3(0,3.0,0) end
+        return root,h,root ~= nil
     end
 
     local function ec_v88_is_self_target(root,head)
@@ -15712,21 +15752,24 @@ local function picker_blocks_base(mx,my,cl)
             local h1=ec_hash01(i*2.13)
             local h2=ec_hash01(i*4.73)
             local a=tm*(1.15+h1*0.25)+(i/amount)*6.283185
-            local rad=1.00+h1*0.32
-            local y=-0.10+height*(0.22+h2*0.54)
+            local rad=1.05+h1*0.38
+            local y=height*(0.06+h2*0.84)
             local pos=center+Vector3(math.cos(a)*rad,y,math.sin(a)*rad)
-            local size=0.18+h2*0.10
+            local size=0.17+h2*0.10
             ec_v88_cube(pos,size,tm*1.5+i,tm*1.1+h1*3.14,tm*1.8+h2*3.14,r,g,bc,0.74*alpha)
         end
     end
 
     local function ec_v88_draw_aura_swirl(center,height,r,g,bc,tm,alpha)
         -- Aura-like rotating ring + moving dashes around torso.
-        local baseY=height*0.36
-        ec_v88_ring(center,1.03,baseY,r,g,bc,0.42*alpha,1.35,72,tm*0.55)
-        ec_v88_ring(center,1.28,baseY+0.04,r,g,bc,0.34*alpha,1.25,72,-tm*0.62)
-        ec_v88_dashes(center,1.03,baseY,r,g,bc,0.70*alpha,1.05,7,0.35,tm*1.35)
-        ec_v88_dashes(center,1.28,baseY+0.04,r,g,bc,0.62*alpha,1.00,8,0.30,-tm*1.10+1.2)
+        local lowY=height*0.10
+        local midY=height*0.46
+        local highY=height*0.82
+        ec_v88_ring(center,1.05,lowY,r,g,bc,0.36*alpha,1.25,72,tm*0.55)
+        ec_v88_ring(center,1.22,midY,r,g,bc,0.40*alpha,1.35,72,-tm*0.62)
+        ec_v88_ring(center,0.84,highY,r,g,bc,0.26*alpha,1.10,60,tm*0.85)
+        ec_v88_dashes(center,1.22,midY,r,g,bc,0.70*alpha,1.05,8,0.35,tm*1.35)
+        ec_v88_dashes(center,1.05,lowY,r,g,bc,0.54*alpha,0.95,7,0.28,-tm*1.10+1.2)
     end
 
     local function ec_v88_draw_helix(center,height,r,g,bc,tm,alpha)
@@ -15769,7 +15812,7 @@ local function picker_blocks_base(mx,my,cl)
         end
 
         -- center is the BODY/root base. All effects are built upward from this,
-        -- not around the head.
+        -- not around the head. The resolver above forces head-only hits down to body.
         local center=root
         local tm=now()
         local r,g,bc=get_target_color("targetfx")
@@ -15918,6 +15961,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
     end
 
-    if notify and not __EC_V88_NOTIFIED then __EC_V88_NOTIFIED = true; notify("Eclipze v88 loaded", "success") end
+    if notify and not __EC_V89_NOTIFIED then __EC_V89_NOTIFIED = true; notify("Eclipze v89 loaded", "success") end
 end
-__EC_V88_PATCH()
+__EC_V89_PATCH()
