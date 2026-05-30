@@ -7438,44 +7438,56 @@ __ec16_txt((x1+x2)/2,y1+13,label,active and 1 or 0.74)
 return h and cl and not __EC16.lastClick
 end
 function __ec16_check(mx,my,cl,x,y,label,id)
-local v=UIManager.GetCheckboxValue(id); local size=17
+local v=UIManager.GetCheckboxValue(id)
+local tw, th = 28, 14
 local labelW = __ec16_text_w(label)
-local h=__ec16_in(mx,my,x,y,x+32+labelW,y+23)
-__ec16_rect(x,y,x+size,y+size,0.055,0.055,0.065,1)
-__ec16_out(x,y,x+size,y+size,h and 1 or 0.24,h and 0 or 0.24,h and 0.55 or 0.27,1,1)
-if v then __ec16_rect(x+4,y+4,x+size-4,y+size-4,__EC_PINK_R,__EC_PINK_G,__EC_PINK_B,1) end
-__ec16_ldim(x+28,y+1,label,h and 0.95 or 0.76)
+local h=__ec16_in(mx,my,x,y-2,x+tw+10+labelW,y+22)
+__ec16_rect(x,y+3,x+tw,y+3+th,v and 0.08 or 0.14,v and 0.46 or 0.05,v and 0.16 or 0.08,0.96)
+__ec16_out(x,y+3,x+tw,y+3+th,h and 1 or 0.22,h and 0.08 or 0.12,h and 0.62 or 0.24,h and 0.85 or 0.55,1)
+local kx = v and (x+tw-8) or (x+8)
+Drawing.DrawCircleFilled(kx,y+10,6,1,1,1,0.96)
+Drawing.DrawCircle(kx,y+10,6,v and 0.10 or 0.55,v and 0.70 or 0.05,v and 0.20 or 0.12,0.85,1)
+__ec16_ldim(x+38,y+2,label,h and 0.95 or 0.78)
 if h and cl and not __EC16.lastClick then UIManager.SetCheckboxValue(id,not v) end
 end
 function __ec16_bool_check(mx,my,cl,x,y,label,value)
-local size=17
+local v = value == true
+local tw, th = 28, 14
 local labelW = __ec16_text_w(label)
-local h=__ec16_in(mx,my,x,y,x+32+labelW,y+23)
-__ec16_rect(x,y,x+size,y+size,0.055,0.055,0.065,1)
-__ec16_out(x,y,x+size,y+size,h and 1 or 0.24,h and 0 or 0.24,h and 0.55 or 0.27,1,1)
-if value then __ec16_rect(x+4,y+4,x+size-4,y+size-4,__EC_PINK_R,__EC_PINK_G,__EC_PINK_B,1) end
-__ec16_ldim(x+28,y+1,label,h and 0.95 or 0.76)
+local h=__ec16_in(mx,my,x,y-2,x+tw+10+labelW,y+22)
+__ec16_rect(x,y+3,x+tw,y+3+th,v and 0.08 or 0.14,v and 0.46 or 0.05,v and 0.16 or 0.08,0.96)
+__ec16_out(x,y+3,x+tw,y+3+th,h and 1 or 0.22,h and 0.08 or 0.12,h and 0.62 or 0.24,h and 0.85 or 0.55,1)
+local kx = v and (x+tw-8) or (x+8)
+Drawing.DrawCircleFilled(kx,y+10,6,1,1,1,0.96)
+Drawing.DrawCircle(kx,y+10,6,v and 0.10 or 0.55,v and 0.70 or 0.05,v and 0.20 or 0.12,0.85,1)
+__ec16_ldim(x+38,y+2,label,h and 0.95 or 0.78)
 if h and cl and not __EC16.lastClick then return not value end
 return value
 end
 function __ec16_float_slider(mx,my,cl,x,y,w,label,value,minv,maxv)
-local h=__ec16_in(mx,my,x,y+24,x+w,y+40)
+local h=__ec16_in(mx,my,x,y+24,x+w,y+42)
 local pct=__ec16_c((value-minv)/(maxv-minv),0,1)
-__ec16_ldim(x,y,label..": "..tostring(math.floor(value*10)/10),0.80)
-__ec16_rect(x,y+31,x+w,y+37,0.050,0.050,0.058,1)
-__ec16_rect(x,y+31,x+w*pct,y+37,__EC_PINK_R,__EC_PINK_G,__EC_PINK_B,1)
-__ec16_out(x,y+29,x+w,y+39,0.18,0.18,0.20,0.80,1)
+__ec16_ldim(x,y,label,0.80)
+Drawing.DrawTextWithOutline(x+w-18,y,tostring(math.floor(value*100)/100),0.72,0.68,0.82,0.88,0,0,0,0.85)
+__ec16_rect(x,y+30,x+w,y+38,0.110,0.028,0.110,0.86)
+__ec16_rect(x,y+30,x+w*pct,y+38,__EC_PINK_R,0.00,0.46,0.96)
+__ec16_out(x,y+28,x+w,y+40,0.20,0.04,0.22,0.80,1)
+Drawing.DrawCircleFilled(x+w*pct,y+34,6,1,0.92,1,0.94)
+Drawing.DrawCircle(x+w*pct,y+34,7,__EC_PINK_R,0.00,0.58,0.90,1)
 if h and cl then return minv+(maxv-minv)*__ec16_c((mx-x)/w,0,1) end
 return value
 end
 function __ec16_slider(mx,my,cl,x,y,w,label,id,minv,maxv)
 local val=UIManager.GetSliderIntValue(id) or minv
-local h=__ec16_in(mx,my,x,y+24,x+w,y+40)
+local h=__ec16_in(mx,my,x,y+24,x+w,y+42)
 local pct=__ec16_c((val-minv)/(maxv-minv),0,1)
-__ec16_ldim(x,y,label..": "..tostring(math.floor(val)),0.80)
-__ec16_rect(x,y+31,x+w,y+37,0.050,0.050,0.058,1)
-__ec16_rect(x,y+31,x+w*pct,y+37,__EC_PINK_R,__EC_PINK_G,__EC_PINK_B,1)
-__ec16_out(x,y+29,x+w,y+39,0.18,0.18,0.20,0.80,1)
+__ec16_ldim(x,y,label,0.80)
+Drawing.DrawTextWithOutline(x+w-18,y,tostring(math.floor(val)),0.72,0.68,0.82,0.88,0,0,0,0.85)
+__ec16_rect(x,y+30,x+w,y+38,0.110,0.028,0.110,0.86)
+__ec16_rect(x,y+30,x+w*pct,y+38,__EC_PINK_R,0.00,0.46,0.96)
+__ec16_out(x,y+28,x+w,y+40,0.20,0.04,0.22,0.80,1)
+Drawing.DrawCircleFilled(x+w*pct,y+34,6,1,0.92,1,0.94)
+Drawing.DrawCircle(x+w*pct,y+34,7,__EC_PINK_R,0.00,0.58,0.90,1)
 if h and cl then UIManager.SetSliderIntValue(id,math.floor(minv+(maxv-minv)*__ec16_c((mx-x)/w,0,1))) end
 end
 function __ec16_color(mx,my,cl,x,y,label,which)
@@ -7632,9 +7644,9 @@ __ec16_apply_colors()
 end
 function __ec16_button(mx,my,cl,x1,y1,x2,y2,label,id)
 local h=__ec16_in(mx,my,x1,y1,x2,y2)
-__ec16_rect(x1,y1,x2,y2,h and 0.105 or 0.080,h and 0.105 or 0.080,h and 0.115 or 0.090,0.96)
-__ec16_out(x1,y1,x2,y2,h and 1 or 0.20,h and 0 or 0.20,h and 0.55 or 0.22,0.95,1)
-__ec16_txt((x1+x2)/2,y1+12,label,0.90)
+__ec16_rect(x1,y1,x2,y2,h and 0.34 or 0.22,h and 0.02 or 0.015,h and 0.20 or 0.13,0.94)
+__ec16_out(x1,y1,x2,y2,h and 1.00 or 0.44,h and 0.00 or 0.04,h and 0.58 or 0.28,0.82,1)
+__ec16_txt((x1+x2)/2,y1+12,label,0.92)
 if h and cl and not __EC16.lastClick and __EC16_UI.buttons[id] then pcall(__EC16_UI.buttons[id]) end
 end
 function __ec16_list(mx,my,cl,x,y,items,prefix,perCol,dy)
@@ -8583,12 +8595,12 @@ msg = tostring(msg or "")
 Drawing.DrawTextWithOutline(tx + __ec16_text_w(msg) * 0.5, ty, msg, dimR,dimG,dimB,a or 0.95,0,0,0,0.9)
 end
 local function group(gx,gy,gw,gh,title)
-round_rect(gx-1,gy-1,gx+gw+1,gy+gh+1,1.00,0.00,0.58,0.032,8)
-round_rect(gx,gy,gx+gw,gy+gh,boxR,boxG,boxB,0.94,8)
-round_rect(gx+1,gy+1,gx+gw-1,gy+gh-1,0.022,0.020,0.040,0.92,7)
-round_rect(gx+1,gy+1,gx+gw-1,gy+24,0.100,0.072,0.190,0.98,7)
-rect(gx+10,gy+22,gx+gw-10,gy+24,1.00,0.00,0.58,0.36)
-Drawing.DrawTextWithOutline(gx+12 + __ec16_text_w(title) * 0.5, gy+7, title, 0.94,0.89,1.00,0.98,0,0,0,0.9)
+round_rect(gx-1,gy-1,gx+gw+1,gy+gh+1,1.00,0.00,0.58,0.050,6)
+round_rect(gx,gy,gx+gw,gy+gh,0.150,0.020,0.165,0.70,5)
+round_rect(gx+1,gy+1,gx+gw-1,gy+gh-1,0.045,0.010,0.070,0.82,4)
+rect(gx,gy,gx+gw,gy+24,0.260,0.028,0.300,0.58)
+rect(gx+8,gy+23,gx+gw-8,gy+25,1.00,0.00,0.58,0.80)
+Drawing.DrawTextWithOutline(gx+12 + __ec16_text_w(title) * 0.5, gy+7, title, 0.96,0.90,1.00,0.98,0,0,0,0.9)
 end
 local function get_username()
 local name = "Player"
@@ -8698,67 +8710,73 @@ end
 return __EC16.avatarHandle
 end
 
-local function neon_shell(a,b,c,d,rad)
-round_rect(a-1,b-1,c+1,d+1,1.00,0.00,0.58,0.032,rad+1)
-round_rect(a,b,c,d,0.090,0.068,0.165,0.84,rad)
-round_rect(a+1,b+1,c-1,d-1,bgR,bgG,bgB,0.74,rad-1)
-end
-neon_shell(x,y,x2,y2,14)
-round_rect(x+7,y+7,x2-7,y+37,0.070,0.050,0.145,0.86,10)
-rect(x+10,y+35,x2-10,y+37,accR,accG,accB,0.76)
--- v18: removed duplicated header logo text
-local tabs = {
-{id="aim", label="AIM", w=88},
-{id="esp", label="FALLEN ESP", w=132},
-{id="noclip", label="NOCLIP", w=102},
-{id="visuals", label="VISUALS", w=104}
-}
-local tx = x + 18
-local ty = y + 45
-for _,tb in ipairs(tabs) do
-local active = (__EC16.mainTab == tb.id)
-local hov = __ec16_in(mx,my,tx,ty,tx+tb.w,ty+25)
-if hov and cl and not __EC16.lastClick then __EC16.mainTab = tb.id end
+local function orchid_button(ix1,iy1,ix2,iy2,label,active)
+local hov = __ec16_in(mx,my,ix1,iy1,ix2,iy2)
 if active then
-round_rect(tx-1,ty-1,tx+tb.w+1,ty+26,1.00,0.00,0.58,0.08,7)
-round_rect(tx,ty,tx+tb.w,ty+25,0.125,0.083,0.225,1,6)
-rect(tx+8,ty+22,tx+tb.w-8,ty+24,accR,accG,accB,1)
-Drawing.DrawTextWithOutline(tx+10 + __ec16_text_w(tb.label) * 0.5, ty+7, tb.label, 1,0.82,0.96,1,0,0,0,1)
+round_rect(ix1,iy1,ix2,iy2,0.62,0.04,0.36,0.86,4)
+rect(ix1,iy1,ix1+4,iy2,1.00,0.00,0.58,1.00)
+Drawing.DrawTextWithOutline(ix1+16 + __ec16_text_w(label)*0.5,iy1+12,label,1.00,0.92,1.00,0.98,0,0,0,0.95)
 else
-round_rect(tx,ty,tx+tb.w,ty+25,0.050,0.040,0.100,hov and 0.98 or 0.76,6)
-Drawing.DrawTextWithOutline(tx+10 + __ec16_text_w(tb.label) * 0.5, ty+7, tb.label, 0.60,0.54,0.76,hov and 0.95 or 0.78,0,0,0,0.95)
+round_rect(ix1,iy1,ix2,iy2,hov and 0.36 or 0.24,0.02,hov and 0.24 or 0.17,hov and 0.92 or 0.78,4)
+Drawing.DrawTextWithOutline(ix1+16 + __ec16_text_w(label)*0.5,iy1+12,label,0.86,0.76,0.94,hov and 0.96 or 0.84,0,0,0,0.9)
 end
-tx = tx + tb.w + 6
+return hov
 end
+
+-- Orchid-style remastered shell
+round_rect(x-1,y-1,x2+1,y2+1,0.55,0.00,0.85,0.10,4)
+round_rect(x,y,x2,y2,0.055,0.000,0.125,0.88,4)
+round_rect(x+2,y+2,x2-2,y2-2,0.110,0.010,0.180,0.78,3)
+rect(x+2,y+2,x2-2,y+36,0.185,0.020,0.250,0.72)
+rect(x+10,y+36,x2-10,y+38,1.00,0.00,0.58,0.78)
+
+local title = "ECLIPZE - REMASTERED"
+Drawing.DrawTextWithOutline((x+x2)/2, y+16, title, 0.94,0.84,1.00,0.98,0,0,0,1)
+
 local paneX = x + 14
-local paneY = y + 78
+local paneY = y + 48
 local paneX2 = x2 - 14
 local paneY2 = y2 - 14
-round_rect(paneX,paneY,paneX2,paneY2,0.070,0.055,0.135,0.82,12)
-round_rect(paneX+1,paneY+1,paneX2-1,paneY2-1,paneR,paneG,paneB,0.78,11)
-local sideW = 178
-local sideX = paneX + 12
-local sideY = paneY + 12
-local sideY2 = paneY2 - 12
-round_rect(sideX,sideY,sideX+sideW,sideY2,0.060,0.046,0.118,0.80,10)
-round_rect(sideX+1,sideY+1,sideX+sideW-1,sideY2-1,0.024,0.022,0.048,0.76,9)
-local avatarX = sideX + 12
-local avatarY = sideY + 12
-local avatarS = 34
-round_rect(avatarX,avatarY,sideX+sideW-12,avatarY+48,0.064,0.050,0.125,0.82,7)
-out(avatarX,avatarY,sideX+sideW-12,avatarY+48,0.22,0.16,0.36,0.65,1)
-round_rect(avatarX+8,avatarY+7,avatarX+8+avatarS,avatarY+7+avatarS,0.110,0.090,0.180,1,6)
-local avatar = get_avatar_handle()
-if avatar and Drawing.IsImageReady and Drawing.IsImageReady(avatar) then
-Drawing.DrawImage(avatar, avatarX+8, avatarY+7, avatarS, avatarS)
-else
-local uname = get_username()
-local letter = string.sub(uname,1,1)
-Drawing.DrawTextWithOutline(avatarX+18 + __ec16_text_w(letter) * 0.5, avatarY+15, letter, 1,1,1,1,0,0,0,1)
+local sideW = 154
+local sideX = paneX
+local sideY = paneY
+local sideY2 = paneY2
+round_rect(sideX,sideY,sideX+sideW,sideY2,0.120,0.010,0.185,0.82,4)
+round_rect(sideX+1,sideY+1,sideX+sideW-1,sideY2-1,0.055,0.004,0.095,0.92,3)
+
+local logoY = sideY + 12
+Drawing.DrawTextWithOutline(sideX+sideW/2,logoY+4,"ECLIPZE",1.00,0.74,1.00,0.98,0,0,0,1)
+Drawing.DrawTextWithOutline(sideX+sideW/2,logoY+21,"REMSTYLE",0.82,0.58,0.92,0.86,0,0,0,0.9)
+rect(sideX+18,logoY+40,sideX+sideW-18,logoY+42,1.00,0.00,0.58,0.82)
+
+local mainTabs = {
+{id="aim", label="AIMBOT", def="General"},
+{id="esp", label="FALLEN ESP", def="Armor"},
+{id="noclip", label="MISC", def="Noclip"},
+{id="visuals", label="VISUALS", def="Trail"}
+}
+local navY = sideY + 66
+for _,tb in ipairs(mainTabs) do
+local iy1 = navY
+local iy2 = navY + 38
+local active = (__EC16.mainTab == tb.id)
+local hov = orchid_button(sideX+10,iy1,sideX+sideW-10,iy2,tb.label,active)
+if hov and cl and not __EC16.lastClick then
+__EC16.mainTab = tb.id
+if tb.id == "aim" then __EC16.aimSection = __EC16.aimSection or tb.def end
+if tb.id == "esp" then __EC16.espSection = __EC16.espSection or tb.def end
+if tb.id == "noclip" then __EC16.noclipSection = __EC16.noclipSection or tb.def end
+if tb.id == "visuals" then __EC16.visualsSection = __EC16.visualsSection or "Trail" end
 end
+navY = navY + 44
+end
+
 local uname = get_username()
-Drawing.DrawTextWithOutline(avatarX+52 + __ec16_text_w(uname) * 0.5, avatarY+10, uname, 0.92,0.88,1,0.98,0,0,0,0.95)
-Drawing.DrawTextWithOutline(avatarX+52 + __ec16_text_w("Local Player") * 0.5, avatarY+26, "Local Player", softR,softG,softB,0.90,0,0,0,0.9)
+Drawing.DrawTextWithOutline(sideX+sideW/2, sideY2-39, uname, 0.90,0.82,1.00,0.92,0,0,0,0.9)
+Drawing.DrawTextWithOutline(sideX+sideW/2, sideY2-22, "Local Player", 1.00,0.35,0.72,0.86,0,0,0,0.9)
+
+__EC16.sectionListY = navY + 8
+Drawing.DrawTextWithOutline(sideX+22 + __ec16_text_w("SECTIONS")*0.5, __EC16.sectionListY-17, "SECTIONS", 0.62,0.52,0.74,0.78,0,0,0,0.85)
 local sections = {}
 if __EC16.mainTab == "aim" then
 sections = {"General","Target","TP"}
@@ -8770,7 +8788,7 @@ end
 local curSection = __EC16.espSection
 if __EC16.mainTab == "aim" then curSection = __EC16.aimSection end
 if __EC16.mainTab == "noclip" then curSection = __EC16.noclipSection end
-local secY = avatarY + 62
+local secY = __EC16.sectionListY or (sideY + 250)
 for _,name in ipairs(sections) do
 local active = (curSection == name)
 local ix1 = sideX + 10
@@ -8797,8 +8815,8 @@ local contentX = sideX + sideW + 14
 local contentY = sideY
 local contentX2 = paneX2 - 12
 local contentY2 = sideY2
-round_rect(contentX,contentY,contentX2,contentY2,0.040,0.032,0.085,0.76,8)
-out(contentX,contentY,contentX2,contentY2,0.22,0.16,0.38,0.62,1)
+round_rect(contentX,contentY,contentX2,contentY2,0.110,0.010,0.180,0.54,4)
+out(contentX,contentY,contentX2,contentY2,0.42,0.02,0.52,0.68,1)
 local innerGap = 14
 local contentW = contentX2 - contentX
 local colW = math.floor((contentW - innerGap * 4) / 3)
@@ -9588,12 +9606,12 @@ msg = tostring(msg or "")
 Drawing.DrawTextWithOutline(tx + __ec16_text_w(msg) * 0.5, ty, msg, dimR,dimG,dimB,a or 0.95,0,0,0,0.9)
 end
 local function group(gx,gy,gw,gh,title)
-round_rect(gx-1,gy-1,gx+gw+1,gy+gh+1,1.00,0.00,0.58,0.050,8)
-round_rect(gx,gy,gx+gw,gy+gh,boxR,boxG,boxB,0.58,8)
-round_rect(gx+1,gy+1,gx+gw-1,gy+gh-1,0.020,0.018,0.040,0.44,7)
-round_rect(gx+1,gy+1,gx+gw-1,gy+24,0.090,0.060,0.175,0.64,7)
-rect(gx+10,gy+22,gx+gw-10,gy+24,1.00,0.00,0.58,0.58)
-Drawing.DrawTextWithOutline(gx+12 + __ec16_text_w(title) * 0.5, gy+7, title, 0.94,0.89,1.00,0.98,0,0,0,0.9)
+round_rect(gx-1,gy-1,gx+gw+1,gy+gh+1,1.00,0.00,0.58,0.050,6)
+round_rect(gx,gy,gx+gw,gy+gh,0.150,0.020,0.165,0.70,5)
+round_rect(gx+1,gy+1,gx+gw-1,gy+gh-1,0.045,0.010,0.070,0.82,4)
+rect(gx,gy,gx+gw,gy+24,0.260,0.028,0.300,0.58)
+rect(gx+8,gy+23,gx+gw-8,gy+25,1.00,0.00,0.58,0.80)
+Drawing.DrawTextWithOutline(gx+12 + __ec16_text_w(title) * 0.5, gy+7, title, 0.96,0.90,1.00,0.98,0,0,0,0.9)
 end
 local function get_username()
 local name = "Player"
@@ -9776,7 +9794,7 @@ end
 local curSection = __EC16.espSection
 if __EC16.mainTab == "aim" then curSection = __EC16.aimSection end
 if __EC16.mainTab == "noclip" then curSection = __EC16.noclipSection end
-local secY = avatarY + 62
+local secY = __EC16.sectionListY or (sideY + 250)
 for _,name in ipairs(sections) do
 local active = (curSection == name)
 local ix1 = sideX + 10
@@ -14195,15 +14213,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V90_PATCH()
+function __EC_V91_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v90_loaded then return end
-    V._v90_loaded = true
+    if V._v91_loaded then return end
+    V._v91_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 90 then
+    if T._defaults_version ~= 91 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14234,7 @@ function __EC_V90_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 90
+        T._defaults_version = 91
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -14359,26 +14377,26 @@ function __EC_V90_PATCH()
 
     local function theme()
         return {
-            bg={0.030,0.025,0.070},
-            pane={0.058,0.047,0.118},
-            box={0.080,0.064,0.155},
-            box2={0.022,0.020,0.040},
-            head={0.100,0.072,0.190},
+            bg={0.045,0.000,0.105},
+            pane={0.160,0.018,0.210},
+            box={0.150,0.020,0.165},
+            box2={0.045,0.010,0.070},
+            head={0.260,0.028,0.300},
             acc={1.00,0.00,0.58},
-            text={0.94,0.89,1.00},
-            dim={0.48,0.43,0.64},
-            soft={0.74,0.69,0.88},
+            text={0.96,0.90,1.00},
+            dim={0.62,0.52,0.74},
+            soft={0.82,0.72,0.92},
             good={0.25,1.00,0.50}
         }
     end
 
     local function group(x,y,w,h,title)
         local th = theme()
-        round(x-1,y-1,x+w+1,y+h+1,th.acc[1],th.acc[2],th.acc[3],0.032,8)
-        round(x,y,x+w,y+h,th.box[1],th.box[2],th.box[3],0.94,8)
-        round(x+1,y+1,x+w-1,y+h-1,th.box2[1],th.box2[2],th.box2[3],0.92,7)
-        round(x+1,y+1,x+w-1,y+24,th.head[1],th.head[2],th.head[3],0.98,7)
-        rect(x+10,y+22,x+w-10,y+24,th.acc[1],th.acc[2],th.acc[3],0.36)
+        round(x-1,y-1,x+w+1,y+h+1,th.acc[1],th.acc[2],th.acc[3],0.050,6)
+        round(x,y,x+w,y+h,th.box[1],th.box[2],th.box[3],0.70,5)
+        round(x+1,y+1,x+w-1,y+h-1,th.box2[1],th.box2[2],th.box2[3],0.82,4)
+        rect(x,y,x+w,y+24,th.head[1],th.head[2],th.head[3],0.58)
+        rect(x+8,y+23,x+w-8,y+25,th.acc[1],th.acc[2],th.acc[3],0.80)
         text_left(x+12,y+7,title,th.text[1],th.text[2],th.text[3],0.98)
     end
 
@@ -14414,16 +14432,17 @@ function __EC_V90_PATCH()
         local y2 = y + hh
 
         local paneX = x + 14
-        local paneY = y + 78
+        local paneY = y + 48
         local paneX2 = x2 - 14
         local paneY2 = y2 - 14
-        local sideW = 178
-        local sideX = paneX + 12
-        local sideY = paneY + 12
-        local sideY2 = paneY2 - 12
+        local sideW = 154
+        local sideX = paneX
+        local sideY = paneY
+        local sideY2 = paneY2
+        local sectionListY = sideY + 66 + 44 * 4 + 8
         local contentX = sideX + sideW + 14
         local contentY = sideY
-        local contentX2 = paneX2 - 12
+        local contentX2 = paneX2
         local contentY2 = sideY2
         local innerGap = 14
         local contentW = contentX2 - contentX
@@ -14436,7 +14455,7 @@ function __EC_V90_PATCH()
         return {
             x=x,y=y,ww=ww,hh=hh,x2=x2,y2=y2,
             paneX=paneX,paneY=paneY,paneX2=paneX2,paneY2=paneY2,
-            sideX=sideX,sideY=sideY,sideY2=sideY2,sideW=sideW,
+            sideX=sideX,sideY=sideY,sideY2=sideY2,sideW=sideW,sectionListY=sectionListY,
             contentX=contentX,contentY=contentY,contentX2=contentX2,contentY2=contentY2,
             innerGap=innerGap,colW=colW,c1=c1,c2=c2,c3=c3,sy=sy
         }
@@ -14946,26 +14965,28 @@ local function picker_rect()
         if not newClick then return end
         local x = __EC16.x or 95
         local y = __EC16.y or 70
-        local tx = x + 18
-        local ty = y + 45
+        local sideX = x + 14
+        local sideY = y + 48
+        local sideW = 154
+        local navY = sideY + 66
         local tabs = {
-            {id="aim", w=88},
-            {id="esp", w=132},
-            {id="noclip", w=102},
-            {id="visuals", w=104}
+            {id="aim", label="AIMBOT", def="General"},
+            {id="esp", label="FALLEN ESP", def="Armor"},
+            {id="noclip", label="MISC", def="Noclip"},
+            {id="visuals", label="VISUALS", def="Trail"}
         }
         for _,tb in ipairs(tabs) do
-            if __ec16_in and __ec16_in(mx,my,tx,ty,tx+tb.w,ty+25) then
+            if __ec16_in and __ec16_in(mx,my,sideX+10,navY,sideX+sideW-10,navY+38) then
                 __EC16.mainTab = tb.id
-                if tb.id == "aim" then __EC16.aimSection = __EC16.aimSection or "General" end
-                if tb.id == "esp" then __EC16.espSection = __EC16.espSection or "Armor" end
-                if tb.id == "noclip" then __EC16.noclipSection = __EC16.noclipSection or "Noclip" end
+                if tb.id == "aim" then __EC16.aimSection = __EC16.aimSection or tb.def end
+                if tb.id == "esp" then __EC16.espSection = __EC16.espSection or tb.def end
+                if tb.id == "noclip" then __EC16.noclipSection = __EC16.noclipSection or tb.def end
                 if tb.id == "visuals" then __EC16.visualsSection = __EC16.visualsSection or V.section or "Trail" end
                 V.picker.open = nil
                 V.tabClickConsumed = true
                 return
             end
-            tx = tx + tb.w + 6
+            navY = navY + 44
         end
     end
 
@@ -14984,14 +15005,15 @@ local function picker_blocks_base(mx,my,cl)
 
         V.section = __EC16.visualsSection or V.section or "Trail"
 
-        rect(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.024,0.022,0.048,1.00)
-        round(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.024,0.022,0.048,1.00,9)
-        rect(L.contentX,L.contentY,L.contentX2,L.contentY2,0.030,0.025,0.070,1.00)
-        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,1.00,8)
-        if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.62,1) end
+        local secBaseY = L.sectionListY or (L.sideY + 250)
+        rect(L.sideX+1,secBaseY-8,L.sideX+L.sideW-1,L.sideY2-1,0.055,0.004,0.095,0.94)
+        round(L.sideX+1,secBaseY-8,L.sideX+L.sideW-1,L.sideY2-1,0.055,0.004,0.095,0.94,3)
+        rect(L.contentX,L.contentY,L.contentX2,L.contentY2,0.055,0.000,0.125,0.78)
+        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.110,0.010,0.180,0.54,4)
+        if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.42,0.02,0.52,0.68,1) end
 
         local sections = {"Trail","World Effects","Target Effects","Bullet Tracers","Aura"}
-        local secY = L.sideY + 74
+        local secY = secBaseY or (L.sideY + 250)
         for _,name in ipairs(sections) do
             local ix1 = L.sideX + 10
             local ix2 = L.sideX + L.sideW - 10
@@ -16008,6 +16030,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
     end
 
-    if notify and not __EC_V90_NOTIFIED then __EC_V90_NOTIFIED = true; notify("Eclipze v90 loaded", "success") end
+    if notify and not __EC_V91_NOTIFIED then __EC_V91_NOTIFIED = true; notify("Eclipze v91 loaded", "success") end
 end
-__EC_V90_PATCH()
+__EC_V91_PATCH()
