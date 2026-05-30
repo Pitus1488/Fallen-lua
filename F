@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V89_PATCH()
+function __EC_V90_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v89_loaded then return end
-    V._v89_loaded = true
+    if V._v90_loaded then return end
+    V._v90_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 89 then
+    if T._defaults_version ~= 90 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V89_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 89
+        T._defaults_version = 90
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -15502,7 +15502,8 @@ local function picker_blocks_base(mx,my,cl)
 
 
 
-    local function ec_v88_to_vec3(pos)
+
+    local function ec_v90_to_vec3(pos)
         if not pos then return nil end
         local x = tonumber(pos.X or pos.x or pos[1])
         local y = tonumber(pos.Y or pos.y or pos[2])
@@ -15511,7 +15512,7 @@ local function picker_blocks_base(mx,my,cl)
         return Vector3(x,y,z)
     end
 
-    local function ec_v88_dist(a,b)
+    local function ec_v90_dist(a,b)
         if not (a and b) then return 999999 end
         local dx=(a.X or 0)-(b.X or 0)
         local dy=(a.Y or 0)-(b.Y or 0)
@@ -15519,165 +15520,207 @@ local function picker_blocks_base(mx,my,cl)
         return math.sqrt(dx*dx+dy*dy+dz*dz)
     end
 
-    local function ec_v88_obj_pos(obj)
+    local function ec_v90_obj_pos(obj)
         local pos=nil
         if not obj then return nil end
         pcall(function() if obj.get_position then pos=obj:get_position() end end)
         pcall(function() if not pos and obj.Position then pos=obj.Position end end)
         pcall(function() if not pos and obj.position then pos=obj.position end end)
-        return ec_v88_to_vec3(pos)
+        return ec_v90_to_vec3(pos)
     end
 
-    local function ec_v88_part_pos(pt)
+    local function ec_v90_part_obj(pt)
+        local obj=nil
+        if not pt then return nil end
+        pcall(function() obj = pt.part or pt.Part or pt.instance or pt.Instance or pt.object or pt.Object end)
+        if not obj then obj = pt end
+        return obj
+    end
+
+    local function ec_v90_part_name(pt)
+        local name=nil
+        local obj=ec_v90_part_obj(pt)
+        pcall(function() if pt and pt.name then name=pt.name end end)
+        pcall(function() if pt and pt.Name then name=pt.Name end end)
+        pcall(function() if (not name) and obj and obj.name then name=obj.name end end)
+        pcall(function() if (not name) and obj and obj.Name then name=obj.Name end end)
+        pcall(function() if (not name) and obj and obj.get_name then name=obj:get_name() end end)
+        if not name then return "" end
+        return string.lower(tostring(name))
+    end
+
+    local function ec_v90_part_pos(pt)
         local p=nil
         pcall(function()
-            p = ec_v88_to_vec3(pt.pos or pt.position or pt.root_pos or pt.head_pos)
-            if not p and pt.part then p = ec_v88_obj_pos(pt.part) end
+            p = ec_v90_to_vec3(pt.root_pos or pt.root_position or pt.hrp_pos or pt.body_pos or pt.pos or pt.position or pt.head_pos)
+            if not p and pt.part then p = ec_v90_obj_pos(pt.part) end
+            if not p and pt.Part then p = ec_v90_obj_pos(pt.Part) end
         end)
-        if not p then p = ec_v88_obj_pos(pt) end
+        if not p then p = ec_v90_obj_pos(pt) end
         return p
     end
 
-    local function ec_v89_choose_body_root(position,rootExplicit,head,low,high,objPart)
-        -- This is the important fix:
-        -- do NOT trust "position" blindly, because in this API it can be the Head / hit part.
-        local root = rootExplicit
-        local h = head or high
+    local function ec_v90_find_named_part(t)
+        if not t then return nil,nil,nil,nil end
 
-        if not root and position and h then
-            local dy = (h.Y or 0) - (position.Y or 0)
-            if dy > 1.15 then
-                -- position is below head, likely body/root
-                root = position
-            else
-                -- position is too close to head => force down to body/base
-                root = h - Vector3(0,2.85,0)
-            end
-        elseif not root and position then
-            -- If we only have a hit/part position, it is usually where you aimed (often head).
-            -- Move down so the effect wraps the body instead of the head.
-            root = position - Vector3(0,2.35,0)
-        end
+        local hrp=nil
+        local torso=nil
+        local low=nil
+        local high=nil
 
-        if not root and low and high then
-            local height = math.abs((high.Y or 0) - (low.Y or 0))
-            if height < 1.20 then
-                root = high - Vector3(0,2.85,0)
-                h = high
-            else
-                root = low
-                h = high
-            end
-        elseif not root and low then
-            root = low
-        elseif not root and high then
-            root = high - Vector3(0,2.85,0)
-            h = high
-        elseif not root and objPart then
-            root = objPart - Vector3(0,2.35,0)
-            h = objPart
-        end
+        local function scan(pt)
+            local p=ec_v90_part_pos(pt)
+            if not p then return end
+            local n=ec_v90_part_name(pt)
 
-        if root and not h then h = root + Vector3(0,3.0,0) end
+            if not low or p.Y < low.Y then low=p end
+            if not high or p.Y > high.Y then high=p end
 
-        -- Final guard: if root and head are almost same Y, root is still head-ish.
-        if root and h then
-            local dy = (h.Y or 0) - (root.Y or 0)
-            if dy < 1.15 then
-                root = h - Vector3(0,2.85,0)
+            if string.find(n,"humanoidrootpart",1,true) or string.find(n,"rootpart",1,true) or string.find(n,"root",1,true) or string.find(n,"hrp",1,true) then
+                hrp=p
+            elseif string.find(n,"lowertorso",1,true) or string.find(n,"uppertorso",1,true) or string.find(n,"torso",1,true) or string.find(n,"body",1,true) or string.find(n,"main",1,true) then
+                if not torso then torso=p end
             end
         end
 
-        return root,h
-    end
-
-    local function ec_v88_target_pos_from_object(t)
-        if not t then return nil,nil,false end
-
-        local rootExplicit = ec_v88_to_vec3(t.root_pos or t.root_position or t.hrp_pos or t.body_pos or t.body_position)
-        local position = ec_v88_to_vec3(t.position)
-        local head = ec_v88_to_vec3(t.head_pos or t.head_position)
-
-        local low, high = nil, nil
         if t.parts then
-            for _,pt in pairs(t.parts) do
-                local p = ec_v88_part_pos(pt)
-                if p then
-                    if not low or p.Y < low.Y then low = p end
-                    if not high or p.Y > high.Y then high = p end
-                end
+            for _,pt in pairs(t.parts) do scan(pt) end
+        end
+        if t.children then
+            for _,pt in pairs(t.children) do scan(pt) end
+        end
+        pcall(function()
+            if t.GetChildren then
+                local ch=t:GetChildren()
+                if ch then for _,pt in pairs(ch) do scan(pt) end end
+            end
+        end)
+        pcall(function()
+            if t.get_children then
+                local ch=t:get_children()
+                if ch then for _,pt in pairs(ch) do scan(pt) end end
+            end
+        end)
+
+        return hrp,torso,low,high
+    end
+
+    local function ec_v90_target_hrp_from_object(t)
+        if not t then return nil,nil end
+
+        -- 1) real HRP/root fields first.
+        local hrp = ec_v90_to_vec3(t.hrp_pos or t.humanoid_root_part_pos or t.humanoidRootPart_pos or t.root_pos or t.root_position or t.body_pos or t.body_position)
+        local head = ec_v90_to_vec3(t.head_pos or t.head_position)
+
+        -- 2) named HumanoidRootPart / Root / Torso from parts.
+        local namedHrp,namedTorso,low,high = ec_v90_find_named_part(t)
+        if namedHrp then hrp=namedHrp end
+        if not head and high then head=high end
+        if not hrp and namedTorso then hrp=namedTorso end
+
+        -- 3) only use .position if it is clearly below head.
+        local pos = ec_v90_to_vec3(t.position)
+        if not hrp and pos then
+            if head and math.abs((head.Y or 0)-(pos.Y or 0)) > 1.15 then
+                hrp=pos
+            elseif high and math.abs((high.Y or 0)-(pos.Y or 0)) > 1.15 then
+                hrp=pos
+                head=high
+            else
+                -- position is probably head/hit part, so convert to HRP area.
+                hrp=pos-Vector3(0,2.35,0)
+                head=head or pos
             end
         end
 
-        local objPart = nil
-        if not rootExplicit and not position and not head and not low and not high then
-            objPart = ec_v88_obj_pos(t)
+        -- 4) if only bounds exist, choose body center, not top/head.
+        if not hrp and low and high then
+            local h=math.abs((high.Y or 0)-(low.Y or 0))
+            if h > 1.25 then
+                hrp=Vector3((low.X+high.X)*0.5,(low.Y+high.Y)*0.5,(low.Z+high.Z)*0.5)
+                head=high
+            else
+                hrp=high-Vector3(0,2.35,0)
+                head=high
+            end
         end
 
-        local root,h = ec_v89_choose_body_root(position,rootExplicit,head,low,high,objPart)
-        if root and not h then h = root + Vector3(0,3.0,0) end
-        return root,h,root ~= nil
+        -- 5) target object itself is usually the hit part if no fields exist.
+        if not hrp then
+            local p=ec_v90_obj_pos(t)
+            if p then
+                hrp=p-Vector3(0,2.35,0)
+                head=head or p
+            end
+        end
+
+        if hrp and not head then head=hrp+Vector3(0,2.30,0) end
+
+        -- final guard: if hrp is still too close to head, force HRP down.
+        if hrp and head and math.abs((head.Y or 0)-(hrp.Y or 0)) < 1.15 then
+            hrp=head-Vector3(0,2.35,0)
+        end
+
+        return hrp,head
     end
 
-    local function ec_v88_is_self_target(root,head)
-        local me = get_hrp_pos()
+    local function ec_v90_is_self_target(hrp,head)
+        local me=get_hrp_pos()
         if not me then return false end
-        if root and ec_v88_dist(me,root) < 4.35 then return true end
-        if head and ec_v88_dist(me,head) < 4.35 then return true end
+        if hrp and ec_v90_dist(me,hrp) < 4.35 then return true end
+        if head and ec_v90_dist(me,head) < 4.35 then return true end
         return false
     end
 
-    local function ec_v88_get_target()
+    local function ec_v90_get_target()
         V.targetFx = V.targetFx or {}
         local C = V.targetFx.cache or {}
         V.targetFx.cache = C
 
-        local tm = now()
-        if C.root and (tm - (C.t or 0)) < 0.035 then
-            if not ec_v88_is_self_target(C.root,C.head) then return C.root,C.head end
+        local tm=now()
+        if C.hrp and (tm-(C.t or 0)) < 0.035 then
+            if not ec_v90_is_self_target(C.hrp,C.head) then return C.hrp,C.head end
         end
 
-        local root,head = nil,nil
+        local hrp,head=nil,nil
 
-        -- Prefer picker target because it returns player-like data/body in your older working version.
+        -- Prefer EC_BT target because it returns the same player table from the version where it was working.
         pcall(function()
             if EC_BT_PICK_HIT_TARGET then
-                local t, hit = EC_BT_PICK_HIT_TARGET()
+                local t,hit=EC_BT_PICK_HIT_TARGET()
                 if t then
-                    root,head = ec_v88_target_pos_from_object(t)
-                    if not root and hit then
-                        local hp = ec_v88_to_vec3(hit)
+                    hrp,head=ec_v90_target_hrp_from_object(t)
+                    if not hrp and hit then
+                        local hp=ec_v90_to_vec3(hit)
                         if hp then
-                            head = hp
-                            root = hp - Vector3(0,2.45,0)
+                            head=hp
+                            hrp=hp-Vector3(0,2.35,0)
                         end
                     end
                 end
             end
         end)
 
-        if not root then
+        if not hrp then
             local target=nil
-            pcall(function()
-                if EC_HITFX_GET_AIM_TARGET then target=EC_HITFX_GET_AIM_TARGET() end
-            end)
-            root,head = ec_v88_target_pos_from_object(target)
+            pcall(function() if EC_HITFX_GET_AIM_TARGET then target=EC_HITFX_GET_AIM_TARGET() end end)
+            hrp,head=ec_v90_target_hrp_from_object(target)
         end
 
-        if root and not ec_v88_is_self_target(root,head) then
-            C.root=root
-            C.head=head or (root+Vector3(0,3.0,0))
+        if hrp and not ec_v90_is_self_target(hrp,head) then
+            C.hrp=hrp
+            C.head=head or (hrp+Vector3(0,2.30,0))
             C.t=tm
-            return C.root,C.head
+            return C.hrp,C.head
         end
 
-        C.root=nil
+        C.hrp=nil
         C.head=nil
         C.t=tm
         return nil,nil
     end
 
-    local function ec_v88_line_world(a,b,r,g,bc,alpha,thick)
+    local function ec_v90_line_world(a,b,r,g,bc,alpha,thick)
         local s1=world_to_screen(a)
         local s2=world_to_screen(b)
         if s1 and s2 then
@@ -15687,18 +15730,18 @@ local function picker_blocks_base(mx,my,cl)
         end
     end
 
-    local function ec_v88_ring(center,rad,yoff,r,g,bc,alpha,thick,steps,phase)
+    local function ec_v90_ring(hrp,rad,yoff,r,g,bc,alpha,thick,steps,phase)
         local prev=nil
         steps=steps or 72
         for i=0,steps do
             local t=(i/steps)*6.283185+(phase or 0)
-            local p=center+Vector3(math.cos(t)*rad,yoff,math.sin(t)*rad)
-            if prev then ec_v88_line_world(prev,p,r,g,bc,alpha,thick) end
+            local p=hrp+Vector3(math.cos(t)*rad,yoff,math.sin(t)*rad)
+            if prev then ec_v90_line_world(prev,p,r,g,bc,alpha,thick) end
             prev=p
         end
     end
 
-    local function ec_v88_dash(center,rad,yoff,ang,len,r,g,bc,alpha,thick)
+    local function ec_v90_dash(hrp,rad,yoff,ang,len,r,g,bc,alpha,thick)
         local prev=nil
         local segs=10
         for j=0,segs do
@@ -15706,7 +15749,7 @@ local function picker_blocks_base(mx,my,cl)
             local prof=1-math.abs((u-0.5)*2)
             local t=ang+(u-0.5)*len
             local rr=rad+math.sin(u*3.14159)*0.08
-            local p=center+Vector3(math.cos(t)*rr,yoff+prof*0.10,math.sin(t)*rr)
+            local p=hrp+Vector3(math.cos(t)*rr,yoff+prof*0.10,math.sin(t)*rr)
             local sp=world_to_screen(p)
             if sp and prev then
                 line(prev.X,prev.Y,sp.X,sp.Y,r,g,bc,alpha*(0.25+prof*0.75),thick*(0.45+prof*0.80))
@@ -15716,14 +15759,14 @@ local function picker_blocks_base(mx,my,cl)
         end
     end
 
-    local function ec_v88_dashes(center,rad,yoff,r,g,bc,alpha,thick,count,arc,offset)
+    local function ec_v90_dashes(hrp,rad,yoff,r,g,bc,alpha,thick,count,arc,offset)
         for i=0,count-1 do
             local a=offset+(i/count)*6.283185
-            ec_v88_dash(center,rad,yoff,a,arc,r,g,bc,alpha,thick)
+            ec_v90_dash(hrp,rad,yoff,a,arc,r,g,bc,alpha,thick)
         end
     end
 
-    local function ec_v88_cube(pos,s,rx,ry,rz,r,g,bc,alpha)
+    local function ec_v90_cube(pos,s,rx,ry,rz,r,g,bc,alpha)
         local cx=math.cos(rx); local sx=math.sin(rx)
         local cy=math.cos(ry); local sy=math.sin(ry)
         local cz=math.cos(rz); local sz=math.sin(rz)
@@ -15745,96 +15788,100 @@ local function picker_blocks_base(mx,my,cl)
         end
     end
 
-    local function ec_v88_draw_small_cubes(center,height,r,g,bc,tm,alpha)
-        -- Best style: small cubes orbiting around the body.
-        local amount=10
+    local function ec_v90_body_range(hrp,head)
+        -- HumanoidRootPart is body center. Draw around full body from legs to head.
+        local top=2.25
+        if head then
+            local h=(head.Y or hrp.Y)-(hrp.Y or 0)
+            if h > 1.25 and h < 4.0 then top=h+0.28 end
+        end
+        local bottom=-2.15
+        return bottom,top
+    end
+
+    local function ec_v90_draw_small_cubes(hrp,bottom,top,r,g,bc,tm,alpha)
+        local amount=12
+        local span=top-bottom
         for i=1,amount do
             local h1=ec_hash01(i*2.13)
             local h2=ec_hash01(i*4.73)
             local a=tm*(1.15+h1*0.25)+(i/amount)*6.283185
-            local rad=1.05+h1*0.38
-            local y=height*(0.06+h2*0.84)
-            local pos=center+Vector3(math.cos(a)*rad,y,math.sin(a)*rad)
+            local rad=1.05+h1*0.42
+            local y=bottom+span*(0.08+h2*0.84)
+            local pos=hrp+Vector3(math.cos(a)*rad,y,math.sin(a)*rad)
             local size=0.17+h2*0.10
-            ec_v88_cube(pos,size,tm*1.5+i,tm*1.1+h1*3.14,tm*1.8+h2*3.14,r,g,bc,0.74*alpha)
+            ec_v90_cube(pos,size,tm*1.5+i,tm*1.1+h1*3.14,tm*1.8+h2*3.14,r,g,bc,0.74*alpha)
         end
     end
 
-    local function ec_v88_draw_aura_swirl(center,height,r,g,bc,tm,alpha)
-        -- Aura-like rotating ring + moving dashes around torso.
-        local lowY=height*0.10
-        local midY=height*0.46
-        local highY=height*0.82
-        ec_v88_ring(center,1.05,lowY,r,g,bc,0.36*alpha,1.25,72,tm*0.55)
-        ec_v88_ring(center,1.22,midY,r,g,bc,0.40*alpha,1.35,72,-tm*0.62)
-        ec_v88_ring(center,0.84,highY,r,g,bc,0.26*alpha,1.10,60,tm*0.85)
-        ec_v88_dashes(center,1.22,midY,r,g,bc,0.70*alpha,1.05,8,0.35,tm*1.35)
-        ec_v88_dashes(center,1.05,lowY,r,g,bc,0.54*alpha,0.95,7,0.28,-tm*1.10+1.2)
+    local function ec_v90_draw_aura_swirl(hrp,bottom,top,r,g,bc,tm,alpha)
+        local span=top-bottom
+        local lowY=bottom+span*0.10
+        local midY=bottom+span*0.50
+        local highY=bottom+span*0.86
+        ec_v90_ring(hrp,1.05,lowY,r,g,bc,0.36*alpha,1.25,72,tm*0.55)
+        ec_v90_ring(hrp,1.24,midY,r,g,bc,0.42*alpha,1.35,72,-tm*0.62)
+        ec_v90_ring(hrp,0.82,highY,r,g,bc,0.26*alpha,1.10,60,tm*0.85)
+        ec_v90_dashes(hrp,1.24,midY,r,g,bc,0.70*alpha,1.05,8,0.35,tm*1.35)
+        ec_v90_dashes(hrp,1.05,lowY,r,g,bc,0.54*alpha,0.95,7,0.28,-tm*1.10+1.2)
     end
 
-    local function ec_v88_draw_helix(center,height,r,g,bc,tm,alpha)
-        -- Pretty animated rotating spiral around body.
-        local steps=72
+    local function ec_v90_draw_helix(hrp,bottom,top,r,g,bc,tm,alpha)
+        local steps=80
         local prev1=nil
         local prev2=nil
+        local span=top-bottom
         for i=0,steps do
             local u=i/steps
-            local y=height*(0.10+u*0.76)
+            local y=bottom+span*(0.08+u*0.84)
             local a=tm*1.75+u*6.283185*1.45
-            local rad=0.82+math.sin(u*3.14159)*0.18
-            local p1=center+Vector3(math.cos(a)*rad,y,math.sin(a)*rad)
-            local p2=center+Vector3(math.cos(a+3.14159)*rad,y,math.sin(a+3.14159)*rad)
-            if prev1 then ec_v88_line_world(prev1,p1,r,g,bc,0.42*alpha,1.35) end
-            if prev2 then ec_v88_line_world(prev2,p2,1.00,0.92,1.00,0.25*alpha,1.05) end
+            local rad=0.88+math.sin(u*3.14159)*0.18
+            local p1=hrp+Vector3(math.cos(a)*rad,y,math.sin(a)*rad)
+            local p2=hrp+Vector3(math.cos(a+3.14159)*rad,y,math.sin(a+3.14159)*rad)
+            if prev1 then ec_v90_line_world(prev1,p1,r,g,bc,0.42*alpha,1.35) end
+            if prev2 then ec_v90_line_world(prev2,p2,1.00,0.92,1.00,0.25*alpha,1.05) end
             prev1=p1
             prev2=p2
         end
     end
 
-    local function ec_v88_draw_pulse(center,height,r,g,bc,tm,alpha)
+    local function ec_v90_draw_pulse(hrp,bottom,top,r,g,bc,tm,alpha)
+        local span=top-bottom
         local pulse=(math.sin(tm*2.2)+1)*0.5
-        ec_v88_ring(center,0.95+pulse*0.18,height*0.18,r,g,bc,0.38*alpha,1.35,58,tm*0.35)
-        ec_v88_ring(center,0.72+pulse*0.10,height*0.52,r,g,bc,0.26*alpha,1.25,48,-tm*0.44)
-        ec_v88_ring(center,0.48+pulse*0.08,height*0.82,r,g,bc,0.18*alpha,1.10,38,tm*0.55)
+        ec_v90_ring(hrp,1.00+pulse*0.18,bottom+span*0.10,r,g,bc,0.38*alpha,1.35,58,tm*0.35)
+        ec_v90_ring(hrp,0.82+pulse*0.10,bottom+span*0.50,r,g,bc,0.26*alpha,1.25,48,-tm*0.44)
+        ec_v90_ring(hrp,0.56+pulse*0.08,bottom+span*0.86,r,g,bc,0.18*alpha,1.10,38,tm*0.55)
     end
 
     local function draw_target_effects()
         if not (V.targetFx and V.targetFx.enabled == true) then return end
 
-        local root,head=ec_v88_get_target()
-        if not root then return end
+        local hrp,head=ec_v90_get_target()
+        if not hrp then return end
 
-        local height=3.0
-        if head then
-            height=math.abs((head.Y or root.Y)-(root.Y or 0))
-            if height < 2.4 then height=3.0 end
-            if height > 6.0 then height=6.0 end
-        end
-
-        -- center is the BODY/root base. All effects are built upward from this,
-        -- not around the head. The resolver above forces head-only hits down to body.
-        local center=root
+        local bottom,top=ec_v90_body_range(hrp,head)
         local tm=now()
         local r,g,bc=get_target_color("targetfx")
         local alpha=get_target_alpha("targetfx")
         local style=tostring(V.targetFx.style or "Combo")
+
         if style == "Contact" or style == "Pulse" or style == "Orbs" or style == "Shards" or style == "Ring" then
             style = "Combo"
             V.targetFx.style = "Combo"
         end
 
         if style == "Small Cubes" then
-            ec_v88_draw_small_cubes(center,height,r,g,bc,tm,alpha)
+            ec_v90_draw_small_cubes(hrp,bottom,top,r,g,bc,tm,alpha)
         elseif style == "Aura Swirl" then
-            ec_v88_draw_aura_swirl(center,height,r,g,bc,tm,alpha)
+            ec_v90_draw_aura_swirl(hrp,bottom,top,r,g,bc,tm,alpha)
         elseif style == "Helix" then
-            ec_v88_draw_helix(center,height,r,g,bc,tm,alpha)
+            ec_v90_draw_helix(hrp,bottom,top,r,g,bc,tm,alpha)
         elseif style == "Pulse Rings" then
-            ec_v88_draw_pulse(center,height,r,g,bc,tm,alpha)
+            ec_v90_draw_pulse(hrp,bottom,top,r,g,bc,tm,alpha)
         else
-            ec_v88_draw_aura_swirl(center,height,r,g,bc,tm,alpha)
-            ec_v88_draw_small_cubes(center,height,r,g,bc,tm,alpha)
-            ec_v88_draw_helix(center,height,r,g,bc,tm,alpha*0.85)
+            ec_v90_draw_aura_swirl(hrp,bottom,top,r,g,bc,tm,alpha)
+            ec_v90_draw_small_cubes(hrp,bottom,top,r,g,bc,tm,alpha)
+            ec_v90_draw_helix(hrp,bottom,top,r,g,bc,tm,alpha*0.85)
         end
     end
 
@@ -15961,6 +16008,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
     end
 
-    if notify and not __EC_V89_NOTIFIED then __EC_V89_NOTIFIED = true; notify("Eclipze v89 loaded", "success") end
+    if notify and not __EC_V90_NOTIFIED then __EC_V90_NOTIFIED = true; notify("Eclipze v90 loaded", "success") end
 end
-__EC_V89_PATCH()
+__EC_V90_PATCH()
