@@ -14195,15 +14195,15 @@ Eclipze v56 do-wrapper syntax fix + orbit squares
 - VISUALS contains only Trail / Bullet Tracers / Aura.
 - FOV and Armor stay in their original tabs, but their old color sliders are replaced by the custom picker too.
 ]]
-function __EC_V82_PATCH()
+function __EC_V83_PATCH()
     __EC_VISUALS = __EC_VISUALS or {}
     local V = __EC_VISUALS
-    if V._v82_loaded then return end
-    V._v82_loaded = true
+    if V._v83_loaded then return end
+    V._v83_loaded = true
 
     __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
     local T = __EC_PLAYER_TRAIL
-    if T._defaults_version ~= 82 then
+    if T._defaults_version ~= 83 then
         T.enabled = false
         T.rainbow = false
         T.length = 46.00
@@ -14216,7 +14216,7 @@ function __EC_V82_PATCH()
         T.smoothPower = 0.16
         T.points = {}
         T.smoothPos = nil
-        T._defaults_version = 82
+        T._defaults_version = 83
     end
     T.size = 2.40
     T.points = T.points or {}
@@ -14235,9 +14235,11 @@ function __EC_V82_PATCH()
     if V.squares.mode == nil then V.squares.mode = "Mixed" end
     V.targetFx = V.targetFx or {
         enabled = false,
+        style = "Contact",
         color = {0.72, 0.42, 1.00, 1},
         cache = {}
     }
+    if V.targetFx.style == nil then V.targetFx.style = "Contact" end
 
     local function now()
         return (tick and tick()) or (os and os.clock and os.clock()) or 0
@@ -14939,9 +14941,10 @@ local function picker_blocks_base(mx,my,cl)
 
         elseif V.section == "Target Effects" then
             V.targetFx = V.targetFx or {}
-            group(c1,sy,colW,118,"Target Effects")
+            group(c1,sy,colW,176,"Target Effects")
             color_button(mx,my,cl,c1+colW-42,sy+42,"targetfx")
             V.targetFx.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Target Effects",V.targetFx.enabled == true)
+            V.targetFx.style = mini_dropdown(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Style",V.targetFx.style or "Contact",{"Contact","Pulse","Orbs","Shards","Ring","Combo"},"target_effect_style")
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
@@ -15398,7 +15401,8 @@ local function picker_blocks_base(mx,my,cl)
 
 
 
-    local function ec_v82_to_vec3(pos)
+
+    local function ec_v83_to_vec3(pos)
         if not pos then return nil end
         local x = tonumber(pos.X or pos[1])
         local y = tonumber(pos.Y or pos[2])
@@ -15407,7 +15411,7 @@ local function picker_blocks_base(mx,my,cl)
         return Vector3(x,y,z)
     end
 
-    local function ec_v82_dist(a,b)
+    local function ec_v83_dist(a,b)
         if not (a and b) then return 999999 end
         local dx=(a.X or 0)-(b.X or 0)
         local dy=(a.Y or 0)-(b.Y or 0)
@@ -15415,30 +15419,30 @@ local function picker_blocks_base(mx,my,cl)
         return math.sqrt(dx*dx+dy*dy+dz*dz)
     end
 
-    local function ec_v82_obj_pos(obj)
+    local function ec_v83_obj_pos(obj)
         local pos=nil
         if not obj then return nil end
         pcall(function() if obj.get_position then pos=obj:get_position() end end)
         pcall(function() if not pos and obj.Position then pos=obj.Position end end)
         pcall(function() if not pos and obj.position then pos=obj.position end end)
-        return ec_v82_to_vec3(pos)
+        return ec_v83_to_vec3(pos)
     end
 
-    local function ec_v82_target_pos_from_object(t)
+    local function ec_v83_target_pos_from_object(t)
         if not t then return nil,nil end
 
-        local root=ec_v82_to_vec3(t.root_pos or t.root_position or t.hrp_pos or t.body_pos or t.position)
-        local head=ec_v82_to_vec3(t.head_pos or t.head_position or t.camera_pos)
+        local root=ec_v83_to_vec3(t.root_pos or t.root_position or t.hrp_pos or t.body_pos or t.position)
+        local head=ec_v83_to_vec3(t.head_pos or t.head_position or t.camera_pos)
 
-        if not root then root=ec_v82_obj_pos(t) end
-        pcall(function() if not root and t.Parent then root=ec_v82_obj_pos(t.Parent) end end)
+        if not root then root=ec_v83_obj_pos(t) end
+        pcall(function() if not root and t.Parent then root=ec_v83_obj_pos(t.Parent) end end)
 
         if t.parts then
             for _,pt in pairs(t.parts) do
                 local p=nil
                 pcall(function()
-                    p=ec_v82_to_vec3(pt.pos or pt.position)
-                    if not p and pt.part then p=ec_v82_obj_pos(pt.part) end
+                    p=ec_v83_to_vec3(pt.pos or pt.position)
+                    if not p and pt.part then p=ec_v83_obj_pos(pt.part) end
                 end)
                 if p then
                     if not root then root=p end
@@ -15451,20 +15455,20 @@ local function picker_blocks_base(mx,my,cl)
         return root,head
     end
 
-    local function ec_v82_not_self(root)
+    local function ec_v83_not_self(root)
         local me=get_hrp_pos()
         if not me or not root then return true end
-        return ec_v82_dist(me,root) > 2.25
+        return ec_v83_dist(me,root) > 2.35
     end
 
-    local function ec_v82_get_target_cached()
+    local function ec_v83_get_target_cached()
         V.targetFx = V.targetFx or {}
         local C = V.targetFx.cache or {}
         V.targetFx.cache = C
 
         local tm = now()
-        if C.root and (tm - (C.t or 0)) < 0.035 then
-            if ec_v82_not_self(C.root) then return C.root, C.head end
+        if C.root and (tm - (C.t or 0)) < 0.040 then
+            if ec_v83_not_self(C.root) then return C.root, C.head end
         end
 
         local target=nil
@@ -15472,20 +15476,20 @@ local function picker_blocks_base(mx,my,cl)
             if EC_HITFX_GET_AIM_TARGET then target=EC_HITFX_GET_AIM_TARGET() end
         end)
 
-        local root,head=ec_v82_target_pos_from_object(target)
+        local root,head=ec_v83_target_pos_from_object(target)
 
         if (not root) and EC_BT_PICK_HIT_TARGET then
             pcall(function()
                 local t,hit=EC_BT_PICK_HIT_TARGET()
                 if t then
-                    root,head=ec_v82_target_pos_from_object(t)
-                    if not root and hit then root=ec_v82_to_vec3(hit) end
+                    root,head=ec_v83_target_pos_from_object(t)
+                    if not root and hit then root=ec_v83_to_vec3(hit) end
                     if root and not head then head=root+Vector3(0,3.0,0) end
                 end
             end)
         end
 
-        if root and ec_v82_not_self(root) then
+        if root and ec_v83_not_self(root) then
             C.root=root
             C.head=head or (root+Vector3(0,3.0,0))
             C.t=tm
@@ -15498,7 +15502,7 @@ local function picker_blocks_base(mx,my,cl)
         return nil,nil
     end
 
-    local function ec_v82_line_world(a,b,r,g,bc,alpha,thick)
+    local function ec_v83_line_world(a,b,r,g,bc,alpha,thick)
         local s1=world_to_screen(a)
         local s2=world_to_screen(b)
         if s1 and s2 then
@@ -15506,48 +15510,138 @@ local function picker_blocks_base(mx,my,cl)
         end
     end
 
-    local function ec_v82_hex_screen(cx,cy,rad,r,g,bc,alpha,rot)
+    local function ec_v83_hex(cx,cy,rad,r,g,bc,alpha,rot)
         local px,py=nil,nil
-        local firstx,firsty=nil,nil
+        local fx,fy=nil,nil
         for k=0,5 do
-            local a=rot + (k/6)*6.283185
+            local a=rot+(k/6)*6.283185
             local x=cx+math.cos(a)*rad
             local y=cy+math.sin(a)*rad
             if px then
-                line(px,py,x,y,r,g,bc,alpha*0.32,4.4)
-                line(px,py,x,y,1,1,1,alpha*0.42,1.0)
+                line(px,py,x,y,r,g,bc,alpha*0.22,3.5)
+                line(px,py,x,y,1,1,1,alpha*0.36,1.0)
             else
-                firstx,firsty=x,y
+                fx,fy=x,y
             end
             px,py=x,y
         end
-        if px and firstx then
-            line(px,py,firstx,firsty,r,g,bc,alpha*0.32,4.4)
-            line(px,py,firstx,firsty,1,1,1,alpha*0.42,1.0)
+        if px and fx then
+            line(px,py,fx,fy,r,g,bc,alpha*0.22,3.5)
+            line(px,py,fx,fy,1,1,1,alpha*0.36,1.0)
         end
-        circle(cx,cy,rad*0.42,r,g,bc,alpha*0.18)
     end
 
-    local function ec_v82_ring(center,rad,y,r,g,bc,alpha,seg,spin)
+    local function ec_v83_diamond(cx,cy,rad,r,g,bc,alpha,rot)
+        local pts={}
+        for k=0,3 do
+            local a=rot+(k/4)*6.283185
+            pts[#pts+1]={x=cx+math.cos(a)*rad,y=cy+math.sin(a)*rad}
+        end
+        for k=1,4 do
+            local p1=pts[k]
+            local p2=pts[(k%4)+1]
+            line(p1.x,p1.y,p2.x,p2.y,r,g,bc,alpha*0.22,4.0)
+            line(p1.x,p1.y,p2.x,p2.y,1,1,1,alpha*0.36,1.0)
+        end
+    end
+
+    local function ec_v83_ring(center,rad,y,r,g,bc,alpha,seg,spin)
         local prev=nil
-        seg=seg or 36
+        seg=seg or 34
         for i=0,seg do
             local a=(i/seg)*6.283185+(spin or 0)
             local p=center+Vector3(math.cos(a)*rad,y,math.sin(a)*rad)
             if prev then
-                ec_v82_line_world(prev,p,r,g,bc,alpha*0.12,3.4)
-                ec_v82_line_world(prev,p,1,1,1,alpha*0.11,1.0)
+                ec_v83_line_world(prev,p,r,g,bc,alpha*0.12,3.0)
+                ec_v83_line_world(prev,p,1,1,1,alpha*0.10,1.0)
             end
             prev=p
         end
     end
 
+    local function ec_v83_cross_screen(x,y,s,r,g,bc,a,rot)
+        local c=math.cos(rot)
+        local sn=math.sin(rot)
+        local x1,y1=x-c*s,y-sn*s
+        local x2,y2=x+c*s,y+sn*s
+        local x3,y3=x+sn*s,y-c*s
+        local x4,y4=x-sn*s,y+c*s
+        line(x1,y1,x2,y2,r,g,bc,a*0.25,3.2)
+        line(x3,y3,x4,y4,r,g,bc,a*0.25,3.2)
+        line(x1,y1,x2,y2,1,1,1,a*0.36,1.0)
+        line(x3,y3,x4,y4,1,1,1,a*0.36,1.0)
+    end
+
+    local function ec_v83_draw_contact(root,height,r,g,bc,tm)
+        -- From the video: compact purple contact marker around target torso.
+        local center=root+Vector3(0,height*0.55,0)
+        local sp=world_to_screen(center)
+        if not sp then return end
+
+        circle(sp.X,sp.Y,15,r,g,bc,0.055)
+        circle(sp.X,sp.Y,7,1,1,1,0.13)
+
+        for i=1,5 do
+            local a=tm*1.0+(i/5)*6.283185
+            local p=root+Vector3(math.cos(a)*1.05,height*(0.30+0.10*(i%3)),math.sin(a)*1.05)
+            local s=world_to_screen(p)
+            if s then ec_v83_hex(s.X,s.Y,4.2,r,g,bc,0.46,a) end
+        end
+        ec_v83_ring(root,1.15,0.06,r,g,bc,0.30,30,tm*0.80)
+    end
+
+    local function ec_v83_draw_pulse(root,height,r,g,bc,tm)
+        local center=root+Vector3(0,height*0.50,0)
+        local sp=world_to_screen(center)
+        if sp then
+            local pulse=12+math.sin(tm*2.4)*3
+            circle(sp.X,sp.Y,pulse,r,g,bc,0.075)
+            circle(sp.X,sp.Y,pulse*0.42,1,1,1,0.14)
+        end
+        ec_v83_ring(root,1.28,0.05,r,g,bc,0.34,34,tm*0.75)
+        ec_v83_ring(root,0.72,height*0.50,r,g,bc,0.18,26,-tm*0.55)
+    end
+
+    local function ec_v83_draw_orbs(root,height,r,g,bc,tm)
+        for i=1,8 do
+            local h1=ec_hash01(i*2.37)
+            local a=tm*(0.75+h1*0.25)+(i/8)*6.283185
+            local rr=0.82+ec_hash01(i*5.19)*0.55
+            local y=height*(0.22+ec_hash01(i*8.31)*0.56)
+            local p=root+Vector3(math.cos(a)*rr,y,math.sin(a)*rr)
+            local s=world_to_screen(p)
+            if s then
+                circle(s.X,s.Y,3.5,r,g,bc,0.22)
+                circle(s.X,s.Y,1.8,1,1,1,0.18)
+            end
+        end
+    end
+
+    local function ec_v83_draw_shards(root,height,r,g,bc,tm)
+        for i=1,9 do
+            local h1=ec_hash01(i*1.91)
+            local h2=ec_hash01(i*4.11)
+            local a=tm*(0.65+h1*0.55)+(i/9)*6.283185
+            local rr=0.70+h1*0.75
+            local y=height*(0.12+h2*0.75)
+            local p=root+Vector3(math.cos(a)*rr,y,math.sin(a)*rr)
+            local s=world_to_screen(p)
+            if s then ec_v83_diamond(s.X,s.Y,4.8+h2*1.8,r,g,bc,0.44,tm+i) end
+        end
+    end
+
+    local function ec_v83_draw_ring(root,height,r,g,bc,tm)
+        ec_v83_ring(root,1.35,0.06,r,g,bc,0.40,40,tm*0.70)
+        ec_v83_ring(root,0.95,height*0.42,r,g,bc,0.22,32,-tm*0.55)
+        ec_v83_ring(root,0.48,height*0.78,r,g,bc,0.16,24,tm*0.90)
+    end
+
     local function draw_target_effects()
         if not (V.targetFx and V.targetFx.enabled == true) then return end
 
-        local root,head=ec_v82_get_target_cached()
+        local root,head=ec_v83_get_target_cached()
         if not root then return end
-        if not ec_v82_not_self(root) then return end
+        if not ec_v83_not_self(root) then return end
         if not head then head=root+Vector3(0,3.0,0) end
 
         local tm=now()
@@ -15555,42 +15649,31 @@ local function picker_blocks_base(mx,my,cl)
         local height=math.abs((head.Y or root.Y)-(root.Y or 0))
         if height < 2.4 then height=3.0 end
         if height > 6.0 then height=6.0 end
-        local center=root+Vector3(0,height*0.50,0)
 
-        -- Compact target effect from the video: small halo + center glow + few hex particles.
-        ec_v82_ring(root,1.42,0.08,r,g,bc,0.46,34,tm*0.85)
-        ec_v82_ring(root,0.72,height*0.48,r,g,bc,0.22,28,-tm*0.62)
+        local style=tostring(V.targetFx.style or "Contact")
 
-        local c2=world_to_screen(center)
-        if c2 then
-            circle(c2.X,c2.Y,22,r,g,bc,0.085)
-            circle(c2.X,c2.Y,10,1,1,1,0.18)
+        if style == "Contact" then
+            ec_v83_draw_contact(root,height,r,g,bc,tm)
+        elseif style == "Pulse" then
+            ec_v83_draw_pulse(root,height,r,g,bc,tm)
+        elseif style == "Orbs" then
+            ec_v83_draw_orbs(root,height,r,g,bc,tm)
+        elseif style == "Shards" then
+            ec_v83_draw_shards(root,height,r,g,bc,tm)
+        elseif style == "Ring" then
+            ec_v83_draw_ring(root,height,r,g,bc,tm)
+        else
+            ec_v83_draw_contact(root,height,r,g,bc,tm)
+            ec_v83_draw_orbs(root,height,r,g,bc,tm)
+            ec_v83_draw_shards(root,height,r,g,bc,tm)
         end
 
-        local amount=8
-        for i=1,amount do
-            local h1=ec_hash01(i*2.11)
-            local h2=ec_hash01(i*4.73)
-            local h3=ec_hash01(i*7.19)
-
-            local a=(i/amount)*6.283185 + tm*(0.80+h2*0.30)
-            local rr=1.05 + h1*0.55
-            local y=height*(0.24+h2*0.48) + math.sin(tm*1.35+i)*0.10
-            local pos=root+Vector3(math.cos(a)*rr,y,math.sin(a)*rr)
-            local sp=world_to_screen(pos)
-            if sp then
-                local size=5.0 + h3*2.0
-                local alpha=0.46 + 0.18*math.sin(tm*2.1+i)
-                ec_v82_hex_screen(sp.X,sp.Y,size,r,g,bc,alpha,tm*1.2+i)
-            end
-        end
-
-        -- Small vertical shimmer like in the video, not big world-effect cubes.
-        local top=root+Vector3(0,height*0.90,0)
-        local bottom=root+Vector3(0,height*0.12,0)
-        for i=1,3 do
-            local off=(i-2)*0.22
-            ec_v82_line_world(bottom+Vector3(off,0,0),top+Vector3(off,0,0),r,g,bc,0.15,2.2)
+        -- Tiny vertical shimmer, not copied from World Effects.
+        local bottom=root+Vector3(0,height*0.20,0)
+        local top=root+Vector3(0,height*0.82,0)
+        for i=1,2 do
+            local off=(i==1 and -0.13 or 0.13)
+            ec_v83_line_world(bottom+Vector3(off,0,0),top+Vector3(off,0,0),r,g,bc,0.10,1.8)
         end
     end
 
@@ -15717,6 +15800,6 @@ local function picker_blocks_base(mx,my,cl)
         callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
     end
 
-    if notify and not __EC_V82_NOTIFIED then __EC_V82_NOTIFIED = true; notify("Eclipze v82 loaded", "success") end
+    if notify and not __EC_V83_NOTIFIED then __EC_V83_NOTIFIED = true; notify("Eclipze v83 loaded", "success") end
 end
-__EC_V82_PATCH()
+__EC_V83_PATCH()
