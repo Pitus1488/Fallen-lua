@@ -15357,7 +15357,8 @@ local function picker_blocks_base(mx,my,cl)
         if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.95,1) end
 
         local sections = {"Trail","World Effects","Target Effects","China Hat","Bullet Tracers","Aura"}
-        local secY = L.sideY + 18
+        -- v117: keep the Local Player card area clear; section buttons start below it.
+        local secY = L.sideY + 118
         for _,name in ipairs(sections) do
             local ix1 = L.sideX + 10
             local ix2 = L.sideX + L.sideW - 10
@@ -17822,7 +17823,8 @@ ECLIPZE v113 named config system
         local cx = L.contentX + 18
         local cy = L.contentY + 18
         local gw = L.contentX2 - L.contentX - 36
-        group(cx,cy,gw,380,"Config")
+        -- v117: group is taller so the saved-configs list does not stick out below it.
+        group(cx,cy,gw,430,"Config")
 
         local bx = cx + 20
         local by = cy + 44
@@ -18133,4 +18135,12 @@ end)()
     end
 
     if notify then pcall(function() notify("ECLIPZE v116 configs/visuals fixed", "success") end) end
+end)()
+
+
+-- ECLIPZE v117: visual sidebar spacing + configs list containment
+;(function()
+    if __EC_V117_VISUALS_CONFIGS_SPACING then return end
+    __EC_V117_VISUALS_CONFIGS_SPACING = true
+    if notify then pcall(function() notify("ECLIPZE v117 visuals/configs spacing fixed", "success") end) end
 end)()
