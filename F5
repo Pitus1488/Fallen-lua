@@ -14883,6 +14883,66 @@ function __EC_V90_PATCH()
         return 1
     end
 
+    local function multi_selected_summary(items,state)
+        state = state or {}
+        local out = {}
+        for _,it in ipairs(items or {}) do
+            local name = tostring(it or "")
+            if state[name] == true then out[#out+1] = name end
+        end
+        if #out == 0 then return "None" end
+        return table.concat(out, ", ")
+    end
+
+    local function multi_dropdown_select(mx,my,cl,x,y,w,label,items,state,key,keepOne)
+        local th = theme()
+        state = state or {}
+        text_left(x,y,tostring(label or "Effects"),th.dim[1],th.dim[2],th.dim[3],0.88)
+
+        local bx = x
+        local by = y + 20
+        local bh = 24
+        local open = V.dropdownOpen == key
+        local hov = __ec16_in and __ec16_in(mx,my,bx,by,bx+w,by+bh)
+        local value = multi_selected_summary(items,state)
+
+        round(bx,by,bx+w,by+bh,0.050,0.040,0.100,hov and 0.96 or 0.78,6)
+        local display = value
+        if tw(display) > w - 42 then
+            while #display > 3 and tw(display .. "...") > w - 42 do
+                display = string.sub(display,1,#display-1)
+            end
+            display = display .. "..."
+        end
+        text_left(bx+10,by+7,display,0.86,0.82,1.00,0.94)
+        text_left(bx+w-18,by+7,open and "▲" or "▼",0.86,0.82,1.00,0.94)
+
+        if hov and V.newClick and not V.dropdownClickConsumed then
+            V.dropdownOpen = open and nil or key
+            V.dropdownClickConsumed = true
+            V.picker.open = nil
+        end
+
+        if V.dropdownOpen == key then
+            V.dropdownActive = {
+                key = key,
+                x = bx,
+                y = by + bh + 4,
+                mainX = bx,
+                mainY = by,
+                w = w,
+                bh = bh,
+                value = value,
+                options = items,
+                multi = true,
+                state = state,
+                keepOne = keepOne == true
+            }
+        end
+
+        return state
+    end
+
     local function multi_word_select(mx,my,cl,x,y,w,label,items,state,keepOne)
         local th = theme()
         state = state or {}
@@ -15009,24 +15069,63 @@ function __EC_V90_PATCH()
             return
         end
 
+        local function selected_count()
+            local n = 0
+            local st = d.state or {}
+            for _,it in ipairs(options) do
+                if st[tostring(it or "")] == true then n = n + 1 end
+            end
+            return n
+        end
+
         round(bx-2,by-2,bx+w+2,by+totalH+2,0.010,0.010,0.026,0.98,6)
         for i=1,count do
             local opt = tostring(options[i])
             local yy = by + (i-1) * bh
             local hov = __ec16_in and __ec16_in(mx,my,bx,yy,bx+w,yy+bh)
-            round(bx,yy,bx+w,yy+bh,0.035,0.030,0.078,hov and 0.98 or 0.94,5)
-            if opt == tostring(d.value or "") then
-                rect(bx+2,yy+4,bx+5,yy+bh-4,th.acc[1],th.acc[2],th.acc[3],1)
-                text_left(bx+12,yy+7,opt,1.00,0.82,0.96,0.98)
+            local active = false
+            if d.multi == true then
+                active = (d.state or {})[opt] == true
             else
-                text_left(bx+12,yy+7,opt,0.66,0.61,0.82,0.92)
+                active = (opt == tostring(d.value or ""))
+            end
+            round(bx,yy,bx+w,yy+bh,0.035,0.030,0.078,hov and 0.98 or 0.94,5)
+            if active then
+                rect(bx+2,yy+4,bx+5,yy+bh-4,th.acc[1],th.acc[2],th.acc[3],1)
+                if d.multi == true then
+                    Drawing.DrawCircleFilled(bx+13,yy+12,3.5,th.acc[1],th.acc[2],th.acc[3],0.95)
+                    text_left(bx+24,yy+7,opt,1.00,0.82,0.96,0.98)
+                else
+                    text_left(bx+12,yy+7,opt,1.00,0.82,0.96,0.98)
+                end
+            else
+                if d.multi == true then
+                    Drawing.DrawCircle(bx+13,yy+12,3.5,0.48,0.43,0.62,0.85,1.2)
+                    text_left(bx+24,yy+7,opt,0.66,0.61,0.82,0.92)
+                else
+                    text_left(bx+12,yy+7,opt,0.66,0.61,0.82,0.92)
+                end
             end
 
             if hov and V.newClick and not V.dropdownClickConsumed then
-                V.dropdownValues = V.dropdownValues or {}
-                V.dropdownValues[d.key] = opt
-                V.dropdownOpen = nil
-                V.dropdownClickConsumed = true
+                if d.multi == true then
+                    d.state = d.state or {}
+                    if d.state[opt] == true then
+                        if d.keepOne == true and selected_count() <= 1 then
+                            d.state[opt] = true
+                        else
+                            d.state[opt] = false
+                        end
+                    else
+                        d.state[opt] = true
+                    end
+                    V.dropdownClickConsumed = true
+                else
+                    V.dropdownValues = V.dropdownValues or {}
+                    V.dropdownValues[d.key] = opt
+                    V.dropdownOpen = nil
+                    V.dropdownClickConsumed = true
+                end
             end
         end
     end
@@ -15255,7 +15354,7 @@ local function picker_blocks_base(mx,my,cl)
             group(c1,sy,colW,430,"World Effects")
             color_button(mx,my,cl,c1+colW-42,sy+42,"squares")
             V.squares.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"World Effects",V.squares.enabled == true)
-            V.squares.modes = multi_word_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Type",{"Cubes","Stars","Circles"},V.squares.modes or {},false)
+            V.squares.modes = multi_dropdown_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Type",{"Cubes","Stars","Circles"},V.squares.modes or {},"world_effect_stack",false)
             V.squares.amount = safe_float(mx,my,visual_control_click(cl),c1+18,sy+162,colW-36,"Amount",V.squares.amount or 42,8,90)
             V.squares.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+222,colW-36,"Radius",V.squares.radius or 9.5,5.5,24.0)
             V.squares.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+282,colW-36,"Speed",V.squares.speed or 1.10,0.10,4.00)
@@ -15266,7 +15365,7 @@ local function picker_blocks_base(mx,my,cl)
             group(c1,sy,colW,176,"Target Effects")
             color_button(mx,my,cl,c1+colW-42,sy+42,"targetfx")
             V.targetFx.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Target Effects",V.targetFx.enabled == true)
-            V.targetFx.styles = multi_word_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Stack",{"Small Cubes","Aura Swirl","Helix","Pulse Rings"},V.targetFx.styles or {},false)
+            V.targetFx.styles = multi_dropdown_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Stack",{"Small Cubes","Aura Swirl","Helix","Pulse Rings"},V.targetFx.styles or {},"target_effect_stack",false)
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
@@ -15671,9 +15770,35 @@ local function picker_blocks_base(mx,my,cl)
             local alpha = 0.60 + 0.40 * (0.5 + 0.5 * math.sin(tm * 1.85 + i * 0.71))
             if it.h1 > 0.72 then alpha = alpha + 0.10 end
             alpha = clamp(alpha * worldAlpha,0.02,1.00)
-            for mi=1,#selectedWorldModes do
+            local modeCount = #selectedWorldModes
+            for mi=1,modeCount do
                 local drawMode = selectedWorldModes[mi]
-                draw_world_effect_item(drawMode,pos,s,rx,ry,rz,cr,cg,cb,alpha,i + mi * 13,tm)
+                local slot = mi - ((modeCount + 1) * 0.5)
+                local phaseShift = 0
+                if modeCount > 1 then phaseShift = (mi - 1) * (6.283185 / modeCount) end
+
+                local modeLift = lift + slot * 1.05
+                local modeRadius = dist + slot * (radius * 0.22)
+                if drawMode == "Cubes" then
+                    modeRadius = modeRadius + radius * 0.18
+                elseif drawMode == "Stars" then
+                    modeRadius = modeRadius + radius * 0.36
+                    modeLift = modeLift + 0.95
+                    phaseShift = phaseShift + 0.42
+                elseif drawMode == "Circles" then
+                    modeRadius = math.max(4.5, modeRadius - radius * 0.24)
+                    modeLift = modeLift - 0.95
+                    phaseShift = phaseShift - 0.36
+                end
+
+                local orbit2 = orbit + phaseShift
+                local px2 = math.cos(orbit2) * (modeRadius + wob * 0.55)
+                local pz2 = math.sin(orbit2 + math.sin(tm * 0.35 + it.h2 * 6.283185) * 0.12) * (modeRadius - wob * 0.20)
+                local pos2 = center + Vector3(px2,modeLift,pz2)
+                local size2 = s
+                if drawMode == "Stars" then size2 = s * 1.08 end
+                if drawMode == "Circles" then size2 = s * 1.16 end
+                draw_world_effect_item(drawMode,pos2,size2,rx,ry,rz,cr,cg,cb,alpha,i + mi * 13,tm)
             end
         end
     end
@@ -16100,16 +16225,27 @@ local function picker_blocks_base(mx,my,cl)
         if targetStyles["Pulse Rings"] == true then selectedTargetStyles[#selectedTargetStyles+1] = "Pulse Rings" end
         if #selectedTargetStyles == 0 then return end
 
-        for si=1,#selectedTargetStyles do
+        local styleCount = #selectedTargetStyles
+        for si=1,styleCount do
             local style = selectedTargetStyles[si]
+            local slot = si - ((styleCount + 1) * 0.5)
+            local hrp2 = hrp
+            local bottom2 = bottom
+            local top2 = top
+            if styleCount > 1 then
+                -- Small side/height offsets so stacked target effects do not sit exactly in one point.
+                hrp2 = hrp + Vector3(slot * 0.34, 0, slot * 0.18)
+                bottom2 = bottom + slot * 0.28
+                top2 = top + slot * 0.28
+            end
             if style == "Small Cubes" then
-                ec_v90_draw_small_cubes(hrp,bottom,top,r,g,bc,tm,alpha)
+                ec_v90_draw_small_cubes(hrp2,bottom2,top2,r,g,bc,tm,alpha)
             elseif style == "Aura Swirl" then
-                ec_v90_draw_aura_swirl(hrp,bottom,top,r,g,bc,tm,alpha)
+                ec_v90_draw_aura_swirl(hrp2,bottom2,top2,r,g,bc,tm,alpha)
             elseif style == "Helix" then
-                ec_v90_draw_helix(hrp,bottom,top,r,g,bc,tm,alpha)
+                ec_v90_draw_helix(hrp2,bottom2,top2,r,g,bc,tm,alpha)
             elseif style == "Pulse Rings" then
-                ec_v90_draw_pulse(hrp,bottom,top,r,g,bc,tm,alpha)
+                ec_v90_draw_pulse(hrp2,bottom2,top2,r,g,bc,tm,alpha)
             end
         end
     end
@@ -16325,8 +16461,8 @@ Eclipze v92 hard hotfix
         end
     end
 
-    if notify then pcall(function() notify("Eclipze v94 stackable effect words loaded", "success") end) end
+    if notify then pcall(function() notify("Eclipze v95 multi dropdown stacked effects loaded", "success") end) end
 end)()
 
 
--- Eclipze v94: World Effects + Target/Visual Effects use stackable word selectors instead of combo dropdowns.
+-- Eclipze v95: World Effects + Target Effects use multi-select dropdowns with comma summaries and separated stacked positions.
