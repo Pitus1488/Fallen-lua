@@ -7459,24 +7459,66 @@ if h and cl and not __EC16.lastClick then return not value end
 return value
 end
 function __ec16_float_slider(mx,my,cl,x,y,w,label,value,minv,maxv)
+minv = minv or 0
+maxv = maxv or 1
+w = math.max(w or 1, 1)
+local val = tonumber(value or minv) or minv
+local key = "float:" .. tostring(label or "")
 local h=__ec16_in(mx,my,x,y+24,x+w,y+40)
-local pct=__ec16_c((value-minv)/(maxv-minv),0,1)
-__ec16_ldim(x,y,label..": "..tostring(math.floor(value*10)/10),0.80)
+
+__EC16.sliderLock = __EC16.sliderLock or nil
+local active = (__EC16.sliderLock and __EC16.sliderLock.key == key)
+
+if not cl then
+    if active then __EC16.sliderLock = nil end
+    active = false
+else
+    if (not __EC16.sliderLock) and h and not (__EC16.lastClick == true) then
+        __EC16.sliderLock = { key = key, kind = "float" }
+        active = true
+    end
+    if active then
+        val = minv+(maxv-minv)*__ec16_c((mx-x)/w,0,1)
+    end
+end
+
+local pct=__ec16_c((val-minv)/(maxv-minv),0,1)
+__ec16_ldim(x,y,label..": "..tostring(math.floor(val*10)/10),0.80)
 __ec16_rect(x,y+31,x+w,y+37,0.050,0.050,0.058,1)
 __ec16_rect(x,y+31,x+w*pct,y+37,__EC_PINK_R,__EC_PINK_G,__EC_PINK_B,1)
-__ec16_out(x,y+29,x+w,y+39,0.18,0.18,0.20,0.80,1)
-if h and cl then return minv+(maxv-minv)*__ec16_c((mx-x)/w,0,1) end
-return value
+__ec16_out(x,y+29,x+w,y+39,active and 1 or 0.18,active and 0 or 0.18,active and 0.55 or 0.20,active and 0.95 or 0.80,1)
+return val
 end
 function __ec16_slider(mx,my,cl,x,y,w,label,id,minv,maxv)
+minv = minv or 0
+maxv = maxv or 100
+w = math.max(w or 1, 1)
 local val=UIManager.GetSliderIntValue(id) or minv
+local key = "int:" .. tostring(id or label or "")
 local h=__ec16_in(mx,my,x,y+24,x+w,y+40)
+
+__EC16.sliderLock = __EC16.sliderLock or nil
+local active = (__EC16.sliderLock and __EC16.sliderLock.key == key)
+
+if not cl then
+    if active then __EC16.sliderLock = nil end
+    active = false
+else
+    if (not __EC16.sliderLock) and h and not (__EC16.lastClick == true) then
+        __EC16.sliderLock = { key = key, kind = "int" }
+        active = true
+    end
+    if active then
+        val = math.floor(minv+(maxv-minv)*__ec16_c((mx-x)/w,0,1) + 0.5)
+        UIManager.SetSliderIntValue(id,val)
+    end
+end
+
 local pct=__ec16_c((val-minv)/(maxv-minv),0,1)
 __ec16_ldim(x,y,label..": "..tostring(math.floor(val)),0.80)
 __ec16_rect(x,y+31,x+w,y+37,0.050,0.050,0.058,1)
 __ec16_rect(x,y+31,x+w*pct,y+37,__EC_PINK_R,__EC_PINK_G,__EC_PINK_B,1)
-__ec16_out(x,y+29,x+w,y+39,0.18,0.18,0.20,0.80,1)
-if h and cl then UIManager.SetSliderIntValue(id,math.floor(minv+(maxv-minv)*__ec16_c((mx-x)/w,0,1))) end
+__ec16_out(x,y+29,x+w,y+39,active and 1 or 0.18,active and 0 or 0.18,active and 0.55 or 0.20,active and 0.95 or 0.80,1)
 end
 function __ec16_color(mx,my,cl,x,y,label,which)
 local target = which=="armor" and "armor_border" or "fov"
@@ -10301,51 +10343,81 @@ do
 
     function __ec16_slider(mx,my,cl,x,y,w,label,id,minv,maxv)
         minv = minv or 0; maxv = maxv or 100
+        w = math.max(w or 1, 1)
         local val = UIManager.GetSliderIntValue(id) or minv
         local hit = __ec16_in(mx,my,x,y+18,x+w,y+42)
-        if hit and cl then
-            local f = ec13_c((mx - x) / math.max(w,1), 0, 1)
-            val = math.floor(minv + (maxv-minv)*f + 0.5)
-            UIManager.SetSliderIntValue(id,val)
+        local lockKey = "int:" .. tostring(id or label or "")
+        __EC16.sliderLock = __EC16.sliderLock or nil
+        local active = (__EC16.sliderLock and __EC16.sliderLock.key == lockKey)
+
+        if not cl then
+            if active then __EC16.sliderLock = nil end
+            active = false
+        else
+            if (not __EC16.sliderLock) and hit and not (__EC16.lastClick == true) then
+                __EC16.sliderLock = { key = lockKey, kind = "int" }
+                active = true
+            end
+            if active then
+                local f = ec13_c((mx - x) / w, 0, 1)
+                val = math.floor(minv + (maxv-minv)*f + 0.5)
+                UIManager.SetSliderIntValue(id,val)
+            end
         end
+
         local theme = ec13_theme()
         local st = ec13_state()
         local key = "sl_" .. tostring(id)
         local f = (val - minv) / math.max(maxv-minv,1)
-        st.slider[key] = ec13_lerp(st.slider[key] or f, f, 0.16)
+        st.slider[key] = ec13_lerp(st.slider[key] or f, f, active and 0.45 or 0.16)
         local sf = st.slider[key]
         ec13_txt_left(x, y, label, theme.text[1],theme.text[2],theme.text[3],0.92)
         local tv = tostring(math.floor(val))
         ec13_txt_left(x+w-ec13_w(tv), y, tv, theme.dim[1],theme.dim[2],theme.dim[3],0.86)
         local by = y + 25
         ec13_rr(x,by,x+w,by+8,theme.bg2[1],theme.bg2[2],theme.bg2[3],0.74,4)
-        ec13_rr(x,by,x+w*sf,by+8,theme.accent[1],theme.accent[2],theme.accent[3],0.80,4)
-        Drawing.DrawCircleFilled(x+w*sf, by+4, hit and 6.2 or 5.4, 0.96,0.94,1,0.95)
-        Drawing.DrawCircleFilled(x+w*sf, by+4, 10, theme.accent[1],theme.accent[2],theme.accent[3], hit and 0.11 or 0.06)
+        ec13_rr(x,by,x+w*sf,by+8,theme.accent[1],theme.accent[2],theme.accent[3],active and 0.95 or 0.80,4)
+        Drawing.DrawCircleFilled(x+w*sf, by+4, (active or hit) and 6.8 or 5.4, 0.96,0.94,1,0.95)
+        Drawing.DrawCircleFilled(x+w*sf, by+4, 10, theme.accent[1],theme.accent[2],theme.accent[3], active and 0.18 or (hit and 0.11 or 0.06))
     end
 
     function __ec16_float_slider(mx,my,cl,x,y,w,label,value,minv,maxv)
         minv = minv or 0; maxv = maxv or 1
+        w = math.max(w or 1, 1)
         local val = tonumber(value or minv) or minv
         local hit = __ec16_in(mx,my,x,y+18,x+w,y+42)
-        if hit and cl then
-            local f = ec13_c((mx - x) / math.max(w,1), 0, 1)
-            val = minv + (maxv-minv)*f
+        local lockKey = "float:" .. tostring(label or "")
+        __EC16.sliderLock = __EC16.sliderLock or nil
+        local active = (__EC16.sliderLock and __EC16.sliderLock.key == lockKey)
+
+        if not cl then
+            if active then __EC16.sliderLock = nil end
+            active = false
+        else
+            if (not __EC16.sliderLock) and hit and not (__EC16.lastClick == true) then
+                __EC16.sliderLock = { key = lockKey, kind = "float" }
+                active = true
+            end
+            if active then
+                local f = ec13_c((mx - x) / w, 0, 1)
+                val = minv + (maxv-minv)*f
+            end
         end
+
         local theme = ec13_theme()
         local st = ec13_state()
         local key = "fl_" .. tostring(label)
         local f = (val - minv) / math.max(maxv-minv,0.0001)
-        st.slider[key] = ec13_lerp(st.slider[key] or f, f, 0.16)
+        st.slider[key] = ec13_lerp(st.slider[key] or f, f, active and 0.45 or 0.16)
         local sf = st.slider[key]
         ec13_txt_left(x, y, label, theme.text[1],theme.text[2],theme.text[3],0.92)
         local tv = string.format("%.2f", val)
         ec13_txt_left(x+w-ec13_w(tv), y, tv, theme.dim[1],theme.dim[2],theme.dim[3],0.86)
         local by = y + 25
         ec13_rr(x,by,x+w,by+8,theme.bg2[1],theme.bg2[2],theme.bg2[3],0.74,4)
-        ec13_rr(x,by,x+w*sf,by+8,theme.accent[1],theme.accent[2],theme.accent[3],0.80,4)
-        Drawing.DrawCircleFilled(x+w*sf, by+4, hit and 6.2 or 5.4, 0.96,0.94,1,0.95)
-        Drawing.DrawCircleFilled(x+w*sf, by+4, 10, theme.accent[1],theme.accent[2],theme.accent[3], hit and 0.11 or 0.06)
+        ec13_rr(x,by,x+w*sf,by+8,theme.accent[1],theme.accent[2],theme.accent[3],active and 0.95 or 0.80,4)
+        Drawing.DrawCircleFilled(x+w*sf, by+4, (active or hit) and 6.8 or 5.4, 0.96,0.94,1,0.95)
+        Drawing.DrawCircleFilled(x+w*sf, by+4, 10, theme.accent[1],theme.accent[2],theme.accent[3], active and 0.18 or (hit and 0.11 or 0.06))
         return val
     end
 
@@ -14618,6 +14690,7 @@ function __EC_V90_PATCH()
         local r,g,b = get_target_color(id)
         local h,s,v = rgb_to_hsv(r,g,b)
         V.picker.open = id
+        V.picker.drag = nil
         V.picker.data[id] = V.picker.data[id] or {h=h,s=s,v=v}
         V.picker.data[id].h = h
         V.picker.data[id].s = s
@@ -14849,6 +14922,7 @@ local function picker_rect()
         if V.colorClickConsumed then return end
         if V.picker.open and not mouse_inside_picker(mx,my) then
             V.picker.open = nil
+            V.picker.drag = nil
         end
     end
 
@@ -14926,13 +15000,25 @@ local function picker_rect()
         rect(ax-4,ak-2,ax+aw+4,ak+2,1,1,1,0.98)
         rect(ax-5,ak-3,ax+aw+5,ak+3,0,0,0,0.50)
 
-        if cl then
-            if __ec16_in and __ec16_in(mx,my,px,py,px+sq,py+sq) then
+        if not cl then
+            V.picker.drag = nil
+        else
+            if (not V.picker.drag) and not (V.mouseDown == true) then
+                if __ec16_in and __ec16_in(mx,my,px,py,px+sq,py+sq) then
+                    V.picker.drag = "sv"
+                elseif __ec16_in and __ec16_in(mx,my,px,hy-7,px+sq,hy+hueH+7) then
+                    V.picker.drag = "hue"
+                elseif __ec16_in and __ec16_in(mx,my,ax-6,ay,ax+aw+6,ay+ah) then
+                    V.picker.drag = "alpha"
+                end
+            end
+
+            if V.picker.drag == "sv" then
                 data.s = clamp((mx-px)/sq,0,1)
                 data.v = clamp(1-((my-py)/sq),0,1)
-            elseif __ec16_in and __ec16_in(mx,my,px,hy-7,px+sq,hy+hueH+7) then
+            elseif V.picker.drag == "hue" then
                 data.h = clamp((mx-px)/sq,0,1)
-            elseif __ec16_in and __ec16_in(mx,my,ax-6,ay,ax+aw+6,ay+ah) then
+            elseif V.picker.drag == "alpha" then
                 data.a = clamp(1-((my-ay)/ah),0.02,1)
             end
         end
