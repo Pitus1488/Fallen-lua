@@ -1,4 +1,27 @@
 -- Eclipze v18 hard compatibility guard
+-- Eclipze v92 numeric compatibility guard
+local __EC_NATIVE_TONUMBER = tonumber
+function __EC_NUM(v, fallback)
+    local n = nil
+    if __EC_NATIVE_TONUMBER ~= nil then
+        local ok, res = pcall(__EC_NATIVE_TONUMBER, v)
+        if ok then n = res end
+    end
+    if n == nil then
+        if type(v) == "number" then
+            n = v
+        elseif type(v) == "string" then
+            local ok, res = pcall(function() return v + 0 end)
+            if ok and type(res) == "number" then n = res end
+        end
+    end
+    if n == nil then return fallback end
+    return n
+end
+if tonumber == nil then
+    tonumber = function(v) return __EC_NUM(v, nil) end
+end
+
 __EC13 = __EC13 or { anim = {}, click = {}, slider = {}, avatar = {}, fps = {}, user = {}, target = {}, cache = {} }
 _EC13 = _EC13 or __EC13
 __EC13.anim = __EC13.anim or {}
@@ -1605,13 +1628,13 @@ if target.is_self then return false end
 if target.is_knocked then return false end
 if target.is_dead then return false end
 if target.health ~= nil then
-local hp = tonumber(target.health) or 0
+local hp = __EC_NUM(target.health, 0)
 if hp <= 1 then
 return false
 end
 end
 if target.max_health ~= nil then
-local maxhp = tonumber(target.max_health) or 100
+local maxhp = __EC_NUM(target.max_health, 100)
 if maxhp <= 0 then
 return false
 end
@@ -4259,7 +4282,7 @@ return c[1], c[2], c[3]
 end
 
 function EC_BT_COLOR(u,alpha)
-local style = math.floor(tonumber(EC_BT.style or 0) or 0)
+local style = math.floor(__EC_NUM(EC_BT.style or 0, 0))
 local br,bg,bb = EC_BT_BASE_COLOR()
 if style <= 0 then
 return br,bg,bb,alpha
@@ -4496,7 +4519,7 @@ local thick = tonumber(EC_BT.thick or 2) or 2
 if thick < 1 then thick = 1 end
 if thick > 6 then thick = 6 end
 
-local style = math.floor(tonumber(EC_BT.style or 0) or 0)
+local style = math.floor(__EC_NUM(EC_BT.style or 0, 0))
 local tracerAlphaMul = tonumber(EC_BT.alpha or 1.0) or 1.0
 if tracerAlphaMul < 0.05 then tracerAlphaMul = 0.05 end
 if tracerAlphaMul > 1.0 then tracerAlphaMul = 1.0 end
@@ -4508,7 +4531,7 @@ if revealTime > 2.50 then revealTime = 2.50 end
 
 for _,tr in ipairs(EC_BT.items) do
 local age = now - tr.created
-local styleForAlpha = math.floor(tonumber(EC_BT.style or 0) or 0)
+local styleForAlpha = math.floor(__EC_NUM(EC_BT.style or 0, 0))
 local alpha = 1.0 - (age / life)
 if styleForAlpha == 1 then
 local hold = 3.0
@@ -5352,6 +5375,25 @@ if c then return c[1] or 1.00, c[2] or 0.45, c[3] or 0.75 end
 return 1.00,0.45,0.75
 end
 
+function EC_SAURA_ALPHA_TOP()
+local c = __EC16 and (__EC16.selfAuraTopColor or __EC16.selfAuraColor)
+local a = 1.00
+if c then a = __EC_NUM(c[4] or c.a or 1.00, 1.00) end
+if a < 0.02 then a = 0.02 end
+if a > 1.00 then a = 1.00 end
+return a
+end
+
+function EC_SAURA_ALPHA_BOTTOM()
+local c = __EC16 and (__EC16.selfAuraBottomColor or __EC16.selfAuraColor2)
+local a = 1.00
+if c then a = __EC_NUM(c[4] or c.a or 1.00, 1.00) end
+if a < 0.02 then a = 0.02 end
+if a > 1.00 then a = 1.00 end
+return a
+end
+
+
 function EC_SAURA_DRAW_ORB(center, radius, yoff, ang, size, r,g,b,a)
 local pos = EC_SAURA_DASH_POS(center, radius, yoff, ang)
 local sx,sy,vis = EC_SAURA_W2S(pos)
@@ -5389,7 +5431,7 @@ if not __EC16 or not __EC16.selfAura then return end
 local center = EC_SAURA_POS()
 if not center then return end
 
-local style = math.floor(tonumber(__EC16.selfAuraStyle or 0) or 0)
+local style = math.floor(__EC_NUM(__EC16.selfAuraStyle or 0, 0))
 if style < 0 then style = 0 end
 if style > 8 then style = 8 end
 -- Old removed aura styles 1-4 are now hidden; keep them as default if loaded from old config.
@@ -5401,10 +5443,13 @@ local baseY = -2.65
 
 local blueR,blueG,blueB = EC_SAURA_COLOR_TOP()
 local pinkR,pinkG,pinkB = EC_SAURA_COLOR_BOTTOM()
+local topA = (EC_SAURA_ALPHA_TOP and EC_SAURA_ALPHA_TOP()) or 1.00
+local bottomA = (EC_SAURA_ALPHA_BOTTOM and EC_SAURA_ALPHA_BOTTOM()) or 1.00
+local bothA = (topA + bottomA) * 0.5
 
 if style == 5 then
 -- Double Helix
-EC_SAURA_DRAW_HELIX(center, radius*1.03, baseY, blueR,blueG,blueB, pinkR,pinkG,pinkB, 0.68, 1.7)
+EC_SAURA_DRAW_HELIX(center, radius*1.03, baseY, blueR,blueG,blueB, pinkR,pinkG,pinkB, 0.68 * bothA, 1.7)
 return
 elseif style == 6 then
 -- Pulse Rings
@@ -5414,33 +5459,33 @@ local rr = radius * (0.70 + k*0.23 + pulse*0.12)
 local yy = baseY + (k-1)*0.58
 local a = 0.34 + pulse*0.26
 if k % 2 == 0 then
-EC_SAURA_DRAW_CIRCLE(center, rr, yy, blueR,blueG,blueB, a, 1.65)
+EC_SAURA_DRAW_CIRCLE(center, rr, yy, blueR,blueG,blueB, a * topA, 1.65)
 else
-EC_SAURA_DRAW_CIRCLE(center, rr, yy, pinkR,pinkG,pinkB, a, 1.65)
+EC_SAURA_DRAW_CIRCLE(center, rr, yy, pinkR,pinkG,pinkB, a * bottomA, 1.65)
 end
 end
 return
 elseif style == 7 then
 -- Orbit Sparks / Orbs
-EC_SAURA_DRAW_CIRCLE(center, radius*1.05, baseY, blueR,blueG,blueB, 0.34, 1.35)
-EC_SAURA_DRAW_CIRCLE(center, radius*1.23, baseY+0.12, pinkR,pinkG,pinkB, 0.30, 1.35)
+EC_SAURA_DRAW_CIRCLE(center, radius*1.05, baseY, blueR,blueG,blueB, 0.34 * topA, 1.35)
+EC_SAURA_DRAW_CIRCLE(center, radius*1.23, baseY+0.12, pinkR,pinkG,pinkB, 0.30 * bottomA, 1.35)
 for i=0,11 do
 local a = now*1.8 + (i/12)*6.283185
 local rr = radius * (1.02 + math.sin(i*1.7 + now*2.5)*0.10)
 local y = baseY + math.sin(i*1.33 + now*3.0) * 0.55
 if i % 2 == 0 then
-EC_SAURA_DRAW_ORB(center, rr, y, a, 3.5, blueR,blueG,blueB, 0.78)
+EC_SAURA_DRAW_ORB(center, rr, y, a, 3.5, blueR,blueG,blueB, 0.78 * topA)
 else
-EC_SAURA_DRAW_ORB(center, rr*1.12, y+0.08, -a, 3.0, pinkR,pinkG,pinkB, 0.72)
+EC_SAURA_DRAW_ORB(center, rr*1.12, y+0.08, -a, 3.0, pinkR,pinkG,pinkB, 0.72 * bottomA)
 end
 end
 return
 elseif style == 8 then
 -- Halo + Floor
-EC_SAURA_DRAW_CIRCLE(center, radius*0.82, baseY+1.25, blueR,blueG,blueB, 0.60, 1.9)
-EC_SAURA_DRAW_CIRCLE(center, radius*1.32, baseY-1.10, pinkR,pinkG,pinkB, 0.52, 2.1)
-EC_SAURA_DRAW_DASHES(center, radius*1.32, baseY-1.10, pinkR,pinkG,pinkB, 0.62, 1.12, 10, 0.22, now*-1.2, 0.20, 0.12)
-EC_SAURA_DRAW_DASHES(center, radius*0.82, baseY+1.25, blueR,blueG,blueB, 0.58, 1.02, 8, 0.18, now*1.3, 0.18, 0.10)
+EC_SAURA_DRAW_CIRCLE(center, radius*0.82, baseY+1.25, blueR,blueG,blueB, 0.60 * topA, 1.9)
+EC_SAURA_DRAW_CIRCLE(center, radius*1.32, baseY-1.10, pinkR,pinkG,pinkB, 0.52 * bottomA, 2.1)
+EC_SAURA_DRAW_DASHES(center, radius*1.32, baseY-1.10, pinkR,pinkG,pinkB, 0.62 * bottomA, 1.12, 10, 0.22, now*-1.2, 0.20, 0.12)
+EC_SAURA_DRAW_DASHES(center, radius*0.82, baseY+1.25, blueR,blueG,blueB, 0.58 * topA, 1.02, 8, 0.18, now*1.3, 0.18, 0.10)
 return
 end
 
@@ -5494,10 +5539,10 @@ end
 local offset1 = now * speed1
 local offset2 = now * speed2 + 1.25
 
-EC_SAURA_DRAW_CIRCLE(center, radius*outerMul1, baseY, blueR,blueG,blueB, alpha1, thick1)
-EC_SAURA_DRAW_CIRCLE(center, radius*outerMul2, baseY+0.03, pinkR,pinkG,pinkB, alpha2, thick2)
-EC_SAURA_DRAW_DASHES(center, radius*outerMul1, baseY, blueR,blueG,blueB, dashAlpha, dashThick, dashCount, dashLen, offset1, sizeJit, yJit)
-EC_SAURA_DRAW_DASHES(center, radius*outerMul2, baseY+0.03, pinkR,pinkG,pinkB, dashAlpha, dashThick, dashCount, dashLen, offset2, sizeJit, yJit)
+EC_SAURA_DRAW_CIRCLE(center, radius*outerMul1, baseY, blueR,blueG,blueB, alpha1 * topA, thick1)
+EC_SAURA_DRAW_CIRCLE(center, radius*outerMul2, baseY+0.03, pinkR,pinkG,pinkB, alpha2 * bottomA, thick2)
+EC_SAURA_DRAW_DASHES(center, radius*outerMul1, baseY, blueR,blueG,blueB, dashAlpha * topA, dashThick, dashCount, dashLen, offset1, sizeJit, yJit)
+EC_SAURA_DRAW_DASHES(center, radius*outerMul2, baseY+0.03, pinkR,pinkG,pinkB, dashAlpha * bottomA, dashThick, dashCount, dashLen, offset2, sizeJit, yJit)
 end
 
 hooks.on_render(function()
@@ -8285,7 +8330,7 @@ local names = {
 [6] = "Image Spark Trail"
 }
 EC_BT = EC_BT or {}
-local val = math.floor(tonumber(EC_BT.style or 0) or 0)
+local val = math.floor(__EC_NUM(EC_BT.style or 0, 0))
 if val < 0 then val = 0 end
 if val > 6 then val = 6 end
 EC_BT.style = val
@@ -8383,7 +8428,7 @@ local map = {
 local rev = { [3]=0, [9]=1, [10]=2, [11]=3, [12]=4 }
 
 EC_BT = EC_BT or {}
-local currentStyle = math.floor(tonumber(EC_BT.hitStyle or 12) or 12)
+local currentStyle = math.floor(__EC_NUM(EC_BT.hitStyle or 12, 12))
 local val = rev[currentStyle] or 4
 EC_BT.hitStyle = map[val] or 12
 
@@ -8478,7 +8523,7 @@ local map = {
 }
 local rev = { [0]=0, [5]=1, [6]=2, [7]=3, [8]=4 }
 
-local currentInternal = math.floor(tonumber(__EC16.selfAuraStyle or 0) or 0)
+local currentInternal = math.floor(__EC_NUM(__EC16.selfAuraStyle or 0, 0))
 local val = rev[currentInternal] or 0
 __EC16.selfAuraStyle = map[val] or 0
 
@@ -14465,9 +14510,9 @@ function __EC_V90_PATCH()
     local function safe_float(mx,my,cl,x,y,w,label,value,minv,maxv)
         if __ec16_float_slider then
             local ok,res = pcall(__ec16_float_slider,mx,my,cl,x,y,w,label,value,minv,maxv)
-            if ok and res then return tonumber(res) or value end
+            if ok and res then return __EC_NUM(res, value) end
         end
-        return tonumber(value or minv) or minv
+        return __EC_NUM(value or minv, minv)
     end
 
     local function layout()
@@ -14804,7 +14849,7 @@ function __EC_V90_PATCH()
     function __ec16_tracer_style_dropdown(mx,my,cl,x,y,w)
         EC_BT = EC_BT or {}
         local options = {"Beam","Real Neon","Lightning","Gradient Laser","Wave Lightning","Image Lightning","Image Spark Trail"}
-        local val = math.floor(tonumber(EC_BT.style or 0) or 0)
+        local val = math.floor(__EC_NUM(EC_BT.style or 0, 0))
         if val < 0 then val = 0 end
         if val > 6 then val = 6 end
         local selected = mini_dropdown(mx,my,cl,x,y,w,"Tracer Style",options[val+1] or options[1],options,"tracer_style_overlay")
@@ -14816,7 +14861,7 @@ function __EC_V90_PATCH()
         local options = {"Tesla Boom","Fallen Spark","Fallen SmokeRing","Fallen particles.js","Fallen Combo"}
         local map = {3,9,10,11,12}
         local rev = { [3]=1, [9]=2, [10]=3, [11]=4, [12]=5 }
-        local current = math.floor(tonumber(EC_BT.hitStyle or 12) or 12)
+        local current = math.floor(__EC_NUM(EC_BT.hitStyle or 12, 12))
         local idx = rev[current] or 5
         local selected = mini_dropdown(mx,my,cl,x,y,w,"Hit Effect Style",options[idx] or options[5],options,"hitfx_style_overlay")
         EC_BT.hitStyle = map[dropdown_index(options,selected)] or 12
@@ -14827,7 +14872,7 @@ function __EC_V90_PATCH()
         local options = {"Default Neon","Double Helix","Pulse Rings","Orbit Sparks","Halo + Floor"}
         local map = {0,5,6,7,8}
         local rev = { [0]=1, [5]=2, [6]=3, [7]=4, [8]=5 }
-        local current = math.floor(tonumber(__EC16.selfAuraStyle or 0) or 0)
+        local current = math.floor(__EC_NUM(__EC16.selfAuraStyle or 0, 0))
         local idx = rev[current] or 1
         local selected = mini_dropdown(mx,my,cl,x,y,w,"Aura Style",options[idx] or options[1],options,"aura_style_overlay")
         __EC16.selfAuraStyle = map[dropdown_index(options,selected)] or 0
@@ -14839,7 +14884,7 @@ function __EC_V90_PATCH()
         if UIManager and UIManager.GetSliderIntValue then
             val = UIManager.GetSliderIntValue("ap_fov_style_main") or 0
         end
-        val = math.floor(tonumber(val or 0) or 0)
+        val = math.floor(__EC_NUM(val or 0, 0))
         if val < 0 then val = 0 end
         if val > 2 then val = 2 end
         local selected = mini_dropdown(mx,my,cl,x,y,w,"FOV Style",options[val+1] or options[1],options,"fov_style_overlay")
@@ -15153,12 +15198,18 @@ local function picker_blocks_base(mx,my,cl)
             if __EC16.selfAura == nil then __EC16.selfAura = false end
             if __EC16.selfAuraStyle == nil then __EC16.selfAuraStyle = 0 end
 
-            group(c1,sy,colW,230,"Self Aura")
+            group(c1,sy,colW,330,"Self Aura")
             color_button(mx,my,cl,c1+colW-42,sy+42,"aura_top")
             __EC16.selfAura = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Self Aura",__EC16.selfAura == true)
             text_left(c1+18,sy+78,"Aura Lower",th.dim[1],th.dim[2],th.dim[3],0.88)
             color_button(mx,my,cl,c1+colW-42,sy+74,"aura_bottom")
-            if __ec16_aura_style_dropdown then pcall(__ec16_aura_style_dropdown,mx,my,visual_control_click(cl),c1+18,sy+120,colW-36) end
+            local __topAuraAlpha = safe_float(mx,my,visual_control_click(cl),c1+18,sy+112,colW-36,"Upper Transparency",(get_target_alpha("aura_top") or 1.00) * 100,2,100) / 100
+            local __botAuraAlpha = safe_float(mx,my,visual_control_click(cl),c1+18,sy+160,colW-36,"Lower Transparency",(get_target_alpha("aura_bottom") or 1.00) * 100,2,100) / 100
+            local __tr,__tg,__tb = get_target_color("aura_top")
+            apply_target_color("aura_top",__tr,__tg,__tb,__EC16.selfAuraTopHue or 0.56,__topAuraAlpha)
+            local __br,__bg,__bb = get_target_color("aura_bottom")
+            apply_target_color("aura_bottom",__br,__bg,__bb,__EC16.selfAuraBottomHue or 0.92,__botAuraAlpha)
+            if __ec16_aura_style_dropdown then pcall(__ec16_aura_style_dropdown,mx,my,visual_control_click(cl),c1+18,sy+218,colW-36) end
         end
     end
 
@@ -15172,9 +15223,9 @@ local function picker_blocks_base(mx,my,cl)
         end)
         if not pos and GetMyPosition then pcall(function() pos = GetMyPosition() end) end
         if not pos then return nil end
-        local x = tonumber(pos.X or pos[1])
-        local y = tonumber(pos.Y or pos[2])
-        local z = tonumber(pos.Z or pos[3])
+        local x = __EC_NUM(pos.X or pos[1], nil)
+        local y = __EC_NUM(pos.Y or pos[2], nil)
+        local z = __EC_NUM(pos.Z or pos[3], nil)
         if not x or not y or not z then return nil end
         return Vector3(x,y,z)
     end
@@ -15188,7 +15239,7 @@ local function picker_blocks_base(mx,my,cl)
             end
         end)
         if not vel then return Vector3(0,0,0) end
-        return Vector3(tonumber(vel.X or vel[1]) or 0, tonumber(vel.Y or vel[2]) or 0, tonumber(vel.Z or vel[3]) or 0)
+        return Vector3(__EC_NUM(vel.X or vel[1], 0), __EC_NUM(vel.Y or vel[2], 0), __EC_NUM(vel.Z or vel[3], 0))
     end
 
     local function world_to_screen(pos)
@@ -15196,8 +15247,8 @@ local function picker_blocks_base(mx,my,cl)
         pcall(function() if rbx and rbx.world_to_screen then s = rbx.world_to_screen(pos) end end)
         if not s then pcall(function() if aim and aim.world_to_screen then s = aim.world_to_screen(pos) end end) end
         if not s then return nil end
-        local x = tonumber(s.X or s[1])
-        local y = tonumber(s.Y or s[2])
+        local x = __EC_NUM(s.X or s[1], nil)
+        local y = __EC_NUM(s.Y or s[2], nil)
         local vis = (s.visible == nil) and true or (s.visible == true)
         if not x or not y or not vis then return nil end
         return {X=x,Y=y,visible=true}
@@ -16070,7 +16121,16 @@ local function picker_blocks_base(mx,my,cl)
             local baseCl = cl
             if block or V.colorClickConsumed then baseCl = false end
             if __EC16 and __EC16.mainTab == "visuals" then
-                baseCl = false
+                local __v92_header_drag = false
+                local __vx = __EC16.x or 95
+                local __vy = __EC16.y or 70
+                local __vw = __EC16.w or 960
+                if __ec16_in then
+                    __v92_header_drag = (__ec16_in(mx,my,__vx,__vy,__vx+__vw,__vy+36) == true)
+                else
+                    __v92_header_drag = (mx >= __vx and mx <= __vx + __vw and my >= __vy and my <= __vy + 36)
+                end
+                if not __v92_header_drag then baseCl = false end
             end
 
             old_menu(mx,my,baseCl,w,h)
@@ -16098,149 +16158,81 @@ local function picker_blocks_base(mx,my,cl)
 end
 __EC_V90_PATCH()
 
+
 --[[
-Eclipze v91 hotfix
-- Visuals top-tab menu can be dragged from the header again.
-- Aura alpha from the color picker now affects the actual rendered self aura.
+Eclipze v92 hard hotfix
+- Fixes nil tonumber error on some loaders.
+- Lets the menu drag from the header while VISUALS is open.
+- Makes Aura transparency affect the real rendered aura and adds explicit Aura alpha sliders.
 ]]
 (function()
-    if __EC_V91_PATCHED then return end
-    __EC_V91_PATCHED = true
+    if __EC_V92_PATCHED then return end
+    __EC_V92_PATCHED = true
 
-    local function ec91_clamp(v,a,b)
-        v = tonumber(v or 0) or 0
-        if v < a then return a end
-        if v > b then return b end
-        return v
+    local function ec92_in(mx,my,x1,y1,x2,y2)
+        if __ec16_in then
+            local ok,res = pcall(__ec16_in,mx,my,x1,y1,x2,y2)
+            if ok then return res == true end
+        end
+        return mx >= x1 and mx <= x2 and my >= y1 and my <= y2
     end
 
-    local ec91_old_menu = __ec16_menu
-    if type(ec91_old_menu) == "function" then
-        local drag = { on = false, dx = 0, dy = 0 }
+    local function ec92_alpha(c, fallback)
+        local a = fallback or 1.00
+        if c then a = __EC_NUM(c[4] or c.a or a, a) end
+        if a < 0.02 then a = 0.02 end
+        if a > 1.00 then a = 1.00 end
+        return a
+    end
+
+    function EC_SAURA_ALPHA_TOP()
+        return ec92_alpha(__EC16 and (__EC16.selfAuraTopColor or __EC16.selfAuraColor), 1.00)
+    end
+
+    function EC_SAURA_ALPHA_BOTTOM()
+        return ec92_alpha(__EC16 and (__EC16.selfAuraBottomColor or __EC16.selfAuraColor2), 1.00)
+    end
+
+    local old_menu = __ec16_menu
+    if type(old_menu) == "function" then
+        local drag = {on=false, dx=0, dy=0}
         __ec16_menu = function(mx,my,cl,w,h)
             if __EC16 and __EC16.open and __EC16.mainTab == "visuals" then
                 local x = __EC16.x or 95
                 local y = __EC16.y or 70
                 local ww = __EC16.w or 960
-                local pickerOpen = false
-                local dropdownOpen = false
-                pcall(function()
-                    pickerOpen = (__EC_VISUALS and __EC_VISUALS.picker and __EC_VISUALS.picker.open) ~= nil
-                    dropdownOpen = (__EC_VISUALS and __EC_VISUALS.dropdownOpen) ~= nil
-                end)
-                local overHeader = false
-                if __ec16_in then
-                    overHeader = __ec16_in(mx,my,x,y,x+ww,y+36) == true
-                else
-                    overHeader = mx >= x and mx <= x + ww and my >= y and my <= y + 36
-                end
+                local overHeader = ec92_in(mx,my,x,y,x+ww,y+36)
 
-                if cl and (not drag.on) and overHeader and not pickerOpen and not dropdownOpen and not (__EC16.lastClick == true) then
+                if (cl == true) and (not drag.on) and overHeader then
                     drag.on = true
                     drag.dx = mx - x
                     drag.dy = my - y
-                end
-                if not cl then
+                    __EC16.dragging = true
+                    __EC16.dragX = drag.dx
+                    __EC16.dragY = drag.dy
+                elseif cl ~= true then
                     drag.on = false
+                    if __EC16 then __EC16.dragging = false end
                 end
+
                 if drag.on then
                     __EC16.x = mx - (drag.dx or 0)
                     __EC16.y = my - (drag.dy or 0)
                 end
-            elseif not cl then
+            elseif cl ~= true then
                 drag.on = false
             end
-            return ec91_old_menu(mx,my,cl,w,h)
+
+            local ret = old_menu(mx,my,cl,w,h)
+
+            if __EC16 and drag.on then
+                __EC16.x = mx - (drag.dx or 0)
+                __EC16.y = my - (drag.dy or 0)
+            end
+            return ret
         end
     end
 
-    function EC_SAURA_ALPHA_TOP()
-        local c = __EC16 and (__EC16.selfAuraTopColor or __EC16.selfAuraColor)
-        if c then return ec91_clamp(c[4] or c.a or 1.00,0.02,1.00) end
-        return 1.00
-    end
-
-    function EC_SAURA_ALPHA_BOTTOM()
-        local c = __EC16 and (__EC16.selfAuraBottomColor or __EC16.selfAuraColor2)
-        if c then return ec91_clamp(c[4] or c.a or 1.00,0.02,1.00) end
-        return 1.00
-    end
-
-    function EC_SAURA_DRAW()
-        if not __EC16 or not __EC16.selfAura then return end
-        local center = EC_SAURA_POS()
-        if not center then return end
-
-        local style = math.floor(tonumber(__EC16.selfAuraStyle or 0) or 0)
-        if style < 0 then style = 0 end
-        if style > 8 then style = 8 end
-        if style >= 1 and style <= 4 then style = 0 end
-
-        local now = EC_BT_NOW and EC_BT_NOW() or (tick and tick() or 0)
-        local radius = 8.0
-        local baseY = -2.65
-
-        local blueR,blueG,blueB = EC_SAURA_COLOR_TOP()
-        local pinkR,pinkG,pinkB = EC_SAURA_COLOR_BOTTOM()
-        local topA = EC_SAURA_ALPHA_TOP()
-        local bottomA = EC_SAURA_ALPHA_BOTTOM()
-        local bothA = (topA + bottomA) * 0.5
-
-        if style == 5 then
-            EC_SAURA_DRAW_HELIX(center, radius*1.03, baseY, blueR,blueG,blueB, pinkR,pinkG,pinkB, 0.68 * bothA, 1.7)
-            return
-        elseif style == 6 then
-            for k=0,2 do
-                local pulse = (math.sin(now*2.0 + k*2.1) + 1) * 0.5
-                local rr = radius * (0.70 + k*0.23 + pulse*0.12)
-                local yy = baseY + (k-1)*0.58
-                local a = 0.34 + pulse*0.26
-                if k % 2 == 0 then
-                    EC_SAURA_DRAW_CIRCLE(center, rr, yy, blueR,blueG,blueB, a * topA, 1.65)
-                else
-                    EC_SAURA_DRAW_CIRCLE(center, rr, yy, pinkR,pinkG,pinkB, a * bottomA, 1.65)
-                end
-            end
-            return
-        elseif style == 7 then
-            EC_SAURA_DRAW_CIRCLE(center, radius*1.05, baseY, blueR,blueG,blueB, 0.34 * topA, 1.35)
-            EC_SAURA_DRAW_CIRCLE(center, radius*1.23, baseY+0.12, pinkR,pinkG,pinkB, 0.30 * bottomA, 1.35)
-            for i=0,11 do
-                local a = now*1.8 + (i/12)*6.283185
-                local rr = radius * (1.02 + math.sin(i*1.7 + now*2.5)*0.10)
-                local y = baseY + math.sin(i*1.33 + now*3.0) * 0.55
-                if i % 2 == 0 then
-                    EC_SAURA_DRAW_ORB(center, rr, y, a, 3.5, blueR,blueG,blueB, 0.78 * topA)
-                else
-                    EC_SAURA_DRAW_ORB(center, rr*1.12, y+0.08, -a, 3.0, pinkR,pinkG,pinkB, 0.72 * bottomA)
-                end
-            end
-            return
-        elseif style == 8 then
-            EC_SAURA_DRAW_CIRCLE(center, radius*0.82, baseY+1.25, blueR,blueG,blueB, 0.60 * topA, 1.9)
-            EC_SAURA_DRAW_CIRCLE(center, radius*1.32, baseY-1.10, pinkR,pinkG,pinkB, 0.52 * bottomA, 2.1)
-            EC_SAURA_DRAW_DASHES(center, radius*1.32, baseY-1.10, pinkR,pinkG,pinkB, 0.62 * bottomA, 1.12, 10, 0.22, now*-1.2, 0.20, 0.12)
-            EC_SAURA_DRAW_DASHES(center, radius*0.82, baseY+1.25, blueR,blueG,blueB, 0.58 * topA, 1.02, 8, 0.18, now*1.3, 0.18, 0.10)
-            return
-        end
-
-        local outerMul1, outerMul2 = 0.92, 1.18
-        local thick1, thick2 = 1.8, 1.8
-        local alpha1, alpha2 = 0.60, 0.60
-        local dashCount = 8
-        local dashLen = 0.27
-        local dashAlpha, dashThick = 0.62, 1.12
-        local speed1, speed2 = 0.82, -0.98
-        local sizeJit, yJit = 0.32, 0.28
-
-        local offset1 = now * speed1
-        local offset2 = now * speed2 + 1.25
-
-        EC_SAURA_DRAW_CIRCLE(center, radius*outerMul1, baseY, blueR,blueG,blueB, alpha1 * topA, thick1)
-        EC_SAURA_DRAW_CIRCLE(center, radius*outerMul2, baseY+0.03, pinkR,pinkG,pinkB, alpha2 * bottomA, thick2)
-        EC_SAURA_DRAW_DASHES(center, radius*outerMul1, baseY, blueR,blueG,blueB, dashAlpha * topA, dashThick, dashCount, dashLen, offset1, sizeJit, yJit)
-        EC_SAURA_DRAW_DASHES(center, radius*outerMul2, baseY+0.03, pinkR,pinkG,pinkB, dashAlpha * bottomA, dashThick, dashCount, dashLen, offset2, sizeJit, yJit)
-    end
-
-    if notify then pcall(function() notify("Eclipze v91 hotfix loaded", "success") end) end
+    if notify then pcall(function() notify("Eclipze v92 hard hotfix loaded", "success") end) end
 end)()
+
