@@ -9363,10 +9363,9 @@ if __EC16.phase=="menu" then
 __ec16_apply_team_check_safe()
 __ec16_update_rainbow_fov()
 __ec16_draw_player_armor_esp()
-__ec16_draw_top_hud(mx,my,cl)
+-- ECLIPZE v102: old HUD/sidebar/keybind/moderator menu removed.
+-- Only the new ECLIPZE menu renderer is allowed here.
 __ec16_menu(mx,my,cl,w,h)
-__ec16_draw_keybinds_panel(w,h,mx,my,cl)
-__ec16_draw_moderator_panel(w,h,mx,my,cl)
 __EC16.lastClick=cl
 return
 end
@@ -9598,10 +9597,8 @@ do
         __ec16_rect(x+13,y+h-7,x+w-13,y+h-5,theme.accent[1],theme.accent[2],theme.accent[3],0.48)
     end
 
-    hooks.on_render(function()
-        pcall(ec11_update_fps)
-        pcall(ec11_draw_avatar_overlay)
-    end)
+    -- ECLIPZE v102: removed legacy avatar/top overlay render hook.
+    -- hooks.on_render(function() end)
 
 --     notify("Eclipze v11 transparent glass fix loaded", "success")
 end
@@ -10942,10 +10939,8 @@ do
         rect(x+48,y+40,x+146,y+42,th.acc[1],th.acc[2],th.acc[3],0.72*a)
     end
 
-    hooks.on_render(function()
-        pcall(__ec16_draw_player_info_checker_v16)
-        pcall(__ec16_draw_local_card_v16)
-    end)
+    -- ECLIPZE v102: removed legacy local card / player checker render hook.
+    -- hooks.on_render(function() end)
 
 --     notify("Eclipze v16 transparent checker UI loaded", "success")
 end
@@ -11363,10 +11358,8 @@ do
         rect(x+39,y+41,x+137,y+42,theme.line[1],theme.line[2],theme.line[3],0.22*a)
     end
 
-    hooks.on_render(function()
-        pcall(__ec16_draw_local_card_v18)
-        pcall(__ec16_draw_player_info_checker_v16)
-    end)
+    -- ECLIPZE v102: removed legacy v18 local card / checker render hook.
+    -- hooks.on_render(function() end)
 
 --     notify("Eclipze v18 artifact cleanup loaded", "success")
 end
@@ -17123,33 +17116,19 @@ ECLIPZE v100 exact fatality-style menu overlay
     if notify then pcall(function() notify("ECLIPZE v100 menu loaded", "success") end) end
 end)()
 
--- ECLIPZE v101: hard-disable legacy menu / legacy HUD draws
+
+-- ECLIPZE v102 final hard UI isolation
+-- This is not an overlay patch: all legacy UI draw entrypoints are nulled and the main render loop above
+-- was edited to call only __ec16_menu(). Effects / aim / ESP draw hooks are left untouched.
 (function()
-    if __EC_ECLIPZE_V101_LEGACY_KILL then return end
-    __EC_ECLIPZE_V101_LEGACY_KILL = true
-
+    if __EC_ECLIPZE_V102_UI_ONLY then return end
+    __EC_ECLIPZE_V102_UI_ONLY = true
     local function noop() end
-
     __ec16_draw_top_hud = noop
     __ec16_draw_keybinds_panel = noop
     __ec16_draw_moderator_panel = noop
     __ec16_draw_local_card_v16 = noop
     __ec16_draw_local_card_v18 = noop
     __ec16_draw_player_info_checker_v16 = noop
-
-    -- In case older patches recreate those functions later in the frame,
-    -- kill them again every render before anything can draw.
-    if hooks and hooks.on_render and not __EC_ECLIPZE_V101_KILL_HOOK then
-        __EC_ECLIPZE_V101_KILL_HOOK = true
-        hooks.on_render(function()
-            __ec16_draw_top_hud = noop
-            __ec16_draw_keybinds_panel = noop
-            __ec16_draw_moderator_panel = noop
-            __ec16_draw_local_card_v16 = noop
-            __ec16_draw_local_card_v18 = noop
-            __ec16_draw_player_info_checker_v16 = noop
-        end)
-    end
-
-    if notify then pcall(function() notify("ECLIPZE v101 legacy menu removed", "success") end) end
+    if notify then pcall(function() notify("ECLIPZE v102 old menu removed", "success") end) end
 end)()
