@@ -16664,10 +16664,13 @@ local function picker_blocks_base(mx,my,cl)
 
     if hooks and hooks.on_render then
         hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_china_hat); pcall(draw_target_effects) end)
-    else-- v103 optimization: callbacks.paint is legacy alias of hooks.on_render, so registering both doubles the draw cost.
-    -- if callbacks and callbacks.paint then
-    --     callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_china_hat); pcall(draw_target_effects) end)
-    -- end
+    else
+        -- callbacks.paint is a legacy alias of hooks.on_render in this API.
+        -- Do not register both, otherwise the effects draw twice and lag.
+        if callbacks and callbacks.paint then
+            callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_china_hat); pcall(draw_target_effects) end)
+        end
+    end
 
     if notify and not __EC_V90_NOTIFIED then __EC_V90_NOTIFIED = true; notify("Eclipze v90 loaded", "success") end
 end
