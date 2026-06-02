@@ -9327,50 +9327,7 @@ hooks.on_render(function()
 pcall(ec_fullbright_tick)
 end)
 
-hooks.on_render(function()
-local mx,my=__ec16_mouse(); local cl=__ec16_click(); local s=ScreenSize()
-if not s then return end
-local menuKeyDown = false
-local pressedVk = nil
-pcall(function()
-pressedVk = __ec16_poll_menu_bind_key()
-if __EC16.menuBindWaiting and pressedVk and pressedVk ~= 0x01 then
-__EC16.menuBindKey = pressedVk
-__EC16.menuBindWaiting = false
--- notify("Menu bind: " .. __ec16_vk_name(pressedVk), "success")
-end
-menuKeyDown = Windows and Windows.IsKeyPressed and Windows.IsKeyPressed(__EC16.menuBindKey or 0xA1)
-end)
-if __EC16_MENU_ALLOWED and (not __EC16.menuBindWaiting) and menuKeyDown and not __EC16.rshiftDown then
-if __EC16.wantOpen == nil then __EC16.wantOpen = __EC16.open end
-__EC16.wantOpen = not __EC16.wantOpen
-if __EC16.wantOpen then
-__EC16.open = true
-__EC16.animDir = 1
-__EC16.anim = 0
-else
-__EC16.animDir = -1
-__EC16.anim = 1
-end
-end
-__EC16.rshiftDown = menuKeyDown
-local w=s.Width or s.X or 1920; local h=s.Height or s.Y or 1080; local cx=w*0.5; local cy=h*0.5
-if __EC16.phase=="hidden" then __EC16.lastClick=cl return end
-if __EC16.phase=="loader" then __ec16_loader(mx,my,cl,w,h,cx,cy); __EC16.lastClick=cl return end
-if __EC16.phase=="loading" then __ec16_loading(w,h,cx,cy); __EC16.lastClick=cl return end
-if __EC16.phase=="intro" then __ec16_intro(w,h,cx,cy); __EC16.lastClick=cl return end
-if __EC16.phase=="menu" then
-__ec16_apply_team_check_safe()
-__ec16_update_rainbow_fov()
-__ec16_draw_player_armor_esp()
--- ECLIPZE v102: old HUD/sidebar/keybind/moderator menu removed.
--- Only the new ECLIPZE menu renderer is allowed here.
-__ec16_menu(mx,my,cl,w,h)
-__EC16.lastClick=cl
-return
-end
-__EC16.lastClick=cl
-end)
+-- ECLIPZE v103: old main menu render hook removed completely.
 -- notify("ECLIPZE Fallen menu v75 original UI + armor cache loaded","success")
 end
 __ec16_install()
@@ -17131,4 +17088,638 @@ end)()
     __ec16_draw_local_card_v18 = noop
     __ec16_draw_player_info_checker_v16 = noop
     if notify then pcall(function() notify("ECLIPZE v102 old menu removed", "success") end) end
+end)()
+
+-- ECLIPZE v103 standalone menu renderer (old menu is not used)
+(function()
+if __EC_ECLIPZE_V103_MENU_ONLY then return end
+__EC_ECLIPZE_V103_MENU_ONLY = true
+__EC16 = __EC16 or {}
+__EC16.open = false
+__EC16.phase = "hidden"
+__EC16_MENU_ALLOWED = false
+local function __ec_noop() end
+__ec16_menu = __ec_noop
+__ec16_loader = __ec_noop
+__ec16_loading = __ec_noop
+__ec16_intro = __ec_noop
+__ec16_draw_top_hud = __ec_noop
+__ec16_draw_keybinds_panel = __ec_noop
+__ec16_draw_moderator_panel = __ec_noop
+__ec16_draw_local_card_v16 = __ec_noop
+__ec16_draw_local_card_v18 = __ec_noop
+__ec16_draw_player_info_checker_v16 = __ec_noop
+
+--[[
+    ECLIPZE STYLE MENU INSIDE OLD SCRIPT
+    Standalone visual menu made for the uploaded Lua API.
+    No aimbot / esp / memory edits here: only menu rendering + menu input.
+    Toggle menu: Right Shift (0xA1). Fallback: F8.
+]]
+
+local FT = {}
+
+FT.visible = true
+FT.x = 320
+FT.y = 86
+FT.w = 640
+FT.h = 440
+FT.dragging = false
+FT.drag_dx = 0
+FT.drag_dy = 0
+FT.tab = "MISC"
+FT.open_dropdown = nil
+FT.active_slider = nil
+FT.mouse_x = 0
+FT.mouse_y = 0
+FT.lmb = false
+FT.lmb_pressed = false
+FT.lmb_released = false
+FT.status = "ready"
+
+FT.accent = { r = 0.92, g = 0.00, b = 0.31, a = 1.00 }
+FT.bg     = { r = 0.055, g = 0.050, b = 0.105, a = 0.98 }
+FT.bg2    = { r = 0.075, g = 0.065, b = 0.145, a = 0.96 }
+FT.bg3    = { r = 0.045, g = 0.040, b = 0.085, a = 0.96 }
+FT.line   = { r = 0.155, g = 0.135, b = 0.255, a = 1.00 }
+FT.text   = { r = 0.92,  g = 0.90,  b = 0.98,  a = 1.00 }
+FT.dim    = { r = 0.46,  g = 0.43,  b = 0.58,  a = 1.00 }
+FT.dark   = { r = 0.020, g = 0.018, b = 0.040, a = 0.92 }
+
+FT.values = {}
+FT.drop_values = {}
+FT.colors = {}
+
+local function col(c)
+    return c.r, c.g, c.b, c.a
+end
+
+local function clamp(v, a, b)
+    if v < a then return a end
+    if v > b then return b end
+    return v
+end
+
+local function mouse()
+    if Windows and Windows.GetMousePos then
+        local m = Windows.GetMousePos()
+        if m then return m.X or 0, m.Y or 0 end
+    end
+    return 0, 0
+end
+
+local function down(vk)
+    if Windows and Windows.IsKeyPressed then
+        return Windows.IsKeyPressed(vk) == true
+    end
+    return false
+end
+
+local function in_rect(mx, my, x, y, w, h)
+    return mx >= x and mx <= x + w and my >= y and my <= y + h
+end
+
+local function rect(x, y, w, h, r, g, b, a)
+    Drawing.DrawBoxFilled(x, y, x + w, y + h, r, g, b, a)
+end
+
+local function border(x, y, w, h, r, g, b, a, t)
+    Drawing.DrawBox(x, y, x + w, y + h, r, g, b, a, t or 1)
+end
+
+local function text(x, y, s, r, g, b, a)
+    Drawing.DrawText(x, y, tostring(s or ""), r, g, b, a)
+end
+
+local function outline_text(cx, y, s, r, g, b, a)
+    Drawing.DrawTextWithOutline(cx, y, tostring(s or ""), r, g, b, a, 0, 0, 0, 0.95)
+end
+
+local function shadow_rect(x, y, w, h)
+    rect(x + 3, y + 4, w, h, 0, 0, 0, 0.27)
+    rect(x + 1, y + 2, w, h, 0, 0, 0, 0.18)
+end
+
+local GLYPH = {
+    F = {"11110","10000","10000","11100","10000","10000","10000"},
+    A = {"01110","10001","10001","11111","10001","10001","10001"},
+    T = {"11111","00100","00100","00100","00100","00100","00100"},
+    L = {"10000","10000","10000","10000","10000","10000","11111"},
+    I = {"11111","00100","00100","00100","00100","00100","11111"},
+    Y = {"10001","10001","01010","00100","00100","00100","00100"},
+    E = {"11111","10000","10000","11110","10000","10000","11111"},
+    R = {"11110","10001","10001","11110","10100","10010","10001"},
+    G = {"01111","10000","10000","10011","10001","10001","01111"},
+    V = {"10001","10001","10001","10001","01010","01010","00100"},
+    S = {"01111","10000","10000","01110","00001","00001","11110"},
+    M = {"10001","11011","10101","10101","10001","10001","10001"},
+    C = {"01111","10000","10000","10000","10000","10000","01111"},
+    U = {"10001","10001","10001","10001","10001","10001","01110"},
+    N = {"10001","11001","10101","10011","10001","10001","10001"},
+    O = {"01110","10001","10001","10001","10001","10001","01110"},
+    P = {"11110","10001","10001","11110","10000","10000","10000"},
+    H = {"10001","10001","10001","11111","10001","10001","10001"},
+    D = {"11110","10001","10001","10001","10001","10001","11110"},
+}
+
+local function big_char(ch, x, y, scale, r, g, b, a)
+    local gph = GLYPH[ch]
+    if not gph then return 0 end
+    for row = 1, #gph do
+        local line = gph[row]
+        for i = 1, #line do
+            if string.sub(line, i, i) == "1" then
+                rect(x + (i - 1) * scale, y + (row - 1) * scale, scale - 1, scale - 1, r, g, b, a)
+            end
+        end
+    end
+    return 6 * scale
+end
+
+local function big_word(word, x, y, scale, r, g, b, a, shadow)
+    local cx = x
+    if shadow then
+        local sx = x + scale * 0.55
+        for i = 1, #word do
+            local ch = string.upper(string.sub(word, i, i))
+            sx = sx + big_char(ch, sx, y + scale * 0.55, scale, 0, 0, 0, a * 0.60)
+        end
+    end
+    for i = 1, #word do
+        local ch = string.upper(string.sub(word, i, i))
+        cx = cx + big_char(ch, cx, y, scale, r, g, b, a)
+    end
+    return cx - x
+end
+
+local function screen_size()
+    if ScreenSize then
+        local d = ScreenSize()
+        if d then return d.Width or d.X or 1280, d.Height or d.Y or 720 end
+    end
+    if rbx and rbx.screen_dim then
+        local d = rbx.screen_dim()
+        if d then return d.Width or 1280, d.Height or 720 end
+    end
+    if Windows and Windows.GetScreenSize then
+        local d = Windows.GetScreenSize()
+        if d then return d.Width or 1280, d.Height or 720 end
+    end
+    return 1280, 720
+end
+
+local bg_points = {
+    {0.06,0.08,9},{0.16,0.20,7},{0.08,0.48,10},{0.18,0.76,8},
+    {0.78,0.08,8},{0.88,0.24,7},{0.80,0.50,9},{0.91,0.74,8},
+    {0.56,0.12,6},{0.62,0.68,7},{0.35,0.70,6},{0.26,0.38,6},
+}
+
+local function draw_background()
+    local sw, sh = screen_size()
+    rect(0, 0, sw, sh, 0.015, 0.012, 0.045, 0.72)
+    rect(0, 0, sw, sh, 0.050, 0.035, 0.105, 0.48)
+    local scale = math.max(9, math.floor(sw / 95))
+    local width = #("ECLIPZE") * 6 * scale
+    big_word("ECLIPZE", (sw - width) * 0.50, sh - scale * 9.2, scale, FT.accent.r, FT.accent.g, FT.accent.b, 0.92, true)
+end
+
+local pages = {
+    RAGE = {
+        { title = "AUTOBUY", controls = {
+            {"check", "rage_auto", "Enable"},
+            {"select", "rage_primary", "Primary", {"None", "AK47", "M4A1", "Sniper", "Crossbow"}},
+            {"select", "rage_secondary", "Secondary", {"None", "P250", "Python", "USP"}},
+            {"select", "rage_armor", "Armor", {"None", "Steel", "Military", "Boris"}},
+            {"select", "rage_utility", "Utility", {"None", "Medkit", "Bandage", "Charge"}},
+        }},
+        { title = "AIMBOT", controls = {
+            {"check", "rage_aim", "Enable"},
+            {"check", "rage_pred", "Prediction"},
+            {"slider", "rage_fov", "FOV", 30, 500, 220, "%d"},
+            {"slider", "rage_smooth", "Smooth", 0, 100, 0, "%d%%"},
+            {"select", "rage_hitbox", "Hitbox", {"Head", "Torso", "Random"}},
+        }},
+        { title = "HIT EFFECTS", controls = {
+            {"select", "rage_hit_sound", "Hitsound", {"None", "Fatality", "Bell", "Click"}},
+            {"select", "rage_marker", "Hitmarker", {"None", "Cross", "Dot", "Flash"}},
+            {"check", "rage_damage", "Damage log"},
+        }},
+        { title = "TARGET", controls = {
+            {"check", "rage_sticky", "Sticky target"},
+            {"check", "rage_wall", "Wall check"},
+            {"check", "rage_team", "Team check"},
+            {"slider", "rage_dist", "Max distance", 50, 2500, 900, "%d"},
+        }},
+        { title = "EXPLOITS", controls = {
+            {"check", "rage_fake", "Fake lag"},
+            {"slider", "rage_fake_amt", "Amount", 0, 100, 25, "%d%%"},
+            {"check", "rage_resolver", "Resolver"},
+        }},
+        { title = "OTHER", controls = {
+            {"check", "rage_keybinds", "Keybind list"},
+            {"select", "rage_cfg", "Profile", {"Default", "Legit", "HvH", "Custom"}},
+        }},
+    },
+    LEGIT = {
+        { title = "LEGIT AIM", controls = {
+            {"check", "legit_enable", "Enable"},
+            {"check", "legit_fov_only", "FOV only"},
+            {"slider", "legit_fov", "FOV", 10, 280, 80, "%d"},
+            {"slider", "legit_smooth", "Smooth", 1, 100, 35, "%d%%"},
+            {"select", "legit_part", "Target", {"Head", "Chest", "Nearest"}},
+        }},
+        { title = "TRIGGER", controls = {
+            {"check", "legit_trigger", "Enable"},
+            {"slider", "legit_delay", "Delay", 0, 250, 35, "%d ms"},
+            {"check", "legit_scope", "Scoped only"},
+        }},
+        { title = "ASSIST", controls = {
+            {"check", "legit_rcs", "Recoil control"},
+            {"slider", "legit_rcs_x", "RCS X", 0, 100, 40, "%d%%"},
+            {"slider", "legit_rcs_y", "RCS Y", 0, 100, 60, "%d%%"},
+        }},
+    },
+    VISUALS = {
+        { title = "PLAYER ESP", controls = {
+            {"check", "vis_enable", "Enable"},
+            {"check", "vis_box", "Box"},
+            {"check", "vis_name", "Name"},
+            {"check", "vis_health", "Health"},
+            {"check", "vis_skeleton", "Skeleton"},
+        }},
+        { title = "WORLD", controls = {
+            {"check", "vis_world", "World effects"},
+            {"select", "vis_world_stack", "Effect stack", {"Cubes", "Stars", "Circles", "Cubes, Stars", "All"}},
+            {"slider", "vis_world_size", "Effect size", 1, 100, 40, "%d%%"},
+        }},
+        { title = "TARGET EFFECTS", controls = {
+            {"check", "vis_target_fx", "Enable"},
+            {"select", "vis_target_mode", "Type", {"Cubes"}},
+            {"slider", "vis_target_size", "Size", 1, 100, 35, "%d%%"},
+        }},
+        { title = "AURA", controls = {
+            {"check", "vis_aura", "Enable"},
+            {"slider", "vis_aura_speed", "Speed", 1, 100, 35, "%d%%"},
+            {"slider", "vis_aura_alpha", "Transparency", 0, 100, 70, "%d%%"},
+        }},
+        { title = "BULLET TRACERS", controls = {
+            {"check", "vis_tracers", "Enable"},
+            {"select", "vis_trace_style", "Style", {"Lightning", "Neon", "Beam", "Pulse"}},
+            {"slider", "vis_trace_life", "Life", 1, 100, 30, "%d%%"},
+        }},
+        { title = "HUD", controls = {
+            {"check", "vis_binds", "Keybinds"},
+            {"check", "vis_mods", "Moderator list"},
+            {"select", "vis_theme", "Theme", {"Fatality", "Dark", "Pink"}},
+        }},
+    },
+    MISC = {
+        { title = "MOVEMENT", controls = {
+            {"check", "misc_bhop", "Bunny hop"},
+            {"check", "misc_jumpbug", "Jump bug"},
+            {"check", "misc_edge", "Edge jump"},
+            {"select", "misc_strafe", "Autostrafe", {"Off", "Easy strafe", "Directional"}},
+            {"slider", "misc_slow", "Slowwalk", 0, 100, 100, "%d%%"},
+            {"check", "misc_peek", "Peek assist"},
+        }},
+        { title = "MENU", controls = {
+            {"select", "misc_theme", "Theme", {"Default", "Fatality", "Night"}},
+            {"select", "misc_dpi", "DPI scale", {"100%", "125%", "150%", "175%"}},
+            {"check", "misc_bg", "Background"},
+        }},
+        { title = "HUD", controls = {
+            {"check", "misc_radar", "Radar"},
+            {"check", "misc_preserve", "Preserve killfeed"},
+            {"select", "misc_logs", "Logs", {"None", "Hits", "Damage", "All"}},
+            {"select", "misc_scoreboard", "Scoreboard items", {"None", "Small", "Full"}},
+        }},
+        { title = "EXTRA", controls = {
+            {"check", "misc_autoaccept", "Autoaccept matches"},
+            {"check", "misc_freecam", "Freecam"},
+            {"check", "misc_unlock", "Unlock inventory"},
+            {"check", "misc_impacts", "Show impacts"},
+            {"select", "misc_removals", "Removals", {"None", "Smoke", "Fog", "All"}},
+            {"select", "misc_perf", "Performance options", {"None", "Low", "Boost"}},
+        }},
+        { title = "INDICATORS", controls = {
+            {"select", "misc_onscreen", "Onscreen", {"None", "Small", "Full"}},
+            {"select", "misc_crosshair", "Crosshair", {"None", "Dot", "Cross", "Gap"}},
+        }},
+        { title = "WINDOWS", controls = {
+            {"check", "misc_bomb", "Bomb timer"},
+            {"check", "misc_spec", "Spectator list"},
+            {"check", "misc_team", "Team damage"},
+        }},
+    },
+    SKINS = {
+        { title = "SKIN CHANGER", controls = {
+            {"check", "skins_enable", "Enable"},
+            {"select", "skins_weapon", "Weapon", {"AK47", "M4A1", "P250", "Knife"}},
+            {"select", "skins_skin", "Skin", {"Default", "Pink Fade", "Neon", "Fatality"}},
+            {"slider", "skins_wear", "Wear", 0, 100, 5, "%d%%"},
+        }},
+        { title = "MODEL", controls = {
+            {"check", "skins_gloves", "Gloves"},
+            {"select", "skins_glove_model", "Type", {"Default", "Sport", "Moto", "Driver"}},
+            {"check", "skins_knife", "Knife changer"},
+        }},
+    },
+    LUA = {
+        { title = "SCRIPTS", controls = {
+            {"button", "lua_load", "Load script"},
+            {"button", "lua_reload", "Reload"},
+            {"button", "lua_unload", "Unload"},
+            {"select", "lua_slot", "Slot", {"main.lua", "visual.lua", "test.lua"}},
+        }},
+        { title = "CONFIG", controls = {
+            {"button", "cfg_save", "Save config"},
+            {"button", "cfg_load", "Load config"},
+            {"button", "cfg_delete", "Delete config"},
+            {"select", "cfg_name", "Config", {"default", "rage", "visuals"}},
+        }},
+    },
+}
+
+local tab_order = {"RAGE", "LEGIT", "VISUALS", "MISC", "SKINS", "LUA"}
+
+local function init_defaults()
+    for _, page in pairs(pages) do
+        for _, sec in ipairs(page) do
+            for _, c in ipairs(sec.controls) do
+                local typ, id = c[1], c[2]
+                if typ == "check" and FT.values[id] == nil then FT.values[id] = false end
+                if typ == "slider" and FT.values[id] == nil then FT.values[id] = c[6] end
+                if typ == "select" and FT.drop_values[id] == nil then FT.drop_values[id] = c[4][1] end
+            end
+        end
+    end
+    FT.values.misc_bg = true
+end
+init_defaults()
+
+local function update_input()
+    local mx, my = mouse()
+    FT.mouse_x, FT.mouse_y = mx, my
+    local was = FT.lmb
+    FT.lmb = down(0x01)
+    FT.lmb_pressed = FT.lmb and not was
+    FT.lmb_released = was and not FT.lmb
+
+    if FT.lmb_released then
+        FT.dragging = false
+        FT.active_slider = nil
+    end
+end
+
+local function checkbox(id, x, y, w, label)
+    local v = FT.values[id] == true
+    local sq = 10
+    local bx = x + w - sq - 2
+    local by = y + 3
+    local hover = in_rect(FT.mouse_x, FT.mouse_y, x, y, w, 16)
+    if FT.lmb_pressed and hover then
+        FT.values[id] = not v
+        v = FT.values[id]
+        FT.status = label .. ": " .. (v and "on" or "off")
+    end
+    text(x, y + 3, label, col(hover and FT.text or FT.text))
+    rect(bx, by, sq, sq, 0.045, 0.040, 0.080, 1)
+    border(bx, by, sq, sq, 0.080, 0.075, 0.135, 1, 1)
+    if v then
+        rect(bx + 2, by + 2, sq - 4, sq - 4, FT.accent.r, FT.accent.g, FT.accent.b, 1)
+    end
+    return y + 20
+end
+
+local function button(id, x, y, w, label)
+    local hover = in_rect(FT.mouse_x, FT.mouse_y, x, y, w, 19)
+    rect(x, y, w, 18, hover and 0.105 or 0.075, hover and 0.080 or 0.065, hover and 0.150 or 0.120, 1)
+    border(x, y, w, 18, hover and FT.accent.r or 0.13, hover and FT.accent.g or 0.11, hover and FT.accent.b or 0.20, 1, 1)
+    outline_text(x + w * 0.5, y + 4, label, FT.text.r, FT.text.g, FT.text.b, 1)
+    if FT.lmb_pressed and hover then
+        FT.status = label .. " clicked"
+    end
+    return y + 23
+end
+
+local function slider(id, x, y, w, label, minv, maxv, def, fmt)
+    if FT.values[id] == nil then FT.values[id] = def or minv end
+    local val = FT.values[id]
+    local t = (val - minv) / (maxv - minv)
+    t = clamp(t, 0, 1)
+    local bar_y = y + 18
+    local bar_h = 5
+    local hover = in_rect(FT.mouse_x, FT.mouse_y, x, bar_y - 6, w, 18)
+    if FT.lmb_pressed and hover then
+        FT.active_slider = id
+    end
+    if FT.active_slider == id and FT.lmb then
+        local nt = clamp((FT.mouse_x - x) / w, 0, 1)
+        val = minv + (maxv - minv) * nt
+        if math.floor(maxv) == maxv and math.floor(minv) == minv then val = math.floor(val + 0.5) end
+        FT.values[id] = val
+        t = nt
+        FT.status = label .. " = " .. string.format(fmt or "%d", val)
+    end
+    local shown = string.format(fmt or "%d", val)
+    text(x, y + 2, label, FT.text.r, FT.text.g, FT.text.b, 1)
+    text(x + w - 38, y + 2, shown, FT.dim.r, FT.dim.g, FT.dim.b, 1)
+    rect(x, bar_y, w, bar_h, 0.045, 0.040, 0.080, 1)
+    rect(x, bar_y, w * t, bar_h, FT.accent.r, FT.accent.g, FT.accent.b, 1)
+    rect(x + w * t - 3, bar_y - 3, 7, 11, 0.95, 0.72, 0.88, 1)
+    return y + 34
+end
+
+local function select_box(id, x, y, w, label, items)
+    if FT.drop_values[id] == nil then FT.drop_values[id] = items[1] end
+    local box_w = 86
+    local bx = x + w - box_w
+    local by = y + 1
+    local hover = in_rect(FT.mouse_x, FT.mouse_y, bx, by, box_w, 18)
+    text(x, y + 4, label, FT.text.r, FT.text.g, FT.text.b, 1)
+    rect(bx, by, box_w, 18, hover and 0.095 or 0.060, hover and 0.073 or 0.052, hover and 0.140 or 0.105, 1)
+    border(bx, by, box_w, 18, 0.115, 0.100, 0.175, 1, 1)
+    text(bx + 5, by + 4, FT.drop_values[id], FT.dim.r, FT.dim.g, FT.dim.b, 1)
+    text(bx + box_w - 10, by + 4, "v", FT.accent.r, FT.accent.g, FT.accent.b, 1)
+    if FT.lmb_pressed and hover then
+        if FT.open_dropdown == id then FT.open_dropdown = nil else FT.open_dropdown = id end
+    end
+    return y + 23, bx, by, box_w, items
+end
+
+local deferred_dropdowns = {}
+local function push_dropdown(id, bx, by, bw, items)
+    if FT.open_dropdown == id then
+        table.insert(deferred_dropdowns, {id = id, x = bx, y = by + 19, w = bw, items = items})
+    end
+end
+
+local function draw_dropdowns()
+    for _, d in ipairs(deferred_dropdowns) do
+        local h = #d.items * 18 + 2
+        shadow_rect(d.x, d.y, d.w, h)
+        rect(d.x, d.y, d.w, h, 0.045, 0.040, 0.085, 1)
+        border(d.x, d.y, d.w, h, FT.accent.r, FT.accent.g, FT.accent.b, 0.75, 1)
+        for i, item in ipairs(d.items) do
+            local iy = d.y + 1 + (i - 1) * 18
+            local hover = in_rect(FT.mouse_x, FT.mouse_y, d.x, iy, d.w, 18)
+            if hover then rect(d.x + 1, iy, d.w - 2, 18, 0.105, 0.078, 0.150, 1) end
+            local active = FT.drop_values[d.id] == item
+            text(d.x + 6, iy + 4, item, active and FT.accent.r or FT.text.r, active and FT.accent.g or FT.text.g, active and FT.accent.b or FT.text.b, 1)
+            if FT.lmb_pressed and hover then
+                FT.drop_values[d.id] = item
+                FT.open_dropdown = nil
+                FT.status = item .. " selected"
+            end
+        end
+    end
+    deferred_dropdowns = {}
+end
+
+local function section(sec, x, y, w)
+    local cy = y
+    local h = 26
+    for _, c in ipairs(sec.controls) do
+        if c[1] == "check" then h = h + 20 end
+        if c[1] == "slider" then h = h + 34 end
+        if c[1] == "select" then h = h + 23 end
+        if c[1] == "button" then h = h + 23 end
+    end
+    shadow_rect(x, y, w, h)
+    rect(x, y, w, h, FT.bg2.r, FT.bg2.g, FT.bg2.b, FT.bg2.a)
+    border(x, y, w, h, FT.line.r, FT.line.g, FT.line.b, 1, 1)
+    text(x + 10, y - 1, sec.title, FT.text.r, FT.text.g, FT.text.b, 1)
+    rect(x + 10, y + 18, w - 20, 2, FT.accent.r, FT.accent.g, FT.accent.b, 1)
+    cy = y + 31
+    for _, c in ipairs(sec.controls) do
+        local typ = c[1]
+        if typ == "check" then
+            cy = checkbox(c[2], x + 12, cy, w - 24, c[3])
+        elseif typ == "slider" then
+            cy = slider(c[2], x + 12, cy, w - 24, c[3], c[4], c[5], c[6], c[7])
+        elseif typ == "select" then
+            local ny, bx, by, bw, items = select_box(c[2], x + 12, cy, w - 24, c[3], c[4])
+            push_dropdown(c[2], bx, by, bw, items)
+            cy = ny
+        elseif typ == "button" then
+            cy = button(c[2], x + 12, cy, w - 24, c[3])
+        end
+    end
+    return h
+end
+
+local function draw_topbar(x, y, w)
+    rect(x, y, w, 38, FT.bg.r, FT.bg.g, FT.bg.b, 1)
+    rect(x, y + 37, w, 1, FT.line.r, FT.line.g, FT.line.b, 1)
+    text(x + 15, y + 13, "ECLIPZE", 1, 1, 1, 1)
+    local tx = x + 105
+    for _, tab in ipairs(tab_order) do
+        local tw = 54
+        local hover = in_rect(FT.mouse_x, FT.mouse_y, tx, y + 8, tw, 22)
+        local active = FT.tab == tab
+        if hover or active then
+            rect(tx, y + 8, tw, 22, active and 0.105 or 0.070, active and 0.075 or 0.060, active and 0.160 or 0.120, 1)
+        end
+        if active then rect(tx + 1, y + 29, tw - 2, 2, FT.accent.r, FT.accent.g, FT.accent.b, 1) end
+        local tr, tg, tb = FT.dim.r, FT.dim.g, FT.dim.b
+        if active or hover then tr, tg, tb = FT.text.r, FT.text.g, FT.text.b end
+        text(tx + 10, y + 14, tab, tr, tg, tb, 1)
+        if FT.lmb_pressed and hover then
+            FT.tab = tab
+            FT.open_dropdown = nil
+        end
+        tx = tx + tw + 5
+    end
+    text(x + w - 112, y + 10, "cpyzera", FT.text.r, FT.text.g, FT.text.b, 1)
+    text(x + w - 80, y + 22, "exp: 20 days", FT.dim.r, FT.dim.g, FT.dim.b, 1)
+    rect(x + w - 30, y + 10, 18, 18, 0.11, 0.10, 0.16, 1)
+    rect(x + w - 26, y + 14, 10, 10, FT.accent.r, FT.accent.g, FT.accent.b, 1)
+end
+
+local function draw_footer(x, y, w, h)
+    local fy = y + h - 24
+    rect(x, fy, w, 24, 0.045, 0.040, 0.090, 1)
+    rect(x, fy, w, 1, FT.line.r, FT.line.g, FT.line.b, 1)
+    text(x + 12, fy + 8, "Q", FT.dim.r, FT.dim.g, FT.dim.b, 1)
+    rect(x + 32, fy + 7, 10, 10, FT.dim.r, FT.dim.g, FT.dim.b, 0.65)
+    border(x + 52, fy + 7, 14, 10, FT.dim.r, FT.dim.g, FT.dim.b, 0.75, 1)
+    text(x + 78, fy + 8, FT.status, FT.dim.r, FT.dim.g, FT.dim.b, 1)
+    text(x + w - 28, fy + 8, "i", FT.dim.r, FT.dim.g, FT.dim.b, 1)
+end
+
+local function draw_page(x, y, w, h)
+    local page = pages[FT.tab] or pages.MISC
+    local body_x = x + 12
+    local body_y = y + 50
+    local col_w = math.floor((w - 44) / 3)
+    local gap = 10
+    local col_y = {body_y, body_y, body_y}
+    for i, sec in ipairs(page) do
+        local col_i = ((i - 1) % 3) + 1
+        local sx = body_x + (col_i - 1) * (col_w + gap)
+        local sy = col_y[col_i]
+        local sh = section(sec, sx, sy, col_w)
+        col_y[col_i] = sy + sh + 10
+    end
+end
+
+local function update_drag()
+    if not FT.visible then return end
+    local x, y, w = FT.x, FT.y, FT.w
+    local top_hover = in_rect(FT.mouse_x, FT.mouse_y, x, y, w, 38)
+    local tab_area = in_rect(FT.mouse_x, FT.mouse_y, x + 100, y + 6, 380, 28)
+    local user_area = in_rect(FT.mouse_x, FT.mouse_y, x + w - 125, y + 4, 120, 30)
+    if FT.lmb_pressed and top_hover and not tab_area and not user_area then
+        FT.dragging = true
+        FT.drag_dx = FT.mouse_x - FT.x
+        FT.drag_dy = FT.mouse_y - FT.y
+        FT.open_dropdown = nil
+    end
+    if FT.dragging and FT.lmb then
+        local sw, sh = screen_size()
+        FT.x = clamp(FT.mouse_x - FT.drag_dx, 8, sw - FT.w - 8)
+        FT.y = clamp(FT.mouse_y - FT.drag_dy, 8, sh - FT.h - 8)
+    end
+end
+
+local function draw_menu()
+    local x, y, w, h = FT.x, FT.y, FT.w, FT.h
+    shadow_rect(x, y, w, h)
+    rect(x, y, w, h, FT.bg3.r, FT.bg3.g, FT.bg3.b, FT.bg3.a)
+    border(x, y, w, h, FT.accent.r, FT.accent.g, FT.accent.b, 0.75, 1)
+    border(x + 1, y + 1, w - 2, h - 2, FT.line.r, FT.line.g, FT.line.b, 0.95, 1)
+    draw_topbar(x, y, w)
+    draw_page(x, y, w, h)
+    draw_footer(x, y, w, h)
+    draw_dropdowns()
+end
+
+local function render()
+    update_input()
+
+    if FT.visible then
+        draw_background()
+        update_drag()
+        draw_menu()
+    end
+end
+
+if hooks and hooks.on_render then
+    hooks.on_render(render)
+elseif callbacks and callbacks.paint then
+    callbacks.paint(render)
+end
+
+local function toggle_menu()
+    FT.visible = not FT.visible
+end
+
+if hooks and hooks.on_key then
+    hooks.on_key(0xA1, toggle_menu) -- VK_RSHIFT
+    if VK and VK.F8 then hooks.on_key(VK.F8, toggle_menu) end
+end
+
+notify("ECLIPZE menu loaded. Toggle: Right Shift / F8", "success")
+
+
 end)()
