@@ -8641,10 +8641,10 @@ y = __EC16.y
 x2 = x + ww
 y2 = y + hh
 end
-local bgR,bgG,bgB = 0.030,0.025,0.070
-local paneR,paneG,paneB = 0.058,0.047,0.118
-local boxR,boxG,boxB = 0.080,0.064,0.155
-local edgeR,edgeG,edgeB = 0.150,0.115,0.255
+local bgR,bgG,bgB = 0.006,0.006,0.010
+local paneR,paneG,paneB = 0.010,0.010,0.016
+local boxR,boxG,boxB = 0.012,0.012,0.018
+local edgeR,edgeG,edgeB = 0.080,0.040,0.110
 local accR,accG,accB = 1.00,0.00,0.55
 local softR,softG,softB = 0.74,0.69,0.88
 local dimR,dimG,dimB = 0.48,0.43,0.64
@@ -8670,11 +8670,12 @@ msg = tostring(msg or "")
 Drawing.DrawTextWithOutline(tx + __ec16_text_w(msg) * 0.5, ty, msg, dimR,dimG,dimB,a or 0.95,0,0,0,0.9)
 end
 local function group(gx,gy,gw,gh,title)
-round_rect(gx-1,gy-1,gx+gw+1,gy+gh+1,1.00,0.00,0.58,0.032,8)
-round_rect(gx,gy,gx+gw,gy+gh,boxR,boxG,boxB,0.94,8)
-round_rect(gx+1,gy+1,gx+gw-1,gy+gh-1,0.022,0.020,0.040,0.92,7)
-round_rect(gx+1,gy+1,gx+gw-1,gy+24,0.100,0.072,0.190,0.98,7)
-rect(gx+10,gy+22,gx+gw-10,gy+24,1.00,0.00,0.58,0.36)
+-- v96: solid black block background, same look on every tab.
+round_rect(gx-1,gy-1,gx+gw+1,gy+gh+1,1.00,0.00,0.58,0.045,8)
+round_rect(gx,gy,gx+gw,gy+gh,0.006,0.006,0.010,0.985,8)
+round_rect(gx+1,gy+1,gx+gw-1,gy+gh-1,0.010,0.010,0.016,0.985,7)
+round_rect(gx+1,gy+1,gx+gw-1,gy+24,0.018,0.014,0.030,0.990,7)
+rect(gx+10,gy+22,gx+gw-10,gy+24,1.00,0.00,0.58,0.62)
 Drawing.DrawTextWithOutline(gx+12 + __ec16_text_w(title) * 0.5, gy+7, title, 0.94,0.89,1.00,0.98,0,0,0,0.9)
 end
 local function get_username()
@@ -8886,7 +8887,7 @@ local contentX2 = paneX2 - 12
 local contentY2 = sideY2
 round_rect(contentX,contentY,contentX2,contentY2,0.040,0.032,0.085,0.76,8)
 out(contentX,contentY,contentX2,contentY2,0.22,0.16,0.38,0.62,1)
-local innerGap = 14
+local innerGap = 10
 local contentW = contentX2 - contentX
 local colW = math.floor((contentW - innerGap * 4) / 3)
 local c1 = contentX + innerGap
@@ -8905,15 +8906,15 @@ check(c1+18,sy+132,"Sticky Aim","ap_sticky_main")
 check(c1+18,sy+162,"Silent Aim","ec_silent_enabled")
 check(c1+18,sy+192,"Silent Prediction","ec36_silent_pred_bridge")
 __EC16.keybindsPanel = __ec16_bool_check(mx,my,cl,c1+18,sy+222,"Keybind Panel",__EC16.keybindsPanel)
-group(c3,sy,colW,495,"FOV")
-check(c3+18,sy+42,"FOV Enabled","ap_fov_show_main")
-__EC16.rainbowFov = __ec16_bool_check(mx,my,cl,c3+18,sy+72,"Rainbow FOV",__EC16.rainbowFov)
-__ec16_rainbow_slider(mx,my,cl,c3+18,sy+112,colW-36,"FOV Color","fov")
-slider(c3+18,sy+190,colW-36,"FOV Size","ap_fov_main",50,600)
+group(c2,sy,colW,495,"FOV")
+check(c2+18,sy+42,"FOV Enabled","ap_fov_show_main")
+__EC16.rainbowFov = __ec16_bool_check(mx,my,cl,c2+18,sy+72,"Rainbow FOV",__EC16.rainbowFov)
+__ec16_rainbow_slider(mx,my,cl,c2+18,sy+112,colW-36,"FOV Color","fov")
+slider(c2+18,sy+190,colW-36,"FOV Size","ap_fov_main",50,600)
 -- FOV Transparency moved into color picker alpha strip
-local fovStyleExtraGen = __ec16_fov_style_dropdown(mx,my,cl,c3+18,sy+304,colW-36) or 0
+local fovStyleExtraGen = __ec16_fov_style_dropdown(mx,my,cl,c2+18,sy+304,colW-36) or 0
 if fovStyleExtraGen > 50 then fovStyleExtraGen = 50 end
-__EC16.rainbowFovSpeed = __ec16_float_slider(mx,my,cl,c3+18,sy+408+fovStyleExtraGen,colW-36,"Rainbow Speed",__EC16.rainbowFovSpeed,0.2,8)
+__EC16.rainbowFovSpeed = __ec16_float_slider(mx,my,cl,c2+18,sy+408+fovStyleExtraGen,colW-36,"Rainbow Speed",__EC16.rainbowFovSpeed,0.2,8)
 elseif curSection == "Target" then
 group(c1,sy,colW,310,"Target")
 slider(c1+18,sy+42,colW-36,"Max Distance","ap_maxdist_main",50,3000)
@@ -9645,10 +9646,10 @@ y = __EC16.y
 x2 = x + ww
 y2 = y + hh
 end
-local bgR,bgG,bgB = 0.026,0.022,0.060
-local paneR,paneG,paneB = 0.050,0.040,0.105
-local boxR,boxG,boxB = 0.068,0.052,0.135
-local edgeR,edgeG,edgeB = 0.125,0.095,0.225
+local bgR,bgG,bgB = 0.006,0.006,0.010
+local paneR,paneG,paneB = 0.010,0.010,0.016
+local boxR,boxG,boxB = 0.012,0.012,0.018
+local edgeR,edgeG,edgeB = 0.080,0.040,0.110
 local accR,accG,accB = 1.00,0.00,0.55
 local softR,softG,softB = 0.74,0.69,0.88
 local dimR,dimG,dimB = 0.48,0.43,0.64
@@ -9675,11 +9676,12 @@ msg = tostring(msg or "")
 Drawing.DrawTextWithOutline(tx + __ec16_text_w(msg) * 0.5, ty, msg, dimR,dimG,dimB,a or 0.95,0,0,0,0.9)
 end
 local function group(gx,gy,gw,gh,title)
+-- v96: solid black block background, same look on every tab.
 round_rect(gx-1,gy-1,gx+gw+1,gy+gh+1,1.00,0.00,0.58,0.050,8)
-round_rect(gx,gy,gx+gw,gy+gh,boxR,boxG,boxB,0.58,8)
-round_rect(gx+1,gy+1,gx+gw-1,gy+gh-1,0.020,0.018,0.040,0.44,7)
-round_rect(gx+1,gy+1,gx+gw-1,gy+24,0.090,0.060,0.175,0.64,7)
-rect(gx+10,gy+22,gx+gw-10,gy+24,1.00,0.00,0.58,0.58)
+round_rect(gx,gy,gx+gw,gy+gh,0.006,0.006,0.010,0.990,8)
+round_rect(gx+1,gy+1,gx+gw-1,gy+gh-1,0.010,0.010,0.016,0.985,7)
+round_rect(gx+1,gy+1,gx+gw-1,gy+24,0.018,0.014,0.030,0.990,7)
+rect(gx+10,gy+22,gx+gw-10,gy+24,1.00,0.00,0.58,0.62)
 Drawing.DrawTextWithOutline(gx+12 + __ec16_text_w(title) * 0.5, gy+7, title, 0.94,0.89,1.00,0.98,0,0,0,0.9)
 end
 local function get_username()
@@ -9892,7 +9894,7 @@ local contentX2 = paneX2 - 12
 local contentY2 = sideY2
 round_rect(contentX,contentY,contentX2,contentY2,0.040,0.032,0.085,0.32,8)
 out(contentX,contentY,contentX2,contentY2,0.22,0.16,0.38,0.34,1)
-local innerGap = 14
+local innerGap = 10
 local contentW = contentX2 - contentX
 local colW = math.floor((contentW - innerGap * 4) / 3)
 local c1 = contentX + innerGap
@@ -9909,15 +9911,15 @@ check(c1+18,sy+72,"Prediction","ap_prediction_main")
 check(c1+18,sy+102,"Team Check","ap_team_main")
 check(c1+18,sy+132,"Sticky Aim","ap_sticky_main")
 __EC16.keybindsPanel = __ec16_bool_check(mx,my,cl,c1+18,sy+162,"Keybind Panel",__EC16.keybindsPanel)
-group(c3,sy,colW,495,"FOV")
-check(c3+18,sy+42,"FOV Enabled","ap_fov_show_main")
-__EC16.rainbowFov = __ec16_bool_check(mx,my,cl,c3+18,sy+72,"Rainbow FOV",__EC16.rainbowFov)
-__ec16_rainbow_slider(mx,my,cl,c3+18,sy+112,colW-36,"FOV Color","fov")
-slider(c3+18,sy+190,colW-36,"FOV Size","ap_fov_main",50,600)
+group(c2,sy,colW,495,"FOV")
+check(c2+18,sy+42,"FOV Enabled","ap_fov_show_main")
+__EC16.rainbowFov = __ec16_bool_check(mx,my,cl,c2+18,sy+72,"Rainbow FOV",__EC16.rainbowFov)
+__ec16_rainbow_slider(mx,my,cl,c2+18,sy+112,colW-36,"FOV Color","fov")
+slider(c2+18,sy+190,colW-36,"FOV Size","ap_fov_main",50,600)
 -- FOV Transparency moved into color picker alpha strip
-local fovStyleExtraGen = __ec16_fov_style_dropdown(mx,my,cl,c3+18,sy+304,colW-36) or 0
+local fovStyleExtraGen = __ec16_fov_style_dropdown(mx,my,cl,c2+18,sy+304,colW-36) or 0
 if fovStyleExtraGen > 50 then fovStyleExtraGen = 50 end
-__EC16.rainbowFovSpeed = __ec16_float_slider(mx,my,cl,c3+18,sy+408+fovStyleExtraGen,colW-36,"Rainbow Speed",__EC16.rainbowFovSpeed,0.2,8)
+__EC16.rainbowFovSpeed = __ec16_float_slider(mx,my,cl,c2+18,sy+408+fovStyleExtraGen,colW-36,"Rainbow Speed",__EC16.rainbowFovSpeed,0.2,8)
 elseif curSection == "Target" then
 group(c1,sy,colW,310,"Target")
 slider(c1+18,sy+42,colW-36,"Max Distance","ap_maxdist_main",50,3000)
@@ -14513,11 +14515,11 @@ function __EC_V90_PATCH()
 
     local function theme()
         return {
-            bg={0.030,0.025,0.070},
-            pane={0.058,0.047,0.118},
-            box={0.080,0.064,0.155},
-            box2={0.022,0.020,0.040},
-            head={0.100,0.072,0.190},
+            bg={0.006,0.006,0.010},
+            pane={0.010,0.010,0.016},
+            box={0.006,0.006,0.010},
+            box2={0.010,0.010,0.016},
+            head={0.018,0.014,0.030},
             acc={1.00,0.00,0.58},
             text={0.94,0.89,1.00},
             dim={0.48,0.43,0.64},
@@ -14528,11 +14530,12 @@ function __EC_V90_PATCH()
 
     local function group(x,y,w,h,title)
         local th = theme()
-        round(x-1,y-1,x+w+1,y+h+1,th.acc[1],th.acc[2],th.acc[3],0.032,8)
-        round(x,y,x+w,y+h,th.box[1],th.box[2],th.box[3],0.94,8)
-        round(x+1,y+1,x+w-1,y+h-1,th.box2[1],th.box2[2],th.box2[3],0.92,7)
-        round(x+1,y+1,x+w-1,y+24,th.head[1],th.head[2],th.head[3],0.98,7)
-        rect(x+10,y+22,x+w-10,y+24,th.acc[1],th.acc[2],th.acc[3],0.36)
+        -- v96: the same dense black block style as the rest of the menu.
+        round(x-1,y-1,x+w+1,y+h+1,th.acc[1],th.acc[2],th.acc[3],0.045,8)
+        round(x,y,x+w,y+h,0.006,0.006,0.010,0.990,8)
+        round(x+1,y+1,x+w-1,y+h-1,0.010,0.010,0.016,0.985,7)
+        round(x+1,y+1,x+w-1,y+24,0.018,0.014,0.030,0.990,7)
+        rect(x+10,y+22,x+w-10,y+24,th.acc[1],th.acc[2],th.acc[3],0.62)
         text_left(x+12,y+7,title,th.text[1],th.text[2],th.text[3],0.98)
     end
 
@@ -14579,7 +14582,7 @@ function __EC_V90_PATCH()
         local contentY = sideY
         local contentX2 = paneX2 - 12
         local contentY2 = sideY2
-        local innerGap = 14
+        local innerGap = 10
         local contentW = contentX2 - contentX
         local colW = math.floor((contentW - innerGap * 4) / 3)
         local c1 = contentX + innerGap
@@ -15093,15 +15096,15 @@ function __EC_V90_PATCH()
             if active then
                 rect(bx+2,yy+4,bx+5,yy+bh-4,th.acc[1],th.acc[2],th.acc[3],1)
                 if d.multi == true then
-                    Drawing.DrawCircleFilled(bx+13,yy+12,3.5,th.acc[1],th.acc[2],th.acc[3],0.95)
-                    text_left(bx+24,yy+7,opt,1.00,0.82,0.96,0.98)
+                    -- v96: no round dots in multi-select dropdowns, only the left neon bar.
+                    text_left(bx+12,yy+7,opt,1.00,0.82,0.96,0.98)
                 else
                     text_left(bx+12,yy+7,opt,1.00,0.82,0.96,0.98)
                 end
             else
                 if d.multi == true then
-                    Drawing.DrawCircle(bx+13,yy+12,3.5,0.48,0.43,0.62,0.85,1.2)
-                    text_left(bx+24,yy+7,opt,0.66,0.61,0.82,0.92)
+                    -- v96: no inactive dot either.
+                    text_left(bx+12,yy+7,opt,0.66,0.61,0.82,0.92)
                 else
                     text_left(bx+12,yy+7,opt,0.66,0.61,0.82,0.92)
                 end
@@ -15308,10 +15311,10 @@ local function picker_blocks_base(mx,my,cl)
 
         V.section = __EC16.visualsSection or V.section or "Trail"
 
-        rect(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.024,0.022,0.048,1.00)
-        round(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.024,0.022,0.048,1.00,9)
-        rect(L.contentX,L.contentY,L.contentX2,L.contentY2,0.030,0.025,0.070,1.00)
-        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,1.00,8)
+        rect(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.008,0.008,0.014,1.00)
+        round(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.008,0.008,0.014,1.00,9)
+        rect(L.contentX,L.contentY,L.contentX2,L.contentY2,0.008,0.008,0.014,1.00)
+        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.008,0.008,0.014,1.00,8)
         if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.62,1) end
 
         local sections = {"Trail","World Effects","Target Effects","Bullet Tracers","Aura"}
@@ -15365,7 +15368,13 @@ local function picker_blocks_base(mx,my,cl)
             group(c1,sy,colW,176,"Target Effects")
             color_button(mx,my,cl,c1+colW-42,sy+42,"targetfx")
             V.targetFx.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"Target Effects",V.targetFx.enabled == true)
-            V.targetFx.styles = multi_dropdown_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Stack",{"Small Cubes","Aura Swirl","Helix","Pulse Rings"},V.targetFx.styles or {},"target_effect_stack",false)
+            V.targetFx.styles = V.targetFx.styles or {}
+            if V.targetFx.styles["Small Cubes"] == true then V.targetFx.styles["Cubes"] = true end
+            V.targetFx.styles["Small Cubes"] = nil
+            V.targetFx.styles["Aura Swirl"] = nil
+            V.targetFx.styles["Helix"] = nil
+            V.targetFx.styles["Pulse Rings"] = nil
+            V.targetFx.styles = multi_dropdown_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Stack",{"Cubes"},V.targetFx.styles,"target_effect_stack",false)
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
@@ -16217,37 +16226,12 @@ local function picker_blocks_base(mx,my,cl)
         local tm=now()
         local r,g,bc=get_target_color("targetfx")
         local alpha=get_target_alpha("targetfx")
-        local selectedTargetStyles = {}
         local targetStyles = (V.targetFx and V.targetFx.styles) or {}
-        if targetStyles["Small Cubes"] == true then selectedTargetStyles[#selectedTargetStyles+1] = "Small Cubes" end
-        if targetStyles["Aura Swirl"] == true then selectedTargetStyles[#selectedTargetStyles+1] = "Aura Swirl" end
-        if targetStyles["Helix"] == true then selectedTargetStyles[#selectedTargetStyles+1] = "Helix" end
-        if targetStyles["Pulse Rings"] == true then selectedTargetStyles[#selectedTargetStyles+1] = "Pulse Rings" end
-        if #selectedTargetStyles == 0 then return end
+        local cubesOn = (targetStyles["Cubes"] == true) or (targetStyles["Small Cubes"] == true)
+        if not cubesOn then return end
 
-        local styleCount = #selectedTargetStyles
-        for si=1,styleCount do
-            local style = selectedTargetStyles[si]
-            local slot = si - ((styleCount + 1) * 0.5)
-            local hrp2 = hrp
-            local bottom2 = bottom
-            local top2 = top
-            if styleCount > 1 then
-                -- Small side/height offsets so stacked target effects do not sit exactly in one point.
-                hrp2 = hrp + Vector3(slot * 0.34, 0, slot * 0.18)
-                bottom2 = bottom + slot * 0.28
-                top2 = top + slot * 0.28
-            end
-            if style == "Small Cubes" then
-                ec_v90_draw_small_cubes(hrp2,bottom2,top2,r,g,bc,tm,alpha)
-            elseif style == "Aura Swirl" then
-                ec_v90_draw_aura_swirl(hrp2,bottom2,top2,r,g,bc,tm,alpha)
-            elseif style == "Helix" then
-                ec_v90_draw_helix(hrp2,bottom2,top2,r,g,bc,tm,alpha)
-            elseif style == "Pulse Rings" then
-                ec_v90_draw_pulse(hrp2,bottom2,top2,r,g,bc,tm,alpha)
-            end
-        end
+        -- v96: target effects are only Cubes and are not shifted. Offsets are only used for World Effects.
+        ec_v90_draw_small_cubes(hrp,bottom,top,r,g,bc,tm,alpha)
     end
 
     -- Safe aura cache only. Original aura styles are NOT replaced.
@@ -16461,8 +16445,8 @@ Eclipze v92 hard hotfix
         end
     end
 
-    if notify then pcall(function() notify("Eclipze v95 multi dropdown stacked effects loaded", "success") end) end
+    if notify then pcall(function() notify("Eclipze v96 dense black effects fix loaded", "success") end) end
 end)()
 
 
--- Eclipze v95: World Effects + Target Effects use multi-select dropdowns with comma summaries and separated stacked positions.
+-- Eclipze v96: black dense blocks, no multi-select dots, Target Effects = Cubes only, World Effects still separated.
