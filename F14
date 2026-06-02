@@ -15744,6 +15744,98 @@ local function picker_blocks_base(mx,my,cl)
         end
     end
 
+    -- v98: World Effects Cubes are no longer orbiting around the player.
+    -- They render like a floating/falling square field in front of the camera,
+    -- like the reference video: scattered glowing flat squares, not a circle.
+    local function get_camera_frame_for_world_fx(center)
+        local camPos = nil
+        pcall(function()
+            if get_camera then
+                local cam = get_camera()
+                if cam and cam.position then
+                    camPos = Vector3(__EC_NUM(cam.position.X or cam.position[1], center.X), __EC_NUM(cam.position.Y or cam.position[2], center.Y + 4), __EC_NUM(cam.position.Z or cam.position[3], center.Z))
+                end
+            end
+        end)
+        if not camPos then camPos = center + Vector3(0, 4.0, 0) end
+
+        local right = Vector3(1,0,0)
+        local up = Vector3(0,1,0)
+        local forward = Vector3(0,0,-1)
+        pcall(function()
+            if aim and aim.get_camera_rotation then
+                local m = aim.get_camera_rotation()
+                if m then
+                    right = Vector3(__EC_NUM(m[1],1), __EC_NUM(m[2],0), __EC_NUM(m[3],0))
+                    up = Vector3(__EC_NUM(m[4],0), __EC_NUM(m[5],1), __EC_NUM(m[6],0))
+                    forward = Vector3(-__EC_NUM(m[7],0), -__EC_NUM(m[8],0), -__EC_NUM(m[9],1))
+                end
+            end
+        end)
+        if right.magnitude > 0 then right = right:normalize() end
+        if up.magnitude > 0 then up = up:normalize() end
+        if forward.magnitude > 0 then forward = forward:normalize() end
+        return camPos, right, up, forward
+    end
+
+    local function draw_flat_camera_square(pos,right,up,size,angle,cr,cg,cb,alpha)
+        local c = math.cos(angle)
+        local s = math.sin(angle)
+        local hs = size * 0.5
+        local pts = {
+            {-hs,-hs}, {hs,-hs}, {hs,hs}, {-hs,hs}
+        }
+        local scr = {}
+        for i=1,4 do
+            local x = pts[i][1]
+            local y = pts[i][2]
+            local rx = x * c - y * s
+            local ry = x * s + y * c
+            scr[i] = world_to_screen(pos + right * rx + up * ry)
+        end
+        for i=1,4 do
+            local p1 = scr[i]
+            local p2 = scr[(i % 4) + 1]
+            if p1 and p2 then
+                line(p1.X,p1.Y,p2.X,p2.Y,cr,cg,cb,alpha * 0.25,5.2)
+                line(p1.X,p1.Y,p2.X,p2.Y,cr,cg,cb,alpha * 0.62,2.4)
+                line(p1.X,p1.Y,p2.X,p2.Y,1.00,0.94,1.00,alpha * 0.96,1.05)
+            end
+        end
+    end
+
+    local function draw_camera_square_field(center,tm,amount,radius,speed,baseSize,cr,cg,cb,worldAlpha,cache)
+        local camPos,right,up,forward = get_camera_frame_for_world_fx(center)
+        local spreadX = radius * 3.65
+        local spreadY = radius * 1.75
+        local minDepth = math.max(7.0, radius * 0.95)
+        local maxDepth = math.max(minDepth + 8.0, radius * 5.15)
+        local fallSpeed = 0.08 + speed * 0.115
+
+        for i=1,amount do
+            local it = cache.items[i]
+            local flow = tm * fallSpeed * (0.74 + it.h2 * 0.58) + it.h4
+            flow = flow - math.floor(flow)
+
+            local xOff = (it.h1 * 2.0 - 1.0) * spreadX
+            local yOff = spreadY * 0.82 - flow * (spreadY * 1.90)
+            local depth = minDepth + it.h3 * (maxDepth - minDepth)
+
+            xOff = xOff + math.sin(tm * (0.34 + it.h5 * 0.45) + it.phase) * radius * 0.22
+            yOff = yOff + math.sin(tm * 0.40 + it.h6 * 6.283185) * radius * 0.08
+            depth = depth + math.sin(tm * 0.21 + it.h2 * 6.283185) * radius * 0.16
+
+            local pos = camPos + forward * depth + right * xOff + up * yOff
+            local size = baseSize * (0.58 + it.h6 * 1.85) * (0.80 + (depth / math.max(radius,1)) * 0.045)
+            local angle = tm * speed * (0.18 + it.spinZ * 0.55) * it.dir + it.phase
+
+            local fade = math.sin(flow * 3.14159265)
+            if fade < 0 then fade = 0 end
+            local alpha = clamp((0.28 + 0.72 * fade) * (0.58 + it.h5 * 0.42) * worldAlpha, 0.015, 1.0)
+            draw_flat_camera_square(pos,right,up,size,angle,cr,cg,cb,alpha)
+        end
+    end
+
     local function draw_orbit_squares()
         if not (V.squares and V.squares.enabled == true) then return end
         local center = get_hrp_pos()
@@ -15759,19 +15851,30 @@ local function picker_blocks_base(mx,my,cl)
         if worldModes.Stars == true or worldModes["Stars"] == true then selectedWorldModes[#selectedWorldModes+1] = "Stars" end
         if worldModes.Circles == true or worldModes["Circles"] == true then selectedWorldModes[#selectedWorldModes+1] = "Circles" end
         if #selectedWorldModes == 0 then return end
+
         local cr,cg,cb = get_target_color("squares")
         local worldAlpha = get_target_alpha("squares")
         local drawAmount = math.min(amount,80)
         local cache = build_world_fx_cache(drawAmount)
+
+        -- Cubes now use the reference-style square field, not player orbit.
+        if worldModes.Cubes == true or worldModes["Cubes"] == true then
+            draw_camera_square_field(center,tm,drawAmount,radius,speed,baseSize,cr,cg,cb,worldAlpha,cache)
+        end
+
+        -- Stars/Circles are kept separated from Cubes and still use the older world placement,
+        -- so multi-select remains working without all effects sitting in one spot.
+        local orbitModes = {}
+        if worldModes.Stars == true or worldModes["Stars"] == true then orbitModes[#orbitModes+1] = "Stars" end
+        if worldModes.Circles == true or worldModes["Circles"] == true then orbitModes[#orbitModes+1] = "Circles" end
+        if #orbitModes == 0 then return end
+
         for i=1,drawAmount do
             local it = cache.items[i]
             local orbit = tm * speed * it.dir * (0.44 + it.h1 * 0.92) + it.phase
             local dist = math.max(5.8, radius * it.rMul)
             local wob = math.sin(tm * speed * (0.50 + it.h3) + it.h5 * 6.283185) * (radius * 0.10)
-            local px = math.cos(orbit) * (dist + wob)
-            local pz = math.sin(orbit + math.sin(tm * 0.35 + it.h2 * 6.283185) * 0.16) * (dist - wob * 0.35)
             local lift = it.yBase + math.sin(tm * speed * (0.65 + it.h1) + it.yPhase) * it.yAmp
-            local pos = center + Vector3(px,lift,pz)
             local s = baseSize * it.sizeMul
             local rx = tm * speed * it.spinX + it.spinPX
             local ry = tm * speed * it.spinY + it.spinPY
@@ -15779,27 +15882,23 @@ local function picker_blocks_base(mx,my,cl)
             local alpha = 0.60 + 0.40 * (0.5 + 0.5 * math.sin(tm * 1.85 + i * 0.71))
             if it.h1 > 0.72 then alpha = alpha + 0.10 end
             alpha = clamp(alpha * worldAlpha,0.02,1.00)
-            local modeCount = #selectedWorldModes
-            for mi=1,modeCount do
-                local drawMode = selectedWorldModes[mi]
-                local slot = mi - ((modeCount + 1) * 0.5)
-                local phaseShift = 0
-                if modeCount > 1 then phaseShift = (mi - 1) * (6.283185 / modeCount) end
 
+            local modeCount = #orbitModes
+            for mi=1,modeCount do
+                local drawMode = orbitModes[mi]
+                local slot = mi - ((modeCount + 1) * 0.5)
+                local phaseShift = (mi - 1) * (6.283185 / math.max(modeCount,1))
                 local modeLift = lift + slot * 1.05
                 local modeRadius = dist + slot * (radius * 0.22)
-                if drawMode == "Cubes" then
-                    modeRadius = modeRadius + radius * 0.18
-                elseif drawMode == "Stars" then
-                    modeRadius = modeRadius + radius * 0.36
-                    modeLift = modeLift + 0.95
+                if drawMode == "Stars" then
+                    modeRadius = modeRadius + radius * 0.42
+                    modeLift = modeLift + 1.10
                     phaseShift = phaseShift + 0.42
                 elseif drawMode == "Circles" then
-                    modeRadius = math.max(4.5, modeRadius - radius * 0.24)
-                    modeLift = modeLift - 0.95
+                    modeRadius = math.max(4.5, modeRadius - radius * 0.30)
+                    modeLift = modeLift - 1.05
                     phaseShift = phaseShift - 0.36
                 end
-
                 local orbit2 = orbit + phaseShift
                 local px2 = math.cos(orbit2) * (modeRadius + wob * 0.55)
                 local pz2 = math.sin(orbit2 + math.sin(tm * 0.35 + it.h2 * 6.283185) * 0.12) * (modeRadius - wob * 0.20)
@@ -16450,1383 +16549,3 @@ end)()
 
 
 -- Eclipze v97: VISUALS background matches other tabs, no multi-select dots, Target Effects = Cubes only, World Effects still separated.
-
-
---[[
-ECLIPZE v100 exact fatality-style menu overlay
-- Standalone-style menu injected into the full old script.
-- Small background F letters removed.
-- FATALITY text replaced with ECLIPZE.
-- Old sidebar menu/top HUD are hidden; all existing features stay loaded.
-]]
-(function()
-    if __EC_ECLIPZE_V100_MENU_PATCHED then return end
-    __EC_ECLIPZE_V100_MENU_PATCHED = true
-
-    __EC_FT100 = __EC_FT100 or {}
-    local FT = __EC_FT100
-    FT.x = FT.x or 320
-    FT.y = FT.y or 86
-    FT.w = FT.w or 640
-    FT.h = FT.h or 440
-    FT.tab = FT.tab or "RAGE"
-    FT.open_dropdown = FT.open_dropdown or nil
-    FT.active_slider = FT.active_slider or nil
-    FT.dragging = false
-    FT.drag_dx = 0
-    FT.drag_dy = 0
-    FT.mouse_x = 0
-    FT.mouse_y = 0
-    FT.lmb = false
-    FT.lmb_pressed = false
-    FT.status = FT.status or "ready"
-    FT.values = FT.values or {}
-    FT.drop_values = FT.drop_values or {}
-    FT.colors = FT.colors or {}
-
-    local ACC_R, ACC_G, ACC_B = 0.92, 0.00, 0.31
-    local BG_R, BG_G, BG_B = 0.045, 0.040, 0.085
-    local BG2_R, BG2_G, BG2_B = 0.070, 0.060, 0.135
-    local BG3_R, BG3_G, BG3_B = 0.030, 0.027, 0.060
-    local LINE_R, LINE_G, LINE_B = 0.155, 0.135, 0.255
-    local TXT_R, TXT_G, TXT_B = 0.92, 0.90, 0.98
-    local DIM_R, DIM_G, DIM_B = 0.46, 0.43, 0.58
-
-    local function clamp(v,a,b)
-        v = tonumber(v or 0) or 0
-        if v < a then return a end
-        if v > b then return b end
-        return v
-    end
-    local function rect(x,y,w,h,r,g,b,a)
-        if Drawing and Drawing.DrawBoxFilled then Drawing.DrawBoxFilled(x,y,x+w,y+h,r,g,b,a or 1) end
-    end
-    local function border(x,y,w,h,r,g,b,a,t)
-        if Drawing and Drawing.DrawBox then Drawing.DrawBox(x,y,x+w,y+h,r,g,b,a or 1,t or 1) end
-    end
-    local function text(x,y,s,r,g,b,a)
-        if Drawing and Drawing.DrawText then Drawing.DrawText(x,y,tostring(s or ""),r or TXT_R,g or TXT_G,b or TXT_B,a or 1) end
-    end
-    local function outline_text(cx,y,s,r,g,b,a)
-        if Drawing and Drawing.DrawTextWithOutline then
-            Drawing.DrawTextWithOutline(cx,y,tostring(s or ""),r or TXT_R,g or TXT_G,b or TXT_B,a or 1,0,0,0,0.95)
-        else
-            text(cx,y,s,r,g,b,a)
-        end
-    end
-    local function shadow_rect(x,y,w,h)
-        rect(x+3,y+4,w,h,0,0,0,0.27)
-        rect(x+1,y+2,w,h,0,0,0,0.18)
-    end
-    local function in_rect(mx,my,x,y,w,h)
-        return mx >= x and mx <= x+w and my >= y and my <= y+h
-    end
-    local function screen_size(fw,fh)
-        if fw and fh then return fw,fh end
-        local ok,d = pcall(function() return ScreenSize and ScreenSize() end)
-        if ok and d then return d.Width or d.X or 1280, d.Height or d.Y or 720 end
-        ok,d = pcall(function() return rbx and rbx.screen_dim and rbx.screen_dim() end)
-        if ok and d then return d.Width or d.X or 1280, d.Height or d.Y or 720 end
-        return 1280,720
-    end
-
-    local GLYPH = {
-        E={"11111","10000","10000","11110","10000","10000","11111"},
-        C={"01111","10000","10000","10000","10000","10000","01111"},
-        L={"10000","10000","10000","10000","10000","10000","11111"},
-        I={"11111","00100","00100","00100","00100","00100","11111"},
-        P={"11110","10001","10001","11110","10000","10000","10000"},
-        Z={"11111","00001","00010","00100","01000","10000","11111"},
-        R={"11110","10001","10001","11110","10100","10010","10001"},
-        A={"01110","10001","10001","11111","10001","10001","10001"},
-        G={"01111","10000","10000","10011","10001","10001","01111"},
-        V={"10001","10001","10001","10001","01010","01010","00100"},
-        S={"01111","10000","10000","01110","00001","00001","11110"},
-        M={"10001","11011","10101","10101","10001","10001","10001"},
-        U={"10001","10001","10001","10001","10001","10001","01110"},
-        N={"10001","11001","10101","10011","10001","10001","10001"},
-        O={"01110","10001","10001","10001","10001","10001","01110"},
-        H={"10001","10001","10001","11111","10001","10001","10001"},
-        D={"11110","10001","10001","10001","10001","10001","11110"},
-        T={"11111","00100","00100","00100","00100","00100","00100"},
-        Y={"10001","10001","01010","00100","00100","00100","00100"},
-    }
-    local function big_char(ch,x,y,scale,r,g,b,a)
-        local gph = GLYPH[ch]
-        if not gph then return 0 end
-        for row=1,#gph do
-            local line = gph[row]
-            for i=1,#line do
-                if string.sub(line,i,i) == "1" then
-                    rect(x+(i-1)*scale,y+(row-1)*scale,scale-1,scale-1,r,g,b,a)
-                end
-            end
-        end
-        return 6*scale
-    end
-    local function big_word(word,x,y,scale,r,g,b,a,shadow)
-        local cx = x
-        if shadow then
-            local sx = x + scale*0.55
-            for i=1,#word do
-                local ch = string.upper(string.sub(word,i,i))
-                sx = sx + big_char(ch,sx,y+scale*0.55,scale,0,0,0,a*0.60)
-            end
-        end
-        for i=1,#word do
-            local ch = string.upper(string.sub(word,i,i))
-            cx = cx + big_char(ch,cx,y,scale,r,g,b,a)
-        end
-        return cx-x
-    end
-
-    local function draw_background(sw,sh)
-        rect(0,0,sw,sh,0.015,0.012,0.045,0.72)
-        rect(0,0,sw,sh,0.050,0.035,0.105,0.48)
-        -- v100: the small floating F letters are intentionally removed.
-        local scale = math.max(9, math.floor(sw/115))
-        local word = "ECLIPZE"
-        local width = #word * 6 * scale
-        big_word(word,(sw-width)*0.50,sh-scale*9.2,scale,ACC_R,ACC_G,ACC_B,0.92,true)
-    end
-
-    local function username()
-        local name = "user"
-        pcall(function()
-            if rbx and rbx.local_player then
-                local lp = rbx.local_player()
-                if lp and lp.get_name then
-                    local n = lp:get_name()
-                    if n and n ~= "" then name = tostring(n) end
-                end
-            end
-        end)
-        pcall(function()
-            if name == "user" and GetLocalPlayer then
-                local lp = GetLocalPlayer()
-                if lp and lp.Name then name = tostring(lp.Name) end
-            end
-        end)
-        if #name > 12 then name = string.sub(name,1,12).."..." end
-        return name
-    end
-
-    local function split_path(path)
-        local t = {}
-        for p in string.gmatch(path or "","[^%.]+") do t[#t+1]=p end
-        return t
-    end
-    local function get_path(path, fallback)
-        local parts = split_path(path)
-        local cur = _G
-        for i=1,#parts do
-            if cur == nil then return fallback end
-            cur = cur[parts[i]]
-        end
-        if cur == nil then return fallback end
-        return cur
-    end
-    local function set_path(path, value)
-        local parts = split_path(path)
-        if #parts == 0 then return end
-        local cur = _G
-        for i=1,#parts-1 do
-            local k = parts[i]
-            if type(cur[k]) ~= "table" then cur[k] = {} end
-            cur = cur[k]
-        end
-        cur[parts[#parts]] = value
-    end
-    local function id_kind(id)
-        id = tostring(id or "")
-        if string.sub(id,1,5) == "path:" then return "path", string.sub(id,6) end
-        if string.sub(id,1,3) == "ui:" then return "ui", string.sub(id,4) end
-        if string.sub(id,1,4) == "var:" then return "path", string.sub(id,5) end
-        return "ui", id
-    end
-    local function get_bool(id)
-        local kind,key = id_kind(id)
-        if kind == "path" then return get_path(key,false) == true end
-        local ok,v = pcall(function() return UIManager and UIManager.GetCheckboxValue and UIManager.GetCheckboxValue(key) end)
-        if ok and v ~= nil then return v == true end
-        return FT.values[id] == true
-    end
-    local function set_bool(id,v)
-        local kind,key = id_kind(id)
-        if kind == "path" then set_path(key,v == true); return end
-        local ok = pcall(function() if UIManager and UIManager.SetCheckboxValue then UIManager.SetCheckboxValue(key,v == true) end end)
-        if not ok then FT.values[id] = v == true end
-    end
-    local function get_num(id, fallback)
-        local kind,key = id_kind(id)
-        if kind == "path" then return tonumber(get_path(key,fallback)) or fallback end
-        local ok,v = pcall(function()
-            if UIManager and UIManager.GetSliderFloatValue then
-                local f = UIManager.GetSliderFloatValue(key)
-                if f ~= nil and tonumber(f) ~= nil then return f end
-            end
-            if UIManager and UIManager.GetSliderIntValue then return UIManager.GetSliderIntValue(key) end
-        end)
-        if ok and tonumber(v) ~= nil then return tonumber(v) end
-        return tonumber(FT.values[id]) or fallback
-    end
-    local function set_num(id,v,is_int)
-        local kind,key = id_kind(id)
-        if kind == "path" then set_path(key,v); return end
-        local ok = pcall(function()
-            if is_int and UIManager and UIManager.SetSliderIntValue then UIManager.SetSliderIntValue(key,math.floor(v+0.5))
-            elseif UIManager and UIManager.SetSliderFloatValue then UIManager.SetSliderFloatValue(key,v)
-            elseif UIManager and UIManager.SetSliderIntValue then UIManager.SetSliderIntValue(key,math.floor(v+0.5)) end
-        end)
-        if not ok then FT.values[id] = v end
-    end
-    local function hsv_to_rgb(h,s,v)
-        h=(tonumber(h or 0) or 0)%1; s=clamp(s or 1,0,1); v=clamp(v or 1,0,1)
-        local i=math.floor(h*6); local f=h*6-i; local p=v*(1-s); local q=v*(1-f*s); local t=v*(1-(1-f)*s); i=i%6
-        if i==0 then return v,t,p elseif i==1 then return q,v,p elseif i==2 then return p,v,t elseif i==3 then return p,q,v elseif i==4 then return t,p,v end
-        return v,p,q
-    end
-    local function get_color(id, fallback)
-        local kind,key = id_kind(id)
-        local c = nil
-        if kind == "path" then c = get_path(key,nil) else pcall(function() c = UIManager and UIManager.GetColorPickerValue and UIManager.GetColorPickerValue(key) end) end
-        c = c or fallback or {ACC_R,ACC_G,ACC_B,1}
-        return {c.r or c[1] or ACC_R, c.g or c[2] or ACC_G, c.b or c[3] or ACC_B, c.a or c[4] or 1}
-    end
-    local function set_color(id,c)
-        local kind,key = id_kind(id)
-        if kind == "path" then set_path(key,c); return end
-        pcall(function() if UIManager and UIManager.SetColorPickerValue then UIManager.SetColorPickerValue(key,c[1],c[2],c[3],c[4] or 1) end end)
-    end
-
-    local pages = {
-        RAGE = {
-            {title="AIMBOT", controls={
-                {"check","ap_aim_enable_fixed_click","Enable"},
-                {"check","ap_prediction_main","Prediction"},
-                {"check","ap_team_main","Team check"},
-                {"check","ap_sticky_main","Sticky aim"},
-                {"check","ec_silent_enabled","Silent aim"},
-                {"slider","ap_maxdist_main","Max distance",50,3000,1200,"%d"},
-            }},
-            {title="FOV", controls={
-                {"check","ap_fov_show_main","Enable"},
-                {"color","ap_fov_color_main","FOV color"},
-                {"slider","ap_fov_main","FOV size",30,600,250,"%d"},
-                {"slider","ap_fov_alpha_main","Transparency",0,100,60,"%d%%"},
-                {"select","ft_fov_style","Style",{"Default","Circle","Corners"}},
-            }},
-            {title="TARGET", controls={
-                {"check","ap_target_strafe_main","Target strafe"},
-                {"check","ap_tp_target_main","Teleport target"},
-                {"check","ap_left_tp_enabled","Left TP"},
-                {"check","ap_right_tp_enabled","Right TP"},
-                {"slider","ap_side_tp_distance","TP distance",1,80,20,"%d"},
-            }},
-            {title="SILENT", controls={
-                {"check","ec36_silent_pred_bridge","Use prediction"},
-                {"select","ft_silent_part","Target",{"Head","Torso","Feet"}},
-                {"slider","ft_silent_fov","Silent FOV",30,500,220,"%d"},
-            }},
-            {title="PANELS", controls={
-                {"check","path:__EC16.keybindsPanel","Keybind list"},
-                {"check","path:__EC16.moderatorPanel","Moderator list"},
-            }},
-        },
-        LEGIT = {
-            {title="LEGIT AIM", controls={
-                {"check","ap_aim_enable_fixed_click","Enable"},
-                {"check","ap_fov_show_main","FOV only"},
-                {"slider","ap_fov_main","FOV",10,280,80,"%d"},
-                {"check","ap_prediction_main","Prediction"},
-                {"select","ft_legit_target","Target",{"Head","Chest","Nearest"}},
-            }},
-            {title="CHECKS", controls={
-                {"check","ap_team_main","Team check"},
-                {"check","ap_sticky_main","Sticky target"},
-                {"slider","ap_maxdist_main","Max distance",50,2500,900,"%d"},
-            }},
-            {title="EXTRA", controls={
-                {"check","path:__EC16.keybindsPanel","Keybind list"},
-                {"check","ec_fullbright_enabled","Fullbright"},
-            }},
-        },
-        VISUALS = {
-            {title="PLAYER ESP", controls={
-                {"check","armoriso_target_enabled","Armor ESP"},
-                {"check","armoriso_show_weapon","Weapon slot"},
-                {"check","k1_show_distance","Show distance"},
-                {"slider","armoriso_max_distance","ESP range",50,3000,1200,"%d"},
-                {"slider","armoriso_target_size","Icon size",6,80,28,"%d"},
-            }},
-            {title="WORLD / LOOT", controls={
-                {"check","k1_dropped_item_show_icon","Dropped icons"},
-                {"check","k1_ore_show_icon","Ore icons"},
-                {"check","k1_loot_show_icon","Loot icons"},
-                {"slider","k1_world_range","World range",25,2000,800,"%d"},
-                {"slider","k1_loot_range","Loot range",25,2000,800,"%d"},
-            }},
-            {title="WORLD EFFECTS", controls={
-                {"check","path:__EC_VISUALS.squares.enabled","Enable"},
-                {"multi","path:__EC_VISUALS.squares.modes","Effect stack",{"Cubes","Stars","Circles"}},
-                {"slider","path:__EC_VISUALS.squares.radius","Radius",5,25,9.5,"%.1f"},
-                {"slider","path:__EC_VISUALS.squares.size","Size",0.2,2.5,0.75,"%.2f"},
-                {"slider","path:__EC_VISUALS.squares.speed","Speed",0.1,5,1.1,"%.2f"},
-            }},
-            {title="TARGET EFFECTS", controls={
-                {"check","path:__EC_VISUALS.targetFx.enabled","Enable"},
-                {"select","ft_target_effect_type","Type",{"Cubes"}},
-                {"color","path:__EC_VISUALS.targetFx.color","Color"},
-            }},
-            {title="TRAIL / AURA", controls={
-                {"check","path:__EC_PLAYER_TRAIL.enabled","Player trail"},
-                {"check","path:__EC_PLAYER_TRAIL.rainbow","Rainbow trail"},
-                {"slider","path:__EC_PLAYER_TRAIL.length","Trail length",8,220,46,"%.0f"},
-                {"check","path:__EC16.selfAura","Self aura"},
-                {"color","path:__EC16.selfAuraTopColor","Aura top"},
-                {"color","path:__EC16.selfAuraBottomColor","Aura bottom"},
-            }},
-            {title="BULLET / HIT", controls={
-                {"check","path:EC_BT.enabled","Bullet tracers"},
-                {"check","path:EC_BT.hitfx","Hit effects"},
-                {"slider","path:EC_BT.life","Tracer life",0.1,8,4,"%.1f"},
-                {"slider","path:EC_BT.hitSize","Hit size",18,96,38,"%.0f"},
-            }},
-        },
-        MISC = {
-            {title="MOVEMENT", controls={
-                {"check","ap_left_tp_enabled","Left TP"},
-                {"check","ap_right_tp_enabled","Right TP"},
-                {"check","ap_90_left_tp_enabled","90 Left TP"},
-                {"check","ap_90_right_tp_enabled","90 Right TP"},
-                {"slider","ap_side_tp_distance","TP distance",1,80,20,"%d"},
-            }},
-            {title="MENU", controls={
-                {"check","path:__EC16.keybindsPanel","Keybind panel"},
-                {"check","path:__EC16.moderatorPanel","Moderator list"},
-                {"check","ec_fullbright_enabled","Fullbright"},
-                {"slider","ec_fullbright_opacity","Brightness",0,80,20,"%d%%"},
-                {"color","ec_fullbright_color","Light color"},
-            }},
-            {title="NOCLIP", controls={
-                {"button","ft_noclip_bind","Noclip key: B"},
-                {"button","ft_menu_bind","Menu: Right Shift"},
-            }},
-        },
-        SKINS = {
-            {title="SKINS", controls={
-                {"select","ft_skin_slot","Weapon",{"Default","Pink","Purple","Dark"}},
-                {"select","ft_hand_skin","Hands",{"Default","Black","White","Neon"}},
-                {"button","ft_apply_skin","Apply skin"},
-            }},
-            {title="INFO", controls={
-                {"button","ft_skin_info","Only visual menu"},
-                {"button","ft_skin_loaded","Old script loaded"},
-            }},
-        },
-        LUA = {
-            {title="SCRIPTS", controls={
-                {"button","ft_load_script","Load script"},
-                {"button","ft_reload","Reload"},
-                {"button","ft_unload","Unload"},
-                {"select","ft_script_slot","Slot",{"main.lua","rage.lua","visuals.lua"}},
-            }},
-            {title="CONFIG", controls={
-                {"button","ft_save_cfg","Save config"},
-                {"button","ft_load_cfg","Load config"},
-                {"button","ft_delete_cfg","Delete config"},
-                {"select","ft_cfg_slot","Config",{"default","rage","visuals"}},
-            }},
-            {title="STATUS", controls={
-                {"button","ft_status_loaded","ECLIPZE loaded"},
-                {"button","ft_status_menu","Fatality style"},
-            }},
-        },
-    }
-    local tab_order = {"RAGE","LEGIT","VISUALS","MISC","SKINS","LUA"}
-
-    local function checkbox(id,x,y,w,label)
-        local v = get_bool(id)
-        local sq = 10
-        local bx,by = x+w-sq-2,y+3
-        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,16)
-        if FT.lmb_pressed and hover then
-            v = not v
-            set_bool(id,v)
-            FT.status = label .. ": " .. (v and "on" or "off")
-        end
-        text(x,y+3,label,TXT_R,TXT_G,TXT_B,hover and 1 or 0.92)
-        rect(bx,by,sq,sq,0.045,0.040,0.080,1)
-        border(bx,by,sq,sq,0.080,0.075,0.135,1,1)
-        if v then rect(bx+2,by+2,sq-4,sq-4,ACC_R,ACC_G,ACC_B,1) end
-        return y+20
-    end
-    local function button(id,x,y,w,label)
-        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,19)
-        rect(x,y,w,18,hover and 0.105 or 0.075,hover and 0.080 or 0.065,hover and 0.150 or 0.120,1)
-        border(x,y,w,18,hover and ACC_R or 0.13,hover and ACC_G or 0.11,hover and ACC_B or 0.20,1,1)
-        outline_text(x+w*0.5,y+4,label,TXT_R,TXT_G,TXT_B,1)
-        if FT.lmb_pressed and hover then FT.status = label .. " clicked" end
-        return y+23
-    end
-    local function slider(id,x,y,w,label,minv,maxv,def,fmt)
-        local is_int = not tostring(fmt or "%d"):find("%%%.")
-        local val = get_num(id,def or minv)
-        if val == nil then val = def or minv end
-        val = clamp(val,minv,maxv)
-        local t = clamp((val-minv)/math.max(maxv-minv,0.0001),0,1)
-        local bar_y = y+18
-        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,bar_y-6,w,18)
-        if FT.lmb_pressed and hover then FT.active_slider = id end
-        if FT.active_slider == id and FT.lmb then
-            t = clamp((FT.mouse_x-x)/math.max(w,1),0,1)
-            val = minv + (maxv-minv)*t
-            if is_int then val = math.floor(val+0.5) end
-            set_num(id,val,is_int)
-            FT.status = label .. " = " .. string.format(fmt or "%d",val)
-        end
-        local shown = string.format(fmt or "%d",val)
-        text(x,y+2,label,TXT_R,TXT_G,TXT_B,1)
-        text(x+w-42,y+2,shown,DIM_R,DIM_G,DIM_B,1)
-        rect(x,bar_y,w,5,0.045,0.040,0.080,1)
-        rect(x,bar_y,w*t,5,ACC_R,ACC_G,ACC_B,1)
-        rect(x+w*t-3,bar_y-3,7,11,0.95,0.72,0.88,1)
-        return y+34
-    end
-    local function color_control(id,x,y,w,label)
-        local c = get_color(id,{ACC_R,ACC_G,ACC_B,1})
-        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,20)
-        text(x,y+4,label,TXT_R,TXT_G,TXT_B,1)
-        local bx = x+w-18
-        rect(bx,y+1,18,18,c[1],c[2],c[3],c[4] or 1)
-        rect(bx+9,y+1,9,9,1,1,1,0.15)
-        border(bx,y+1,18,18,1,1,1,0.22,1)
-        if FT.lmb_pressed and hover then
-            local h = ((FT.colors[id] or 0.90) + 0.08) % 1
-            FT.colors[id] = h
-            local r,g,b = hsv_to_rgb(h,0.78,1)
-            set_color(id,{r,g,b,c[4] or 1})
-            FT.status = label .. " color"
-        end
-        return y+23
-    end
-    local function selected_text_for_multi(id,items)
-        local kind,key = id_kind(id)
-        local tbl = kind == "path" and get_path(key,nil) or FT.values[id]
-        if type(tbl) ~= "table" then tbl = {}; if kind == "path" then set_path(key,tbl) else FT.values[id]=tbl end end
-        local out = {}
-        for _,it in ipairs(items) do if tbl[it] == true then out[#out+1]=it end end
-        if #out == 0 then return "None" end
-        return table.concat(out, ", ")
-    end
-    local deferred_dropdowns = {}
-    local function select_box(id,x,y,w,label,items,is_multi)
-        if not is_multi and FT.drop_values[id] == nil then FT.drop_values[id] = items[1] end
-        local box_w = 100
-        local bx,by = x+w-box_w,y+1
-        local hover = in_rect(FT.mouse_x,FT.mouse_y,bx,by,box_w,18)
-        local shown = is_multi and selected_text_for_multi(id,items) or tostring(FT.drop_values[id] or items[1])
-        if #shown > 16 then shown = string.sub(shown,1,15).."..." end
-        text(x,y+4,label,TXT_R,TXT_G,TXT_B,1)
-        rect(bx,by,box_w,18,hover and 0.095 or 0.060,hover and 0.073 or 0.052,hover and 0.140 or 0.105,1)
-        border(bx,by,box_w,18,0.115,0.100,0.175,1,1)
-        text(bx+5,by+4,shown,DIM_R,DIM_G,DIM_B,1)
-        text(bx+box_w-10,by+4,"v",ACC_R,ACC_G,ACC_B,1)
-        if FT.lmb_pressed and hover then
-            FT.open_dropdown = (FT.open_dropdown == id) and nil or id
-        end
-        if FT.open_dropdown == id then
-            deferred_dropdowns[#deferred_dropdowns+1] = {id=id,x=bx,y=by+19,w=box_w,items=items,multi=is_multi}
-        end
-        return y+23
-    end
-    local function draw_dropdowns()
-        for _,d in ipairs(deferred_dropdowns) do
-            local h = #d.items*18+2
-            shadow_rect(d.x,d.y,d.w,h)
-            rect(d.x,d.y,d.w,h,0.045,0.040,0.085,1)
-            border(d.x,d.y,d.w,h,ACC_R,ACC_G,ACC_B,0.75,1)
-            local kind,key = id_kind(d.id)
-            local mt = nil
-            if d.multi then
-                mt = kind == "path" and get_path(key,nil) or FT.values[d.id]
-                if type(mt) ~= "table" then mt = {}; if kind == "path" then set_path(key,mt) else FT.values[d.id]=mt end end
-            end
-            for i,item in ipairs(d.items) do
-                local iy = d.y+1+(i-1)*18
-                local hover = in_rect(FT.mouse_x,FT.mouse_y,d.x,iy,d.w,18)
-                if hover then rect(d.x+1,iy,d.w-2,18,0.105,0.078,0.150,1) end
-                local active = d.multi and (mt[item] == true) or (FT.drop_values[d.id] == item)
-                text(d.x+6,iy+4,item,active and ACC_R or TXT_R,active and ACC_G or TXT_G,active and ACC_B or TXT_B,1)
-                if FT.lmb_pressed and hover then
-                    if d.multi then
-                        mt[item] = not (mt[item] == true)
-                        FT.status = selected_text_for_multi(d.id,d.items)
-                    else
-                        FT.drop_values[d.id] = item
-                        FT.open_dropdown = nil
-                        FT.status = item .. " selected"
-                    end
-                end
-            end
-        end
-        deferred_dropdowns = {}
-    end
-    local function section(sec,x,y,w)
-        local h = 26
-        for _,c in ipairs(sec.controls) do
-            if c[1]=="check" then h=h+20 elseif c[1]=="slider" then h=h+34 elseif c[1]=="select" or c[1]=="multi" or c[1]=="color" or c[1]=="button" then h=h+23 end
-        end
-        shadow_rect(x,y,w,h)
-        rect(x,y,w,h,BG2_R,BG2_G,BG2_B,0.96)
-        border(x,y,w,h,LINE_R,LINE_G,LINE_B,1,1)
-        text(x+10,y-1,sec.title,TXT_R,TXT_G,TXT_B,1)
-        rect(x+10,y+18,w-20,2,ACC_R,ACC_G,ACC_B,1)
-        local cy = y+31
-        for _,c in ipairs(sec.controls) do
-            local typ = c[1]
-            if typ == "check" then cy = checkbox(c[2],x+12,cy,w-24,c[3])
-            elseif typ == "slider" then cy = slider(c[2],x+12,cy,w-24,c[3],c[4],c[5],c[6],c[7])
-            elseif typ == "select" then cy = select_box(c[2],x+12,cy,w-24,c[3],c[4],false)
-            elseif typ == "multi" then cy = select_box(c[2],x+12,cy,w-24,c[3],c[4],true)
-            elseif typ == "color" then cy = color_control(c[2],x+12,cy,w-24,c[3])
-            elseif typ == "button" then cy = button(c[2],x+12,cy,w-24,c[3]) end
-        end
-        return h
-    end
-    local function draw_topbar(x,y,w)
-        rect(x,y,w,38,BG_R,BG_G,BG_B,1)
-        rect(x,y+37,w,1,LINE_R,LINE_G,LINE_B,1)
-        text(x+15,y+13,"ECLIPZE",1,1,1,1)
-        local tx = x+105
-        for _,tab in ipairs(tab_order) do
-            local tw = 54
-            local hover = in_rect(FT.mouse_x,FT.mouse_y,tx,y+8,tw,22)
-            local active = FT.tab == tab
-            if hover or active then rect(tx,y+8,tw,22,active and 0.105 or 0.070,active and 0.075 or 0.060,active and 0.160 or 0.120,1) end
-            if active then rect(tx+1,y+29,tw-2,2,ACC_R,ACC_G,ACC_B,1) end
-            local tr,tg,tb = DIM_R,DIM_G,DIM_B
-            if active or hover then tr,tg,tb = TXT_R,TXT_G,TXT_B end
-            text(tx+10,y+14,tab,tr,tg,tb,1)
-            if FT.lmb_pressed and hover then
-                FT.tab = tab
-                FT.open_dropdown = nil
-                if __EC16 then
-                    if tab == "VISUALS" or tab == "SKINS" then __EC16.mainTab = "visuals"
-                    elseif tab == "MISC" or tab == "LUA" then __EC16.mainTab = "noclip"
-                    else __EC16.mainTab = "aim" end
-                end
-            end
-            tx = tx+tw+5
-        end
-        local un = username()
-        text(x+w-112,y+10,un,TXT_R,TXT_G,TXT_B,1)
-        text(x+w-80,y+22,"exp: 20 days",DIM_R,DIM_G,DIM_B,1)
-        rect(x+w-30,y+10,18,18,0.11,0.10,0.16,1)
-        rect(x+w-26,y+14,10,10,ACC_R,ACC_G,ACC_B,1)
-    end
-    local function draw_footer(x,y,w,h)
-        local fy = y+h-24
-        rect(x,fy,w,24,0.045,0.040,0.090,1)
-        rect(x,fy,w,1,LINE_R,LINE_G,LINE_B,1)
-        text(x+12,fy+8,"Q",DIM_R,DIM_G,DIM_B,1)
-        rect(x+32,fy+7,10,10,DIM_R,DIM_G,DIM_B,0.65)
-        border(x+52,fy+7,14,10,DIM_R,DIM_G,DIM_B,0.75,1)
-        text(x+78,fy+8,FT.status,DIM_R,DIM_G,DIM_B,1)
-        text(x+w-28,fy+8,"i",DIM_R,DIM_G,DIM_B,1)
-    end
-    local function update_drag(sw,sh)
-        local x,y,w = FT.x,FT.y,FT.w
-        local top_hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,38)
-        local tab_area = in_rect(FT.mouse_x,FT.mouse_y,x+100,y+6,380,28)
-        local user_area = in_rect(FT.mouse_x,FT.mouse_y,x+w-125,y+4,120,30)
-        if FT.lmb_pressed and top_hover and not tab_area and not user_area then
-            FT.dragging = true
-            FT.drag_dx = FT.mouse_x-FT.x
-            FT.drag_dy = FT.mouse_y-FT.y
-            FT.open_dropdown = nil
-        end
-        if not FT.lmb then FT.dragging = false; FT.active_slider = nil end
-        if FT.dragging and FT.lmb then
-            FT.x = clamp(FT.mouse_x-FT.drag_dx,8,sw-FT.w-8)
-            FT.y = clamp(FT.mouse_y-FT.drag_dy,8,sh-FT.h-8)
-        end
-    end
-    local function draw_page(x,y,w,h)
-        local page = pages[FT.tab] or pages.RAGE
-        local body_x, body_y = x+12, y+50
-        local col_w = math.floor((w-44)/3)
-        local gap = 10
-        local col_y = {body_y,body_y,body_y}
-        for i,sec in ipairs(page) do
-            local col_i = ((i-1)%3)+1
-            local sx = body_x+(col_i-1)*(col_w+gap)
-            local sy = col_y[col_i]
-            local sh = section(sec,sx,sy,col_w)
-            col_y[col_i] = sy+sh+10
-        end
-    end
-    local function draw_menu(mx,my,cl,sw,sh)
-        __EC_VISUALS = __EC_VISUALS or {}
-        __EC_VISUALS.squares = __EC_VISUALS.squares or {enabled=false,modes={Cubes=true},radius=9.5,size=0.75,speed=1.1}
-        __EC_VISUALS.squares.modes = __EC_VISUALS.squares.modes or {Cubes=true}
-        __EC_VISUALS.targetFx = __EC_VISUALS.targetFx or {enabled=false,styles={Cubes=true},color={0.72,0.42,1,0.72}}
-        __EC_VISUALS.targetFx.styles = {Cubes=true}
-        __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {enabled=false,rainbow=false,length=46}
-        EC_BT = EC_BT or {enabled=false,hitfx=false,life=4,hitSize=38}
-        __EC16 = __EC16 or {}
-
-        FT.mouse_x, FT.mouse_y = mx or 0, my or 0
-        FT.lmb_pressed = (cl == true) and not (FT.lmb == true)
-        FT.lmb = cl == true
-        if not FT.lmb then FT.active_slider = nil end
-
-        update_drag(sw,sh)
-        local x,y,w,h = FT.x,FT.y,FT.w,FT.h
-        shadow_rect(x,y,w,h)
-        rect(x,y,w,h,BG3_R,BG3_G,BG3_B,0.96)
-        border(x,y,w,h,ACC_R,ACC_G,ACC_B,0.75,1)
-        border(x+1,y+1,w-2,h-2,LINE_R,LINE_G,LINE_B,0.95,1)
-        draw_topbar(x,y,w)
-        draw_page(x,y,w,h)
-        draw_footer(x,y,w,h)
-        draw_dropdowns()
-    end
-
-    -- kill the old avatar/top HUD and old sidebar menu, then draw the new exact ECLIPZE menu.
-    __ec16_draw_top_hud = function(mx,my,cl) end
-    local old_menu = __ec16_menu
-    __ec16_menu = function(mx,my,cl,w,h)
-        local sw,sh = screen_size(w,h)
-        draw_background(sw,sh)
-        draw_menu(mx,my,cl,sw,sh)
-        return true
-    end
-
-    -- If some loader calls the patch before the original render loop exists, fallback render keeps the menu visible.
-    if hooks and hooks.on_render and not __EC_FT100_FALLBACK_HOOK then
-        __EC_FT100_FALLBACK_HOOK = true
-        hooks.on_render(function()
-            if not (__EC16 and __EC16.open and __EC16.phase == "menu") then return end
-            -- The original render loop already calls __ec16_menu, so this fallback only runs if old_menu was missing.
-            if type(old_menu) ~= "function" then
-                local sw,sh = screen_size()
-                local mx,my,cl = 0,0,false
-                pcall(function() if __ec16_mouse then mx,my = __ec16_mouse() end end)
-                pcall(function() if __ec16_click then cl = __ec16_click() end end)
-                draw_background(sw,sh)
-                draw_menu(mx,my,cl,sw,sh)
-            end
-        end)
-    end
-
-    if notify then pcall(function() notify("ECLIPZE v100 menu loaded", "success") end) end
-end)()
-
-
---[[
-ECLIPZE v104 exact fatality-style menu replacement
-- Standalone-style menu injected into the full old script.
-- Small background F letters removed.
-- FATALITY text replaced with ECLIPZE.
-- Old sidebar menu/top HUD are hidden; all existing features stay loaded.
-]]
-(function()
-    if __EC_ECLIPZE_V104_MENU_PATCHED then return end
-    __EC_ECLIPZE_V104_MENU_PATCHED = true
-
-    __EC_FT104 = __EC_FT104 or {}
-    local FT = __EC_FT104
-    FT.x = FT.x or 320
-    FT.y = FT.y or 86
-    FT.w = FT.w or 640
-    FT.h = FT.h or 440
-    FT.tab = FT.tab or "RAGE"
-    FT.open_dropdown = FT.open_dropdown or nil
-    FT.active_slider = FT.active_slider or nil
-    FT.dragging = false
-    FT.drag_dx = 0
-    FT.drag_dy = 0
-    FT.mouse_x = 0
-    FT.mouse_y = 0
-    FT.lmb = false
-    FT.lmb_pressed = false
-    FT.status = FT.status or "ready"
-    FT.values = FT.values or {}
-    FT.drop_values = FT.drop_values or {}
-    FT.colors = FT.colors or {}
-
-    local ACC_R, ACC_G, ACC_B = 0.92, 0.00, 0.31
-    local BG_R, BG_G, BG_B = 0.045, 0.040, 0.085
-    local BG2_R, BG2_G, BG2_B = 0.070, 0.060, 0.135
-    local BG3_R, BG3_G, BG3_B = 0.030, 0.027, 0.060
-    local LINE_R, LINE_G, LINE_B = 0.155, 0.135, 0.255
-    local TXT_R, TXT_G, TXT_B = 0.92, 0.90, 0.98
-    local DIM_R, DIM_G, DIM_B = 0.46, 0.43, 0.58
-
-    local function clamp(v,a,b)
-        v = tonumber(v or 0) or 0
-        if v < a then return a end
-        if v > b then return b end
-        return v
-    end
-    local function rect(x,y,w,h,r,g,b,a)
-        if Drawing and Drawing.DrawBoxFilled then Drawing.DrawBoxFilled(x,y,x+w,y+h,r,g,b,a or 1) end
-    end
-    local function border(x,y,w,h,r,g,b,a,t)
-        if Drawing and Drawing.DrawBox then Drawing.DrawBox(x,y,x+w,y+h,r,g,b,a or 1,t or 1) end
-    end
-    local function text(x,y,s,r,g,b,a)
-        if Drawing and Drawing.DrawText then Drawing.DrawText(x,y,tostring(s or ""),r or TXT_R,g or TXT_G,b or TXT_B,a or 1) end
-    end
-    local function outline_text(cx,y,s,r,g,b,a)
-        if Drawing and Drawing.DrawTextWithOutline then
-            Drawing.DrawTextWithOutline(cx,y,tostring(s or ""),r or TXT_R,g or TXT_G,b or TXT_B,a or 1,0,0,0,0.95)
-        else
-            text(cx,y,s,r,g,b,a)
-        end
-    end
-    local function shadow_rect(x,y,w,h)
-        rect(x+3,y+4,w,h,0,0,0,0.27)
-        rect(x+1,y+2,w,h,0,0,0,0.18)
-    end
-    local function in_rect(mx,my,x,y,w,h)
-        return mx >= x and mx <= x+w and my >= y and my <= y+h
-    end
-    local function screen_size(fw,fh)
-        if fw and fh then return fw,fh end
-        local ok,d = pcall(function() return ScreenSize and ScreenSize() end)
-        if ok and d then return d.Width or d.X or 1280, d.Height or d.Y or 720 end
-        ok,d = pcall(function() return rbx and rbx.screen_dim and rbx.screen_dim() end)
-        if ok and d then return d.Width or d.X or 1280, d.Height or d.Y or 720 end
-        return 1280,720
-    end
-
-    local GLYPH = {
-        E={"11111","10000","10000","11110","10000","10000","11111"},
-        C={"01111","10000","10000","10000","10000","10000","01111"},
-        L={"10000","10000","10000","10000","10000","10000","11111"},
-        I={"11111","00100","00100","00100","00100","00100","11111"},
-        P={"11110","10001","10001","11110","10000","10000","10000"},
-        Z={"11111","00001","00010","00100","01000","10000","11111"},
-        R={"11110","10001","10001","11110","10100","10010","10001"},
-        A={"01110","10001","10001","11111","10001","10001","10001"},
-        G={"01111","10000","10000","10011","10001","10001","01111"},
-        V={"10001","10001","10001","10001","01010","01010","00100"},
-        S={"01111","10000","10000","01110","00001","00001","11110"},
-        M={"10001","11011","10101","10101","10001","10001","10001"},
-        U={"10001","10001","10001","10001","10001","10001","01110"},
-        N={"10001","11001","10101","10011","10001","10001","10001"},
-        O={"01110","10001","10001","10001","10001","10001","01110"},
-        H={"10001","10001","10001","11111","10001","10001","10001"},
-        D={"11110","10001","10001","10001","10001","10001","11110"},
-        T={"11111","00100","00100","00100","00100","00100","00100"},
-        Y={"10001","10001","01010","00100","00100","00100","00100"},
-    }
-    local function big_char(ch,x,y,scale,r,g,b,a)
-        local gph = GLYPH[ch]
-        if not gph then return 0 end
-        for row=1,#gph do
-            local line = gph[row]
-            for i=1,#line do
-                if string.sub(line,i,i) == "1" then
-                    rect(x+(i-1)*scale,y+(row-1)*scale,scale-1,scale-1,r,g,b,a)
-                end
-            end
-        end
-        return 6*scale
-    end
-    local function big_word(word,x,y,scale,r,g,b,a,shadow)
-        local cx = x
-        if shadow then
-            local sx = x + scale*0.55
-            for i=1,#word do
-                local ch = string.upper(string.sub(word,i,i))
-                sx = sx + big_char(ch,sx,y+scale*0.55,scale,0,0,0,a*0.60)
-            end
-        end
-        for i=1,#word do
-            local ch = string.upper(string.sub(word,i,i))
-            cx = cx + big_char(ch,cx,y,scale,r,g,b,a)
-        end
-        return cx-x
-    end
-
-    local function draw_background(sw,sh)
-        rect(0,0,sw,sh,0.015,0.012,0.045,0.72)
-        rect(0,0,sw,sh,0.050,0.035,0.105,0.48)
-        -- v100: the small floating F letters are intentionally removed.
-        local scale = math.max(9, math.floor(sw/115))
-        local word = "ECLIPZE"
-        local width = #word * 6 * scale
-        big_word(word,(sw-width)*0.50,sh-scale*9.2,scale,ACC_R,ACC_G,ACC_B,0.92,true)
-    end
-
-    local function username()
-        local name = "user"
-        pcall(function()
-            if rbx and rbx.local_player then
-                local lp = rbx.local_player()
-                if lp and lp.get_name then
-                    local n = lp:get_name()
-                    if n and n ~= "" then name = tostring(n) end
-                end
-            end
-        end)
-        pcall(function()
-            if name == "user" and GetLocalPlayer then
-                local lp = GetLocalPlayer()
-                if lp and lp.Name then name = tostring(lp.Name) end
-            end
-        end)
-        if #name > 12 then name = string.sub(name,1,12).."..." end
-        return name
-    end
-
-    local function split_path(path)
-        local t = {}
-        for p in string.gmatch(path or "","[^%.]+") do t[#t+1]=p end
-        return t
-    end
-    local function get_path(path, fallback)
-        local parts = split_path(path)
-        local cur = _G
-        for i=1,#parts do
-            if cur == nil then return fallback end
-            cur = cur[parts[i]]
-        end
-        if cur == nil then return fallback end
-        return cur
-    end
-    local function set_path(path, value)
-        local parts = split_path(path)
-        if #parts == 0 then return end
-        local cur = _G
-        for i=1,#parts-1 do
-            local k = parts[i]
-            if type(cur[k]) ~= "table" then cur[k] = {} end
-            cur = cur[k]
-        end
-        cur[parts[#parts]] = value
-    end
-    local function id_kind(id)
-        id = tostring(id or "")
-        if string.sub(id,1,5) == "path:" then return "path", string.sub(id,6) end
-        if string.sub(id,1,3) == "ui:" then return "ui", string.sub(id,4) end
-        if string.sub(id,1,4) == "var:" then return "path", string.sub(id,5) end
-        return "ui", id
-    end
-    local function get_bool(id)
-        local kind,key = id_kind(id)
-        if kind == "path" then return get_path(key,false) == true end
-        local ok,v = pcall(function() return UIManager and UIManager.GetCheckboxValue and UIManager.GetCheckboxValue(key) end)
-        if ok and v ~= nil then return v == true end
-        return FT.values[id] == true
-    end
-    local function set_bool(id,v)
-        local kind,key = id_kind(id)
-        if kind == "path" then set_path(key,v == true); return end
-        local ok = pcall(function() if UIManager and UIManager.SetCheckboxValue then UIManager.SetCheckboxValue(key,v == true) end end)
-        if not ok then FT.values[id] = v == true end
-    end
-    local function get_num(id, fallback)
-        local kind,key = id_kind(id)
-        if kind == "path" then return tonumber(get_path(key,fallback)) or fallback end
-        local ok,v = pcall(function()
-            if UIManager and UIManager.GetSliderFloatValue then
-                local f = UIManager.GetSliderFloatValue(key)
-                if f ~= nil and tonumber(f) ~= nil then return f end
-            end
-            if UIManager and UIManager.GetSliderIntValue then return UIManager.GetSliderIntValue(key) end
-        end)
-        if ok and tonumber(v) ~= nil then return tonumber(v) end
-        return tonumber(FT.values[id]) or fallback
-    end
-    local function set_num(id,v,is_int)
-        local kind,key = id_kind(id)
-        if kind == "path" then set_path(key,v); return end
-        local ok = pcall(function()
-            if is_int and UIManager and UIManager.SetSliderIntValue then UIManager.SetSliderIntValue(key,math.floor(v+0.5))
-            elseif UIManager and UIManager.SetSliderFloatValue then UIManager.SetSliderFloatValue(key,v)
-            elseif UIManager and UIManager.SetSliderIntValue then UIManager.SetSliderIntValue(key,math.floor(v+0.5)) end
-        end)
-        if not ok then FT.values[id] = v end
-    end
-    local function hsv_to_rgb(h,s,v)
-        h=(tonumber(h or 0) or 0)%1; s=clamp(s or 1,0,1); v=clamp(v or 1,0,1)
-        local i=math.floor(h*6); local f=h*6-i; local p=v*(1-s); local q=v*(1-f*s); local t=v*(1-(1-f)*s); i=i%6
-        if i==0 then return v,t,p elseif i==1 then return q,v,p elseif i==2 then return p,v,t elseif i==3 then return p,q,v elseif i==4 then return t,p,v end
-        return v,p,q
-    end
-    local function get_color(id, fallback)
-        local kind,key = id_kind(id)
-        local c = nil
-        if kind == "path" then c = get_path(key,nil) else pcall(function() c = UIManager and UIManager.GetColorPickerValue and UIManager.GetColorPickerValue(key) end) end
-        c = c or fallback or {ACC_R,ACC_G,ACC_B,1}
-        return {c.r or c[1] or ACC_R, c.g or c[2] or ACC_G, c.b or c[3] or ACC_B, c.a or c[4] or 1}
-    end
-    local function set_color(id,c)
-        local kind,key = id_kind(id)
-        if kind == "path" then set_path(key,c); return end
-        pcall(function() if UIManager and UIManager.SetColorPickerValue then UIManager.SetColorPickerValue(key,c[1],c[2],c[3],c[4] or 1) end end)
-    end
-
-    local pages = {
-        RAGE = {
-            {title="AIMBOT", controls={
-                {"check","ap_aim_enable_fixed_click","Enable"},
-                {"check","ap_prediction_main","Prediction"},
-                {"check","ap_team_main","Team check"},
-                {"check","ap_sticky_main","Sticky aim"},
-                {"check","ec_silent_enabled","Silent aim"},
-                {"slider","ap_maxdist_main","Max distance",50,3000,1200,"%d"},
-            }},
-            {title="FOV", controls={
-                {"check","ap_fov_show_main","Enable"},
-                {"color","ap_fov_color_main","FOV color"},
-                {"slider","ap_fov_main","FOV size",30,600,250,"%d"},
-                {"slider","ap_fov_alpha_main","Transparency",0,100,60,"%d%%"},
-                {"select","ft_fov_style","Style",{"Default","Circle","Corners"}},
-            }},
-            {title="TARGET", controls={
-                {"check","ap_target_strafe_main","Target strafe"},
-                {"check","ap_tp_target_main","Teleport target"},
-                {"check","ap_left_tp_enabled","Left TP"},
-                {"check","ap_right_tp_enabled","Right TP"},
-                {"slider","ap_side_tp_distance","TP distance",1,80,20,"%d"},
-            }},
-            {title="SILENT", controls={
-                {"check","ec36_silent_pred_bridge","Use prediction"},
-                {"select","ft_silent_part","Target",{"Head","Torso","Feet"}},
-                {"slider","ft_silent_fov","Silent FOV",30,500,220,"%d"},
-            }},
-            {title="PANELS", controls={
-                {"check","path:__EC16.keybindsPanel","Keybind list"},
-                {"check","path:__EC16.moderatorPanel","Moderator list"},
-            }},
-        },
-        LEGIT = {
-            {title="LEGIT AIM", controls={
-                {"check","ap_aim_enable_fixed_click","Enable"},
-                {"check","ap_fov_show_main","FOV only"},
-                {"slider","ap_fov_main","FOV",10,280,80,"%d"},
-                {"check","ap_prediction_main","Prediction"},
-                {"select","ft_legit_target","Target",{"Head","Chest","Nearest"}},
-            }},
-            {title="CHECKS", controls={
-                {"check","ap_team_main","Team check"},
-                {"check","ap_sticky_main","Sticky target"},
-                {"slider","ap_maxdist_main","Max distance",50,2500,900,"%d"},
-            }},
-            {title="EXTRA", controls={
-                {"check","path:__EC16.keybindsPanel","Keybind list"},
-                {"check","ec_fullbright_enabled","Fullbright"},
-            }},
-        },
-        VISUALS = {
-            {title="PLAYER ESP", controls={
-                {"check","armoriso_target_enabled","Armor ESP"},
-                {"check","armoriso_show_weapon","Weapon slot"},
-                {"check","k1_show_distance","Show distance"},
-                {"slider","armoriso_max_distance","ESP range",50,3000,1200,"%d"},
-                {"slider","armoriso_target_size","Icon size",6,80,28,"%d"},
-            }},
-            {title="WORLD / LOOT", controls={
-                {"check","k1_dropped_item_show_icon","Dropped icons"},
-                {"check","k1_ore_show_icon","Ore icons"},
-                {"check","k1_loot_show_icon","Loot icons"},
-                {"slider","k1_world_range","World range",25,2000,800,"%d"},
-                {"slider","k1_loot_range","Loot range",25,2000,800,"%d"},
-            }},
-            {title="WORLD EFFECTS", controls={
-                {"check","path:__EC_VISUALS.squares.enabled","Enable"},
-                {"multi","path:__EC_VISUALS.squares.modes","Effect stack",{"Cubes","Stars","Circles"}},
-                {"slider","path:__EC_VISUALS.squares.radius","Radius",5,25,9.5,"%.1f"},
-                {"slider","path:__EC_VISUALS.squares.size","Size",0.2,2.5,0.75,"%.2f"},
-                {"slider","path:__EC_VISUALS.squares.speed","Speed",0.1,5,1.1,"%.2f"},
-            }},
-            {title="TARGET EFFECTS", controls={
-                {"check","path:__EC_VISUALS.targetFx.enabled","Enable"},
-                {"select","ft_target_effect_type","Type",{"Cubes"}},
-                {"color","path:__EC_VISUALS.targetFx.color","Color"},
-            }},
-            {title="TRAIL / AURA", controls={
-                {"check","path:__EC_PLAYER_TRAIL.enabled","Player trail"},
-                {"check","path:__EC_PLAYER_TRAIL.rainbow","Rainbow trail"},
-                {"slider","path:__EC_PLAYER_TRAIL.length","Trail length",8,220,46,"%.0f"},
-                {"check","path:__EC16.selfAura","Self aura"},
-                {"color","path:__EC16.selfAuraTopColor","Aura top"},
-                {"color","path:__EC16.selfAuraBottomColor","Aura bottom"},
-            }},
-            {title="BULLET / HIT", controls={
-                {"check","path:EC_BT.enabled","Bullet tracers"},
-                {"check","path:EC_BT.hitfx","Hit effects"},
-                {"slider","path:EC_BT.life","Tracer life",0.1,8,4,"%.1f"},
-                {"slider","path:EC_BT.hitSize","Hit size",18,96,38,"%.0f"},
-            }},
-        },
-        MISC = {
-            {title="MOVEMENT", controls={
-                {"check","ap_left_tp_enabled","Left TP"},
-                {"check","ap_right_tp_enabled","Right TP"},
-                {"check","ap_90_left_tp_enabled","90 Left TP"},
-                {"check","ap_90_right_tp_enabled","90 Right TP"},
-                {"slider","ap_side_tp_distance","TP distance",1,80,20,"%d"},
-            }},
-            {title="MENU", controls={
-                {"check","path:__EC16.keybindsPanel","Keybind panel"},
-                {"check","path:__EC16.moderatorPanel","Moderator list"},
-                {"check","ec_fullbright_enabled","Fullbright"},
-                {"slider","ec_fullbright_opacity","Brightness",0,80,20,"%d%%"},
-                {"color","ec_fullbright_color","Light color"},
-            }},
-            {title="NOCLIP", controls={
-                {"button","ft_noclip_bind","Noclip key: B"},
-                {"button","ft_menu_bind","Menu: Right Shift"},
-            }},
-        },
-        SKINS = {
-            {title="SKINS", controls={
-                {"select","ft_skin_slot","Weapon",{"Default","Pink","Purple","Dark"}},
-                {"select","ft_hand_skin","Hands",{"Default","Black","White","Neon"}},
-                {"button","ft_apply_skin","Apply skin"},
-            }},
-            {title="INFO", controls={
-                {"button","ft_skin_info","Only visual menu"},
-                {"button","ft_skin_loaded","Old script loaded"},
-            }},
-        },
-        LUA = {
-            {title="SCRIPTS", controls={
-                {"button","ft_load_script","Load script"},
-                {"button","ft_reload","Reload"},
-                {"button","ft_unload","Unload"},
-                {"select","ft_script_slot","Slot",{"main.lua","rage.lua","visuals.lua"}},
-            }},
-            {title="CONFIG", controls={
-                {"button","ft_save_cfg","Save config"},
-                {"button","ft_load_cfg","Load config"},
-                {"button","ft_delete_cfg","Delete config"},
-                {"select","ft_cfg_slot","Config",{"default","rage","visuals"}},
-            }},
-            {title="STATUS", controls={
-                {"button","ft_status_loaded","ECLIPZE loaded"},
-                {"button","ft_status_menu","Fatality style"},
-            }},
-        },
-    }
-    local tab_order = {"RAGE","LEGIT","VISUALS","MISC","SKINS","LUA"}
-
-    local function checkbox(id,x,y,w,label)
-        local v = get_bool(id)
-        local sq = 10
-        local bx,by = x+w-sq-2,y+3
-        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,16)
-        if FT.lmb_pressed and hover then
-            v = not v
-            set_bool(id,v)
-            FT.status = label .. ": " .. (v and "on" or "off")
-        end
-        text(x,y+3,label,TXT_R,TXT_G,TXT_B,hover and 1 or 0.92)
-        rect(bx,by,sq,sq,0.045,0.040,0.080,1)
-        border(bx,by,sq,sq,0.080,0.075,0.135,1,1)
-        if v then rect(bx+2,by+2,sq-4,sq-4,ACC_R,ACC_G,ACC_B,1) end
-        return y+20
-    end
-    local function button(id,x,y,w,label)
-        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,19)
-        rect(x,y,w,18,hover and 0.105 or 0.075,hover and 0.080 or 0.065,hover and 0.150 or 0.120,1)
-        border(x,y,w,18,hover and ACC_R or 0.13,hover and ACC_G or 0.11,hover and ACC_B or 0.20,1,1)
-        outline_text(x+w*0.5,y+4,label,TXT_R,TXT_G,TXT_B,1)
-        if FT.lmb_pressed and hover then FT.status = label .. " clicked" end
-        return y+23
-    end
-    local function slider(id,x,y,w,label,minv,maxv,def,fmt)
-        local is_int = not tostring(fmt or "%d"):find("%%%.")
-        local val = get_num(id,def or minv)
-        if val == nil then val = def or minv end
-        val = clamp(val,minv,maxv)
-        local t = clamp((val-minv)/math.max(maxv-minv,0.0001),0,1)
-        local bar_y = y+18
-        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,bar_y-6,w,18)
-        if FT.lmb_pressed and hover then FT.active_slider = id end
-        if FT.active_slider == id and FT.lmb then
-            t = clamp((FT.mouse_x-x)/math.max(w,1),0,1)
-            val = minv + (maxv-minv)*t
-            if is_int then val = math.floor(val+0.5) end
-            set_num(id,val,is_int)
-            FT.status = label .. " = " .. string.format(fmt or "%d",val)
-        end
-        local shown = string.format(fmt or "%d",val)
-        text(x,y+2,label,TXT_R,TXT_G,TXT_B,1)
-        text(x+w-42,y+2,shown,DIM_R,DIM_G,DIM_B,1)
-        rect(x,bar_y,w,5,0.045,0.040,0.080,1)
-        rect(x,bar_y,w*t,5,ACC_R,ACC_G,ACC_B,1)
-        rect(x+w*t-3,bar_y-3,7,11,0.95,0.72,0.88,1)
-        return y+34
-    end
-    local function color_control(id,x,y,w,label)
-        local c = get_color(id,{ACC_R,ACC_G,ACC_B,1})
-        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,20)
-        text(x,y+4,label,TXT_R,TXT_G,TXT_B,1)
-        local bx = x+w-18
-        rect(bx,y+1,18,18,c[1],c[2],c[3],c[4] or 1)
-        rect(bx+9,y+1,9,9,1,1,1,0.15)
-        border(bx,y+1,18,18,1,1,1,0.22,1)
-        if FT.lmb_pressed and hover then
-            local h = ((FT.colors[id] or 0.90) + 0.08) % 1
-            FT.colors[id] = h
-            local r,g,b = hsv_to_rgb(h,0.78,1)
-            set_color(id,{r,g,b,c[4] or 1})
-            FT.status = label .. " color"
-        end
-        return y+23
-    end
-    local function selected_text_for_multi(id,items)
-        local kind,key = id_kind(id)
-        local tbl = kind == "path" and get_path(key,nil) or FT.values[id]
-        if type(tbl) ~= "table" then tbl = {}; if kind == "path" then set_path(key,tbl) else FT.values[id]=tbl end end
-        local out = {}
-        for _,it in ipairs(items) do if tbl[it] == true then out[#out+1]=it end end
-        if #out == 0 then return "None" end
-        return table.concat(out, ", ")
-    end
-    local deferred_dropdowns = {}
-    local function select_box(id,x,y,w,label,items,is_multi)
-        if not is_multi and FT.drop_values[id] == nil then FT.drop_values[id] = items[1] end
-        local box_w = 100
-        local bx,by = x+w-box_w,y+1
-        local hover = in_rect(FT.mouse_x,FT.mouse_y,bx,by,box_w,18)
-        local shown = is_multi and selected_text_for_multi(id,items) or tostring(FT.drop_values[id] or items[1])
-        if #shown > 16 then shown = string.sub(shown,1,15).."..." end
-        text(x,y+4,label,TXT_R,TXT_G,TXT_B,1)
-        rect(bx,by,box_w,18,hover and 0.095 or 0.060,hover and 0.073 or 0.052,hover and 0.140 or 0.105,1)
-        border(bx,by,box_w,18,0.115,0.100,0.175,1,1)
-        text(bx+5,by+4,shown,DIM_R,DIM_G,DIM_B,1)
-        text(bx+box_w-10,by+4,"v",ACC_R,ACC_G,ACC_B,1)
-        if FT.lmb_pressed and hover then
-            FT.open_dropdown = (FT.open_dropdown == id) and nil or id
-        end
-        if FT.open_dropdown == id then
-            deferred_dropdowns[#deferred_dropdowns+1] = {id=id,x=bx,y=by+19,w=box_w,items=items,multi=is_multi}
-        end
-        return y+23
-    end
-    local function draw_dropdowns()
-        for _,d in ipairs(deferred_dropdowns) do
-            local h = #d.items*18+2
-            shadow_rect(d.x,d.y,d.w,h)
-            rect(d.x,d.y,d.w,h,0.045,0.040,0.085,1)
-            border(d.x,d.y,d.w,h,ACC_R,ACC_G,ACC_B,0.75,1)
-            local kind,key = id_kind(d.id)
-            local mt = nil
-            if d.multi then
-                mt = kind == "path" and get_path(key,nil) or FT.values[d.id]
-                if type(mt) ~= "table" then mt = {}; if kind == "path" then set_path(key,mt) else FT.values[d.id]=mt end end
-            end
-            for i,item in ipairs(d.items) do
-                local iy = d.y+1+(i-1)*18
-                local hover = in_rect(FT.mouse_x,FT.mouse_y,d.x,iy,d.w,18)
-                if hover then rect(d.x+1,iy,d.w-2,18,0.105,0.078,0.150,1) end
-                local active = d.multi and (mt[item] == true) or (FT.drop_values[d.id] == item)
-                text(d.x+6,iy+4,item,active and ACC_R or TXT_R,active and ACC_G or TXT_G,active and ACC_B or TXT_B,1)
-                if FT.lmb_pressed and hover then
-                    if d.multi then
-                        mt[item] = not (mt[item] == true)
-                        FT.status = selected_text_for_multi(d.id,d.items)
-                    else
-                        FT.drop_values[d.id] = item
-                        FT.open_dropdown = nil
-                        FT.status = item .. " selected"
-                    end
-                end
-            end
-        end
-        deferred_dropdowns = {}
-    end
-    local function section(sec,x,y,w)
-        local h = 26
-        for _,c in ipairs(sec.controls) do
-            if c[1]=="check" then h=h+20 elseif c[1]=="slider" then h=h+34 elseif c[1]=="select" or c[1]=="multi" or c[1]=="color" or c[1]=="button" then h=h+23 end
-        end
-        shadow_rect(x,y,w,h)
-        rect(x,y,w,h,BG2_R,BG2_G,BG2_B,0.96)
-        border(x,y,w,h,LINE_R,LINE_G,LINE_B,1,1)
-        text(x+10,y-1,sec.title,TXT_R,TXT_G,TXT_B,1)
-        rect(x+10,y+18,w-20,2,ACC_R,ACC_G,ACC_B,1)
-        local cy = y+31
-        for _,c in ipairs(sec.controls) do
-            local typ = c[1]
-            if typ == "check" then cy = checkbox(c[2],x+12,cy,w-24,c[3])
-            elseif typ == "slider" then cy = slider(c[2],x+12,cy,w-24,c[3],c[4],c[5],c[6],c[7])
-            elseif typ == "select" then cy = select_box(c[2],x+12,cy,w-24,c[3],c[4],false)
-            elseif typ == "multi" then cy = select_box(c[2],x+12,cy,w-24,c[3],c[4],true)
-            elseif typ == "color" then cy = color_control(c[2],x+12,cy,w-24,c[3])
-            elseif typ == "button" then cy = button(c[2],x+12,cy,w-24,c[3]) end
-        end
-        return h
-    end
-    local function draw_topbar(x,y,w)
-        rect(x,y,w,38,BG_R,BG_G,BG_B,1)
-        rect(x,y+37,w,1,LINE_R,LINE_G,LINE_B,1)
-        text(x+15,y+13,"ECLIPZE",1,1,1,1)
-        local tx = x+105
-        for _,tab in ipairs(tab_order) do
-            local tw = 54
-            local hover = in_rect(FT.mouse_x,FT.mouse_y,tx,y+8,tw,22)
-            local active = FT.tab == tab
-            if hover or active then rect(tx,y+8,tw,22,active and 0.105 or 0.070,active and 0.075 or 0.060,active and 0.160 or 0.120,1) end
-            if active then rect(tx+1,y+29,tw-2,2,ACC_R,ACC_G,ACC_B,1) end
-            local tr,tg,tb = DIM_R,DIM_G,DIM_B
-            if active or hover then tr,tg,tb = TXT_R,TXT_G,TXT_B end
-            text(tx+10,y+14,tab,tr,tg,tb,1)
-            if FT.lmb_pressed and hover then
-                FT.tab = tab
-                FT.open_dropdown = nil
-                if __EC16 then
-                    if tab == "VISUALS" or tab == "SKINS" then __EC16.mainTab = "visuals"
-                    elseif tab == "MISC" or tab == "LUA" then __EC16.mainTab = "noclip"
-                    else __EC16.mainTab = "aim" end
-                end
-            end
-            tx = tx+tw+5
-        end
-        local un = username()
-        text(x+w-112,y+10,un,TXT_R,TXT_G,TXT_B,1)
-        text(x+w-80,y+22,"exp: 20 days",DIM_R,DIM_G,DIM_B,1)
-        rect(x+w-30,y+10,18,18,0.11,0.10,0.16,1)
-        rect(x+w-26,y+14,10,10,ACC_R,ACC_G,ACC_B,1)
-    end
-    local function draw_footer(x,y,w,h)
-        local fy = y+h-24
-        rect(x,fy,w,24,0.045,0.040,0.090,1)
-        rect(x,fy,w,1,LINE_R,LINE_G,LINE_B,1)
-        text(x+12,fy+8,"Q",DIM_R,DIM_G,DIM_B,1)
-        rect(x+32,fy+7,10,10,DIM_R,DIM_G,DIM_B,0.65)
-        border(x+52,fy+7,14,10,DIM_R,DIM_G,DIM_B,0.75,1)
-        text(x+78,fy+8,FT.status,DIM_R,DIM_G,DIM_B,1)
-        text(x+w-28,fy+8,"i",DIM_R,DIM_G,DIM_B,1)
-    end
-    local function update_drag(sw,sh)
-        local x,y,w = FT.x,FT.y,FT.w
-        local top_hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,38)
-        local tab_area = in_rect(FT.mouse_x,FT.mouse_y,x+100,y+6,380,28)
-        local user_area = in_rect(FT.mouse_x,FT.mouse_y,x+w-125,y+4,120,30)
-        if FT.lmb_pressed and top_hover and not tab_area and not user_area then
-            FT.dragging = true
-            FT.drag_dx = FT.mouse_x-FT.x
-            FT.drag_dy = FT.mouse_y-FT.y
-            FT.open_dropdown = nil
-        end
-        if not FT.lmb then FT.dragging = false; FT.active_slider = nil end
-        if FT.dragging and FT.lmb then
-            FT.x = clamp(FT.mouse_x-FT.drag_dx,8,sw-FT.w-8)
-            FT.y = clamp(FT.mouse_y-FT.drag_dy,8,sh-FT.h-8)
-        end
-    end
-    local function draw_page(x,y,w,h)
-        local page = pages[FT.tab] or pages.RAGE
-        local body_x, body_y = x+12, y+50
-        local col_w = math.floor((w-44)/3)
-        local gap = 10
-        local col_y = {body_y,body_y,body_y}
-        for i,sec in ipairs(page) do
-            local col_i = ((i-1)%3)+1
-            local sx = body_x+(col_i-1)*(col_w+gap)
-            local sy = col_y[col_i]
-            local sh = section(sec,sx,sy,col_w)
-            col_y[col_i] = sy+sh+10
-        end
-    end
-    local function draw_menu(mx,my,cl,sw,sh)
-        __EC_VISUALS = __EC_VISUALS or {}
-        __EC_VISUALS.squares = __EC_VISUALS.squares or {enabled=false,modes={Cubes=true},radius=9.5,size=0.75,speed=1.1}
-        __EC_VISUALS.squares.modes = __EC_VISUALS.squares.modes or {Cubes=true}
-        __EC_VISUALS.targetFx = __EC_VISUALS.targetFx or {enabled=false,styles={Cubes=true},color={0.72,0.42,1,0.72}}
-        __EC_VISUALS.targetFx.styles = {Cubes=true}
-        __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {enabled=false,rainbow=false,length=46}
-        EC_BT = EC_BT or {enabled=false,hitfx=false,life=4,hitSize=38}
-        __EC16 = __EC16 or {}
-
-        FT.mouse_x, FT.mouse_y = mx or 0, my or 0
-        FT.lmb_pressed = (cl == true) and not (FT.lmb == true)
-        FT.lmb = cl == true
-        if not FT.lmb then FT.active_slider = nil end
-
-        update_drag(sw,sh)
-        local x,y,w,h = FT.x,FT.y,FT.w,FT.h
-        shadow_rect(x,y,w,h)
-        rect(x,y,w,h,BG3_R,BG3_G,BG3_B,0.96)
-        border(x,y,w,h,ACC_R,ACC_G,ACC_B,0.75,1)
-        border(x+1,y+1,w-2,h-2,LINE_R,LINE_G,LINE_B,0.95,1)
-        draw_topbar(x,y,w)
-        draw_page(x,y,w,h)
-        draw_footer(x,y,w,h)
-        draw_dropdowns()
-    end
-
-    -- v104: real replacement, not overlay. Keep the original render core alive,
-    -- but every old UI drawing entrypoint is replaced by no-op and __ec16_menu becomes ECLIPZE.
-    local function kill_old_ui()
-        local function noop() end
-        __ec16_draw_top_hud = noop
-        __ec16_draw_keybinds_panel = noop
-        __ec16_draw_moderator_panel = noop
-        __ec16_draw_local_card_v16 = noop
-        __ec16_draw_local_card_v18 = noop
-        __ec16_draw_player_info_checker_v16 = noop
-    end
-
-    local function input_state()
-        local mx,my,cl = 0,0,false
-        pcall(function()
-            if __ec16_mouse then mx,my = __ec16_mouse() end
-        end)
-        if (not mx or mx == 0) and Windows and Windows.GetMousePos then
-            pcall(function()
-                local m = Windows.GetMousePos()
-                if m then mx,my = m.X or 0, m.Y or 0 end
-            end)
-        end
-        pcall(function()
-            if __ec16_click then cl = __ec16_click() end
-        end)
-        if Windows and Windows.IsKeyPressed then
-            pcall(function() cl = cl or Windows.IsKeyPressed(0x01) end)
-        end
-        return mx or 0, my or 0, cl == true
-    end
-
-    kill_old_ui()
-    __EC16 = __EC16 or {}
-    __EC16.open = true
-    __EC16.phase = "menu"
-    __EC16_MENU_ALLOWED = true
-
-    __ec16_menu = function(mx,my,cl,w,h)
-        kill_old_ui()
-        local sw,sh = screen_size(w,h)
-        if mx == nil or my == nil then mx,my,cl = input_state() end
-        draw_background(sw,sh)
-        draw_menu(mx,my,cl,sw,sh)
-        return true
-    end
-
-    -- Fallback draws the new menu even if the old hook/loader logic fails.
-    -- It is intentionally NOT gated by __EC16.phase, so inject always shows the UI.
-    if hooks and hooks.on_render and not __EC_FT104_FALLBACK_HOOK then
-        __EC_FT104_FALLBACK_HOOK = true
-        hooks.on_render(function()
-            kill_old_ui()
-            __EC16 = __EC16 or {}
-            __EC16.open = true
-            __EC16.phase = "menu"
-            local sw,sh = screen_size()
-            local mx,my,cl = input_state()
-            draw_background(sw,sh)
-            draw_menu(mx,my,cl,sw,sh)
-        end)
-    end
-
-    if notify then pcall(function() notify("ECLIPZE v104 menu replacement loaded", "success") end) end
-end)()
