@@ -16097,3 +16097,150 @@ local function picker_blocks_base(mx,my,cl)
     if notify and not __EC_V90_NOTIFIED then __EC_V90_NOTIFIED = true; notify("Eclipze v90 loaded", "success") end
 end
 __EC_V90_PATCH()
+
+--[[
+Eclipze v91 hotfix
+- Visuals top-tab menu can be dragged from the header again.
+- Aura alpha from the color picker now affects the actual rendered self aura.
+]]
+(function()
+    if __EC_V91_PATCHED then return end
+    __EC_V91_PATCHED = true
+
+    local function ec91_clamp(v,a,b)
+        v = tonumber(v or 0) or 0
+        if v < a then return a end
+        if v > b then return b end
+        return v
+    end
+
+    local ec91_old_menu = __ec16_menu
+    if type(ec91_old_menu) == "function" then
+        local drag = { on = false, dx = 0, dy = 0 }
+        __ec16_menu = function(mx,my,cl,w,h)
+            if __EC16 and __EC16.open and __EC16.mainTab == "visuals" then
+                local x = __EC16.x or 95
+                local y = __EC16.y or 70
+                local ww = __EC16.w or 960
+                local pickerOpen = false
+                local dropdownOpen = false
+                pcall(function()
+                    pickerOpen = (__EC_VISUALS and __EC_VISUALS.picker and __EC_VISUALS.picker.open) ~= nil
+                    dropdownOpen = (__EC_VISUALS and __EC_VISUALS.dropdownOpen) ~= nil
+                end)
+                local overHeader = false
+                if __ec16_in then
+                    overHeader = __ec16_in(mx,my,x,y,x+ww,y+36) == true
+                else
+                    overHeader = mx >= x and mx <= x + ww and my >= y and my <= y + 36
+                end
+
+                if cl and (not drag.on) and overHeader and not pickerOpen and not dropdownOpen and not (__EC16.lastClick == true) then
+                    drag.on = true
+                    drag.dx = mx - x
+                    drag.dy = my - y
+                end
+                if not cl then
+                    drag.on = false
+                end
+                if drag.on then
+                    __EC16.x = mx - (drag.dx or 0)
+                    __EC16.y = my - (drag.dy or 0)
+                end
+            elseif not cl then
+                drag.on = false
+            end
+            return ec91_old_menu(mx,my,cl,w,h)
+        end
+    end
+
+    function EC_SAURA_ALPHA_TOP()
+        local c = __EC16 and (__EC16.selfAuraTopColor or __EC16.selfAuraColor)
+        if c then return ec91_clamp(c[4] or c.a or 1.00,0.02,1.00) end
+        return 1.00
+    end
+
+    function EC_SAURA_ALPHA_BOTTOM()
+        local c = __EC16 and (__EC16.selfAuraBottomColor or __EC16.selfAuraColor2)
+        if c then return ec91_clamp(c[4] or c.a or 1.00,0.02,1.00) end
+        return 1.00
+    end
+
+    function EC_SAURA_DRAW()
+        if not __EC16 or not __EC16.selfAura then return end
+        local center = EC_SAURA_POS()
+        if not center then return end
+
+        local style = math.floor(tonumber(__EC16.selfAuraStyle or 0) or 0)
+        if style < 0 then style = 0 end
+        if style > 8 then style = 8 end
+        if style >= 1 and style <= 4 then style = 0 end
+
+        local now = EC_BT_NOW and EC_BT_NOW() or (tick and tick() or 0)
+        local radius = 8.0
+        local baseY = -2.65
+
+        local blueR,blueG,blueB = EC_SAURA_COLOR_TOP()
+        local pinkR,pinkG,pinkB = EC_SAURA_COLOR_BOTTOM()
+        local topA = EC_SAURA_ALPHA_TOP()
+        local bottomA = EC_SAURA_ALPHA_BOTTOM()
+        local bothA = (topA + bottomA) * 0.5
+
+        if style == 5 then
+            EC_SAURA_DRAW_HELIX(center, radius*1.03, baseY, blueR,blueG,blueB, pinkR,pinkG,pinkB, 0.68 * bothA, 1.7)
+            return
+        elseif style == 6 then
+            for k=0,2 do
+                local pulse = (math.sin(now*2.0 + k*2.1) + 1) * 0.5
+                local rr = radius * (0.70 + k*0.23 + pulse*0.12)
+                local yy = baseY + (k-1)*0.58
+                local a = 0.34 + pulse*0.26
+                if k % 2 == 0 then
+                    EC_SAURA_DRAW_CIRCLE(center, rr, yy, blueR,blueG,blueB, a * topA, 1.65)
+                else
+                    EC_SAURA_DRAW_CIRCLE(center, rr, yy, pinkR,pinkG,pinkB, a * bottomA, 1.65)
+                end
+            end
+            return
+        elseif style == 7 then
+            EC_SAURA_DRAW_CIRCLE(center, radius*1.05, baseY, blueR,blueG,blueB, 0.34 * topA, 1.35)
+            EC_SAURA_DRAW_CIRCLE(center, radius*1.23, baseY+0.12, pinkR,pinkG,pinkB, 0.30 * bottomA, 1.35)
+            for i=0,11 do
+                local a = now*1.8 + (i/12)*6.283185
+                local rr = radius * (1.02 + math.sin(i*1.7 + now*2.5)*0.10)
+                local y = baseY + math.sin(i*1.33 + now*3.0) * 0.55
+                if i % 2 == 0 then
+                    EC_SAURA_DRAW_ORB(center, rr, y, a, 3.5, blueR,blueG,blueB, 0.78 * topA)
+                else
+                    EC_SAURA_DRAW_ORB(center, rr*1.12, y+0.08, -a, 3.0, pinkR,pinkG,pinkB, 0.72 * bottomA)
+                end
+            end
+            return
+        elseif style == 8 then
+            EC_SAURA_DRAW_CIRCLE(center, radius*0.82, baseY+1.25, blueR,blueG,blueB, 0.60 * topA, 1.9)
+            EC_SAURA_DRAW_CIRCLE(center, radius*1.32, baseY-1.10, pinkR,pinkG,pinkB, 0.52 * bottomA, 2.1)
+            EC_SAURA_DRAW_DASHES(center, radius*1.32, baseY-1.10, pinkR,pinkG,pinkB, 0.62 * bottomA, 1.12, 10, 0.22, now*-1.2, 0.20, 0.12)
+            EC_SAURA_DRAW_DASHES(center, radius*0.82, baseY+1.25, blueR,blueG,blueB, 0.58 * topA, 1.02, 8, 0.18, now*1.3, 0.18, 0.10)
+            return
+        end
+
+        local outerMul1, outerMul2 = 0.92, 1.18
+        local thick1, thick2 = 1.8, 1.8
+        local alpha1, alpha2 = 0.60, 0.60
+        local dashCount = 8
+        local dashLen = 0.27
+        local dashAlpha, dashThick = 0.62, 1.12
+        local speed1, speed2 = 0.82, -0.98
+        local sizeJit, yJit = 0.32, 0.28
+
+        local offset1 = now * speed1
+        local offset2 = now * speed2 + 1.25
+
+        EC_SAURA_DRAW_CIRCLE(center, radius*outerMul1, baseY, blueR,blueG,blueB, alpha1 * topA, thick1)
+        EC_SAURA_DRAW_CIRCLE(center, radius*outerMul2, baseY+0.03, pinkR,pinkG,pinkB, alpha2 * bottomA, thick2)
+        EC_SAURA_DRAW_DASHES(center, radius*outerMul1, baseY, blueR,blueG,blueB, dashAlpha * topA, dashThick, dashCount, dashLen, offset1, sizeJit, yJit)
+        EC_SAURA_DRAW_DASHES(center, radius*outerMul2, baseY+0.03, pinkR,pinkG,pinkB, dashAlpha * bottomA, dashThick, dashCount, dashLen, offset2, sizeJit, yJit)
+    end
+
+    if notify then pcall(function() notify("Eclipze v91 hotfix loaded", "success") end) end
+end)()
