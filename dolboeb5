@@ -8799,7 +8799,8 @@ local tabs = {
 {id="aim", label="AIM", w=88},
 {id="esp", label="FALLEN ESP", w=132},
 {id="noclip", label="NOCLIP", w=102},
-{id="visuals", label="VISUALS", w=104}
+{id="visuals", label="VISUALS", w=104},
+{id="configs", label="CONFIGS", w=112}
 }
 local tx = x + 18
 local ty = y + 45
@@ -9809,7 +9810,8 @@ local tabs = {
 {id="aim", label="AIM", w=88},
 {id="esp", label="FALLEN ESP", w=132},
 {id="noclip", label="NOCLIP", w=102},
-{id="visuals", label="VISUALS", w=104}
+{id="visuals", label="VISUALS", w=104},
+{id="configs", label="CONFIGS", w=112}
 }
 local tx = x + 18
 local ty = y + 45
@@ -15311,7 +15313,8 @@ local function picker_rect()
             {id="aim", w=88},
             {id="esp", w=132},
             {id="noclip", w=102},
-            {id="visuals", w=104}
+            {id="visuals", w=104},
+            {id="configs", w=112}
         }
         for _,tb in ipairs(tabs) do
             if __ec16_in and __ec16_in(mx,my,tx,ty,tx+tb.w,ty+25) then
@@ -16945,6 +16948,7 @@ end)()
 
 -- ECLIPZE v111: real CONFIGS tab + hard Visuals background + flat overlay edge guard
 ;(function()
+    return -- disabled by v114: replaced with named configs integrated into the real tab bar
     if __EC_V111_CONFIGS_PATCH then return end
     __EC_V111_CONFIGS_PATCH = true
 
@@ -17031,6 +17035,7 @@ end)()
             {id="esp", w=132},
             {id="noclip", w=102},
             {id="visuals", w=104},
+            {id="configs", w=112},
         }
         for _,tb in ipairs(tabs) do tx = tx + tb.w + 6 end
         local tw = 112
@@ -17788,28 +17793,12 @@ ECLIPZE v113 named config system
     end
 
     local function draw_configs_top_tab(mx,my,cl,newClick)
-        if not __EC16 then return false end
-        local L = layout()
-        local tx = L.x + 18 + 88 + 6 + 132 + 6 + 102 + 6 + 104 + 6
-        local ty = L.y + 45
-        local twd = 112
-        local active = (__EC16.mainTab == "configs")
-        local hov = inside(mx,my,tx,ty,tx+twd,ty+25)
-        if hov and newClick then
-            __EC16.mainTab = "configs"
-            S.active = true
-            S.input_focus = false
-            read_index()
-            return true
-        end
-        round_rect(tx,ty,tx+twd,ty+25,active and 0.125 or (hov and 0.065 or 0.050),active and 0.083 or (hov and 0.050 or 0.040),active and 0.225 or (hov and 0.120 or 0.100),active and 1 or 0.86,6)
-        if active then rect(tx+8,ty+22,tx+twd-8,ty+24,1,0,0.55,1) end
-        text_center(tx+56,ty+7,"CONFIGS",active and 1 or 0.64,active and 0.82 or 0.58,active and 0.96 or 0.78,active and 1 or 0.86)
+        -- v114: CONFIGS is part of the real menu tab array, so do not draw a second overlay tab.
         return false
     end
 
     local function draw_configs_page(mx,my,cl,newClick)
-        if not __EC16 or __EC16.mainTab ~= "configs" then return end
+        if not (__EC16 and __EC16.open and __EC16.phase == "menu" and __EC16.mainTab == "configs" and (__EC16.animDir ~= -1)) then return end
         local L = layout()
         S.controls = {}
 
@@ -17918,6 +17907,7 @@ ECLIPZE v113 named config system
             {id="esp", w=132},
             {id="noclip", w=102},
             {id="visuals", w=104},
+            {id="configs", w=112},
         }
         for _,tb in ipairs(tabs) do
             if inside(mx,my,tx,ty,tx+tb.w,ty+25) then
@@ -17975,29 +17965,111 @@ ECLIPZE v113 named config system
         __ec16_menu = function(mx,my,cl,w,h)
             mx = mx or 0
             my = my or 0
+            local menuVisible = (__EC16 and __EC16.open and __EC16.phase == "menu" and (__EC16.animDir ~= -1) and ((__EC16.anim or 1) > 0.02))
             local newClick = (cl == true) and not (S.mouse_last == true)
             local switchedTop = false
             local clickedTop = false
-            if __EC16 and __EC16.open ~= false then
+            if menuVisible then
                 switchedTop = handle_existing_top_tab_click(mx,my,newClick)
                 if not switchedTop then
                     clickedTop = draw_configs_top_tab(mx,my,cl,newClick)
                 end
             end
             local passClick = cl
-            if switchedTop or clickedTop or (__EC16 and __EC16.mainTab == "configs") then passClick = false end
+            if switchedTop or clickedTop or (menuVisible and __EC16 and __EC16.mainTab == "configs") then passClick = false end
             local ok,ret = pcall(old_menu,mx,my,passClick,w,h)
             if not ok and notify then pcall(function() notify("menu safe skip: "..tostring(ret),"warning") end) end
-            if __EC16 and __EC16.open ~= false then
+            menuVisible = (__EC16 and __EC16.open and __EC16.phase == "menu" and (__EC16.animDir ~= -1) and ((__EC16.anim or 1) > 0.02))
+            if menuVisible then
                 draw_configs_top_tab(mx,my,cl,false)
                 if __EC16.mainTab == "configs" then
                     draw_configs_page(mx,my,cl,newClick)
                 end
+                process_configs_click(mx,my,cl)
+            else
+                S.input_focus = false
+                S.mouse_last = (cl == true)
             end
-            process_configs_click(mx,my,cl)
             return ret
         end
     end
 
     if notify then pcall(function() notify("ECLIPZE v113 named configs loaded","success") end) end
+end)()
+
+
+-- ECLIPZE v114: configs integrated tab + final local-player-card blocker for Configs page
+;(function()
+    if __EC_V114_CONFIGS_INTEGRATED then return end
+    __EC_V114_CONFIGS_INTEGRATED = true
+
+    local function n(v,fb)
+        if __EC_NUM then return __EC_NUM(v,fb or 0) end
+        local ok,res=pcall(function() return tonumber(v) end)
+        if ok and res ~= nil then return res end
+        return fb or 0
+    end
+    local function ix(v) return math.floor(n(v,0)+0.5) end
+    local function rect(x1,y1,x2,y2,r,g,b,a)
+        if Drawing and Drawing.DrawBoxFilled then Drawing.DrawBoxFilled(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a or 1) end
+    end
+    local function out(x1,y1,x2,y2,r,g,b,a,t)
+        if Drawing and Drawing.DrawBox then Drawing.DrawBox(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a or 1,t or 1) end
+    end
+    local function round(x1,y1,x2,y2,r,g,b,a,rad)
+        if __ec16_draw_round_rect then
+            pcall(__ec16_draw_round_rect,x1,y1,x2,y2,r,g,b,a or 1,rad or 8)
+            return
+        end
+        rect(x1,y1,x2,y2,r,g,b,a or 1)
+    end
+    local function tw(s)
+        s=tostring(s or "")
+        if __ec16_text_w then local ok,res=pcall(__ec16_text_w,s); if ok and res then return res end end
+        return #s*6
+    end
+    local function text(x,y,s,r,g,b,a)
+        s=tostring(s or "")
+        if Drawing and Drawing.DrawTextWithOutline then
+            Drawing.DrawTextWithOutline(ix(x+tw(s)*0.5),ix(y),s,r or 1,g or 1,b or 1,a or 1,0,0,0,(a or 1)*0.92)
+        elseif Drawing and Drawing.DrawText then
+            Drawing.DrawText(ix(x),ix(y),s,r or 1,g or 1,b or 1,a or 1)
+        end
+    end
+    local function visible_configs()
+        return (__EC16 and __EC16.open and __EC16.phase == "menu" and __EC16.mainTab == "configs" and (__EC16.animDir ~= -1) and ((__EC16.anim or 1) > 0.02))
+    end
+    local function layout()
+        local x=(__EC16 and __EC16.x) or 95
+        local y=(__EC16 and __EC16.y) or 70
+        local w=(__EC16 and __EC16.w) or 960
+        local h=(__EC16 and __EC16.h) or 640
+        local paneX=x+14
+        local paneY=y+78
+        local paneY2=y+h-14
+        local sideW=178
+        local sideX=paneX+12
+        local sideY=paneY+12
+        local sideY2=paneY2-12
+        return x,y,w,h,sideX,sideY,sideW,sideY2
+    end
+    local function draw_sidebar_clean()
+        if not visible_configs() then return end
+        local _,_,_,_,sideX,sideY,sideW,sideY2=layout()
+        -- This redraws the whole config sidebar after the old Local Player card hooks,
+        -- so no "Local player" text/avatar remains on the Configs page.
+        round(sideX,sideY,sideX+sideW,sideY2,0.018,0.016,0.038,1.0,9)
+        out(sideX,sideY,sideX+sideW,sideY2,0.22,0.16,0.38,0.95,1)
+        local sx=sideX+10
+        local sy=sideY+18
+        round(sx,sy,sx+sideW-20,sy+28,0.075,0.058,0.145,0.98,6)
+        rect(sx,sy,sx+3,sy+28,1,0,0.55,1)
+        text(sx+14,sy+8,"Configs",0.94,0.90,1,1)
+        text(sx+4,sy+52,"Named config system",0.58,0.52,0.74,0.95)
+        text(sx+4,sy+72,"Save / Load / Delete",0.58,0.52,0.74,0.95)
+    end
+    if hooks and hooks.on_render then
+        hooks.on_render(function() pcall(draw_sidebar_clean) end)
+    end
+    if notify then pcall(function() notify("ECLIPZE v114 configs integrated", "success") end) end
 end)()
