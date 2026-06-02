@@ -15744,107 +15744,20 @@ local function picker_blocks_base(mx,my,cl)
         end
     end
 
-    -- v98: World Effects Cubes are no longer orbiting around the player.
-    -- They render like a floating/falling square field in front of the camera,
-    -- like the reference video: scattered glowing flat squares, not a circle.
-    local function get_camera_frame_for_world_fx(center)
-        local camPos = nil
-        pcall(function()
-            if get_camera then
-                local cam = get_camera()
-                if cam and cam.position then
-                    camPos = Vector3(__EC_NUM(cam.position.X or cam.position[1], center.X), __EC_NUM(cam.position.Y or cam.position[2], center.Y + 4), __EC_NUM(cam.position.Z or cam.position[3], center.Z))
-                end
-            end
-        end)
-        if not camPos then camPos = center + Vector3(0, 4.0, 0) end
-
-        local right = Vector3(1,0,0)
-        local up = Vector3(0,1,0)
-        local forward = Vector3(0,0,-1)
-        pcall(function()
-            if aim and aim.get_camera_rotation then
-                local m = aim.get_camera_rotation()
-                if m then
-                    right = Vector3(__EC_NUM(m[1],1), __EC_NUM(m[2],0), __EC_NUM(m[3],0))
-                    up = Vector3(__EC_NUM(m[4],0), __EC_NUM(m[5],1), __EC_NUM(m[6],0))
-                    forward = Vector3(-__EC_NUM(m[7],0), -__EC_NUM(m[8],0), -__EC_NUM(m[9],1))
-                end
-            end
-        end)
-        if right.magnitude > 0 then right = right:normalize() end
-        if up.magnitude > 0 then up = up:normalize() end
-        if forward.magnitude > 0 then forward = forward:normalize() end
-        return camPos, right, up, forward
-    end
-
-    local function draw_flat_camera_square(pos,right,up,size,angle,cr,cg,cb,alpha)
-        local c = math.cos(angle)
-        local s = math.sin(angle)
-        local hs = size * 0.5
-        local pts = {
-            {-hs,-hs}, {hs,-hs}, {hs,hs}, {-hs,hs}
-        }
-        local scr = {}
-        for i=1,4 do
-            local x = pts[i][1]
-            local y = pts[i][2]
-            local rx = x * c - y * s
-            local ry = x * s + y * c
-            scr[i] = world_to_screen(pos + right * rx + up * ry)
-        end
-        for i=1,4 do
-            local p1 = scr[i]
-            local p2 = scr[(i % 4) + 1]
-            if p1 and p2 then
-                line(p1.X,p1.Y,p2.X,p2.Y,cr,cg,cb,alpha * 0.25,5.2)
-                line(p1.X,p1.Y,p2.X,p2.Y,cr,cg,cb,alpha * 0.62,2.4)
-                line(p1.X,p1.Y,p2.X,p2.Y,1.00,0.94,1.00,alpha * 0.96,1.05)
-            end
-        end
-    end
-
-    local function draw_camera_square_field(center,tm,amount,radius,speed,baseSize,cr,cg,cb,worldAlpha,cache)
-        local camPos,right,up,forward = get_camera_frame_for_world_fx(center)
-        local spreadX = radius * 3.65
-        local spreadY = radius * 1.75
-        local minDepth = math.max(7.0, radius * 0.95)
-        local maxDepth = math.max(minDepth + 8.0, radius * 5.15)
-        local fallSpeed = 0.08 + speed * 0.115
-
-        for i=1,amount do
-            local it = cache.items[i]
-            local flow = tm * fallSpeed * (0.74 + it.h2 * 0.58) + it.h4
-            flow = flow - math.floor(flow)
-
-            local xOff = (it.h1 * 2.0 - 1.0) * spreadX
-            local yOff = spreadY * 0.82 - flow * (spreadY * 1.90)
-            local depth = minDepth + it.h3 * (maxDepth - minDepth)
-
-            xOff = xOff + math.sin(tm * (0.34 + it.h5 * 0.45) + it.phase) * radius * 0.22
-            yOff = yOff + math.sin(tm * 0.40 + it.h6 * 6.283185) * radius * 0.08
-            depth = depth + math.sin(tm * 0.21 + it.h2 * 6.283185) * radius * 0.16
-
-            local pos = camPos + forward * depth + right * xOff + up * yOff
-            local size = baseSize * (0.58 + it.h6 * 1.85) * (0.80 + (depth / math.max(radius,1)) * 0.045)
-            local angle = tm * speed * (0.18 + it.spinZ * 0.55) * it.dir + it.phase
-
-            local fade = math.sin(flow * 3.14159265)
-            if fade < 0 then fade = 0 end
-            local alpha = clamp((0.28 + 0.72 * fade) * (0.58 + it.h5 * 0.42) * worldAlpha, 0.015, 1.0)
-            draw_flat_camera_square(pos,right,up,size,angle,cr,cg,cb,alpha)
-        end
-    end
-
     local function draw_orbit_squares()
+        -- v98 fixed: World Effects are still REAL 3D cubes like before,
+        -- but Cubes no longer orbit around the player. They fall smoothly
+        -- around the local player and loop back to the top.
         if not (V.squares and V.squares.enabled == true) then return end
         local center = get_hrp_pos()
         if not center then return end
+
         local tm = now()
         local amount = math.floor(clamp(V.squares.amount or 42,8,90)+0.5)
         local radius = clamp(V.squares.radius or 9.5,5.5,24.0)
         local speed = clamp(V.squares.speed or 1.10,0.05,4.0)
         local baseSize = clamp(V.squares.size or 0.75,0.15,1.8)
+
         local selectedWorldModes = {}
         local worldModes = (V.squares and V.squares.modes) or {}
         if worldModes.Cubes == true or worldModes["Cubes"] == true then selectedWorldModes[#selectedWorldModes+1] = "Cubes" end
@@ -15857,56 +15770,71 @@ local function picker_blocks_base(mx,my,cl)
         local drawAmount = math.min(amount,80)
         local cache = build_world_fx_cache(drawAmount)
 
-        -- Cubes now use the reference-style square field, not player orbit.
-        if worldModes.Cubes == true or worldModes["Cubes"] == true then
-            draw_camera_square_field(center,tm,drawAmount,radius,speed,baseSize,cr,cg,cb,worldAlpha,cache)
-        end
-
-        -- Stars/Circles are kept separated from Cubes and still use the older world placement,
-        -- so multi-select remains working without all effects sitting in one spot.
-        local orbitModes = {}
-        if worldModes.Stars == true or worldModes["Stars"] == true then orbitModes[#orbitModes+1] = "Stars" end
-        if worldModes.Circles == true or worldModes["Circles"] == true then orbitModes[#orbitModes+1] = "Circles" end
-        if #orbitModes == 0 then return end
+        -- vertical fall area around the player
+        local topY = 12.5 + radius * 0.18
+        local bottomY = -3.2
+        local fallHeight = topY - bottomY
+        local fallSpeed = 0.060 + speed * 0.085
 
         for i=1,drawAmount do
             local it = cache.items[i]
-            local orbit = tm * speed * it.dir * (0.44 + it.h1 * 0.92) + it.phase
-            local dist = math.max(5.8, radius * it.rMul)
-            local wob = math.sin(tm * speed * (0.50 + it.h3) + it.h5 * 6.283185) * (radius * 0.10)
-            local lift = it.yBase + math.sin(tm * speed * (0.65 + it.h1) + it.yPhase) * it.yAmp
-            local s = baseSize * it.sizeMul
-            local rx = tm * speed * it.spinX + it.spinPX
-            local ry = tm * speed * it.spinY + it.spinPY
-            local rz = tm * speed * it.spinZ + it.spinPZ
-            local alpha = 0.60 + 0.40 * (0.5 + 0.5 * math.sin(tm * 1.85 + i * 0.71))
-            if it.h1 > 0.72 then alpha = alpha + 0.10 end
-            alpha = clamp(alpha * worldAlpha,0.02,1.00)
 
-            local modeCount = #orbitModes
+            -- fixed random place around the player; no orbit angle update
+            local ang = it.phase
+            local dist = radius * (0.35 + it.h2 * 0.82)
+            local sidePush = (it.h3 - 0.5) * radius * 0.22
+            local baseX = math.cos(ang) * dist + math.cos(ang + 1.5708) * sidePush
+            local baseZ = math.sin(ang) * dist + math.sin(ang + 1.5708) * sidePush
+
+            -- tiny floating sway only, NOT circular orbit
+            local swayX = math.sin(tm * (0.32 + it.h4 * 0.25) + it.h5 * 6.283185) * (0.18 + radius * 0.012)
+            local swayZ = math.cos(tm * (0.28 + it.h6 * 0.22) + it.h1 * 6.283185) * (0.18 + radius * 0.012)
+
+            -- falling loop: reaches bottom, instantly respawns at top
+            local phase = (tm * fallSpeed * (0.78 + it.h4 * 0.55) + it.h1 * 1.37) % 1.0
+            local lift = topY - phase * fallHeight
+
+            -- fade near respawn and near the bottom so the loop is smooth
+            local fadeTop = clamp(phase / 0.10, 0, 1)
+            local fadeBottom = clamp((1.0 - phase) / 0.14, 0, 1)
+            local fallFade = math.min(fadeTop, fadeBottom)
+
+            local s = baseSize * it.sizeMul
+            -- cube can slowly spin itself, but the effect position does not orbit
+            local rx = tm * speed * it.spinX * 0.45 + it.spinPX
+            local ry = tm * speed * it.spinY * 0.45 + it.spinPY
+            local rz = tm * speed * it.spinZ * 0.45 + it.spinPZ
+
+            local pulse = 0.78 + 0.22 * (0.5 + 0.5 * math.sin(tm * 1.55 + i * 0.71))
+            local alpha = clamp(worldAlpha * fallFade * pulse, 0.02, 1.00)
+
+            local modeCount = #selectedWorldModes
             for mi=1,modeCount do
-                local drawMode = orbitModes[mi]
-                local slot = mi - ((modeCount + 1) * 0.5)
-                local phaseShift = (mi - 1) * (6.283185 / math.max(modeCount,1))
-                local modeLift = lift + slot * 1.05
-                local modeRadius = dist + slot * (radius * 0.22)
-                if drawMode == "Stars" then
-                    modeRadius = modeRadius + radius * 0.42
-                    modeLift = modeLift + 1.10
-                    phaseShift = phaseShift + 0.42
-                elseif drawMode == "Circles" then
-                    modeRadius = math.max(4.5, modeRadius - radius * 0.30)
-                    modeLift = modeLift - 1.05
-                    phaseShift = phaseShift - 0.36
-                end
-                local orbit2 = orbit + phaseShift
-                local px2 = math.cos(orbit2) * (modeRadius + wob * 0.55)
-                local pz2 = math.sin(orbit2 + math.sin(tm * 0.35 + it.h2 * 6.283185) * 0.12) * (modeRadius - wob * 0.20)
-                local pos2 = center + Vector3(px2,modeLift,pz2)
+                local drawMode = selectedWorldModes[mi]
+
+                -- if several world effects are selected, keep them separated,
+                -- but still falling instead of rotating around the player.
+                local modeOffsetX = 0
+                local modeOffsetZ = 0
+                local modeOffsetY = 0
                 local size2 = s
-                if drawMode == "Stars" then size2 = s * 1.08 end
-                if drawMode == "Circles" then size2 = s * 1.16 end
-                draw_world_effect_item(drawMode,pos2,size2,rx,ry,rz,cr,cg,cb,alpha,i + mi * 13,tm)
+                if modeCount > 1 then
+                    local offAng = (mi - 1) * (6.283185 / modeCount) + 0.44
+                    modeOffsetX = math.cos(offAng) * (radius * 0.18)
+                    modeOffsetZ = math.sin(offAng) * (radius * 0.18)
+                    modeOffsetY = (mi - ((modeCount + 1) * 0.5)) * 0.80
+                end
+
+                if drawMode == "Stars" then
+                    modeOffsetY = modeOffsetY + 0.85
+                    size2 = s * 1.08
+                elseif drawMode == "Circles" then
+                    modeOffsetY = modeOffsetY - 0.85
+                    size2 = s * 1.16
+                end
+
+                local pos = center + Vector3(baseX + swayX + modeOffsetX, lift + modeOffsetY, baseZ + swayZ + modeOffsetZ)
+                draw_world_effect_item(drawMode,pos,size2,rx,ry,rz,cr,cg,cb,alpha,i + mi * 13,tm)
             end
         end
     end
