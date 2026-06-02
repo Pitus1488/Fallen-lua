@@ -16453,13 +16453,32 @@ local function picker_blocks_base(mx,my,cl)
 
 
     local function ec_v90_draw_souls(hrp,bottom,top,r,g,bc,tm,alpha)
-        -- ECLIPZE v104: "Souls" target effect.
-        -- Looks like two glowing soul orbs with a dotted curved trail around the target.
+        -- ECLIPZE v106: "Souls" target effect.
+        -- Fixed distance scaling: orbs/trails no longer become huge when you move away.
+        -- It stays fat near the body, but scales by target screen height with a safe clamp.
         local span = top - bottom
         if span < 2.0 then span = 4.0 end
+
+        local function soul_clamp(v,a,b)
+            if v < a then return a end
+            if v > b then return b end
+            return v
+        end
+
+        local bodyScale = 1.0
+        local sTop = world_to_screen(hrp + Vector3(0, top, 0))
+        local sBot = world_to_screen(hrp + Vector3(0, bottom, 0))
+        if sTop and sBot then
+            local bodyPx = math.abs((sBot.Y or 0) - (sTop.Y or 0))
+            -- 150px target height ~= full size. Farther targets shrink instead of the soul staying huge.
+            bodyScale = soul_clamp(bodyPx / 150.0, 0.34, 1.00)
+        end
+
         local steps = 24
         local baseRad = 1.18
         local yMid = bottom + span * 0.56
+        local lineFat = soul_clamp(0.70 + bodyScale * 0.85, 0.70, 1.55)
+        local dotScale = soul_clamp(0.50 + bodyScale * 0.78, 0.50, 1.28)
 
         for side=-1,1,2 do
             local prev = nil
@@ -16475,13 +16494,13 @@ local function picker_blocks_base(mx,my,cl)
                 local sp = world_to_screen(pos)
                 if sp then
                     if prev then
-                        line(prev.X,prev.Y,sp.X,sp.Y,r,g,bc,alpha*(0.08+fade*0.32),2.4)
-                        line(prev.X,prev.Y,sp.X,sp.Y,1.0,0.88,0.95,alpha*(0.04+fade*0.14),0.9)
+                        line(prev.X,prev.Y,sp.X,sp.Y,r,g,bc,alpha*(0.08+fade*0.32),2.4*lineFat)
+                        line(prev.X,prev.Y,sp.X,sp.Y,1.0,0.88,0.95,alpha*(0.04+fade*0.14),0.9*lineFat)
                     end
-                    local dot = 1.6 + fade * 2.9
-                    circle(sp.X,sp.Y,dot + 4.5,r,g,bc,alpha*(0.020+fade*0.055))
+                    local dot = (1.6 + fade * 2.9) * dotScale
+                    circle(sp.X,sp.Y,dot + 4.5*dotScale,r,g,bc,alpha*(0.020+fade*0.055))
                     circle(sp.X,sp.Y,dot,r,g,bc,alpha*(0.16+fade*0.50))
-                    circle(sp.X,sp.Y,math.max(1.0,dot*0.45),1.0,0.92,0.98,alpha*(0.12+fade*0.35))
+                    circle(sp.X,sp.Y,math.max(0.85,dot*0.45),1.0,0.92,0.98,alpha*(0.12+fade*0.35))
                     prev = sp
                 end
             end
@@ -16492,25 +16511,26 @@ local function picker_blocks_base(mx,my,cl)
             local y = yMid + math.sin(a * 0.88 + side * 0.7) * span * 0.22
             local core = world_to_screen(hrp + Vector3(math.cos(a) * rad, y, math.sin(a) * rad))
             if core then
-                circle(core.X,core.Y,24,r,g,bc,alpha*0.10)
-                circle(core.X,core.Y,15,r,g,bc,alpha*0.16)
-                circle(core.X,core.Y,8.0,r,g,bc,alpha*0.76)
-                circle(core.X,core.Y,4.2,1.0,0.96,0.92,alpha*0.86)
+                circle(core.X,core.Y,24*dotScale,r,g,bc,alpha*0.10)
+                circle(core.X,core.Y,15*dotScale,r,g,bc,alpha*0.16)
+                circle(core.X,core.Y,8.0*dotScale,r,g,bc,alpha*0.76)
+                circle(core.X,core.Y,math.max(2.4,4.2*dotScale),1.0,0.96,0.92,alpha*0.86)
             end
         end
 
         -- soft body glow lines so the effect wraps around the full character, not only one point.
         local prev1=nil
         local prev2=nil
-        for i=0,44 do
-            local u=i/44
+        local wrapSteps = 36
+        for i=0,wrapSteps do
+            local u=i/wrapSteps
             local y=bottom+span*(0.18+u*0.68)
             local a=tm*1.35+u*6.283185
             local rad=0.78+0.22*math.sin(u*3.14159)
             local p1=hrp+Vector3(math.cos(a)*rad,y,math.sin(a)*rad)
             local p2=hrp+Vector3(math.cos(a+3.14159)*rad,y,math.sin(a+3.14159)*rad)
-            if prev1 then ec_v90_line_world(prev1,p1,r,g,bc,0.13*alpha,0.85) end
-            if prev2 then ec_v90_line_world(prev2,p2,1.0,0.86,0.96,0.08*alpha,0.75) end
+            if prev1 then ec_v90_line_world(prev1,p1,r,g,bc,0.13*alpha,0.85*lineFat) end
+            if prev2 then ec_v90_line_world(prev2,p2,1.0,0.86,0.96,0.08*alpha,0.75*lineFat) end
             prev1=p1
             prev2=p2
         end
