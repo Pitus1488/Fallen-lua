@@ -8829,7 +8829,7 @@ local sideX = paneX + 12
 local sideY = paneY + 12
 local sideY2 = paneY2 - 12
 round_rect(sideX,sideY,sideX+sideW,sideY2,0.060,0.046,0.118,0.80,10)
-round_rect(sideX+1,sideY+1,sideX+sideW-1,sideY2-1,0.024,0.022,0.048,0.76,9)
+round_rect(sideX+1,sideY+1,sideX+sideW-1,sideY2-1,0.018,0.016,0.038,0.995,9)
 local avatarX = sideX + 12
 local avatarY = sideY + 12
 local avatarS = 34
@@ -8885,8 +8885,8 @@ local contentX = sideX + sideW + 14
 local contentY = sideY
 local contentX2 = paneX2 - 12
 local contentY2 = sideY2
-round_rect(contentX,contentY,contentX2,contentY2,0.040,0.032,0.085,0.76,8)
-out(contentX,contentY,contentX2,contentY2,0.22,0.16,0.38,0.62,1)
+round_rect(contentX,contentY,contentX2,contentY2,0.018,0.016,0.038,0.995,8)
+out(contentX,contentY,contentX2,contentY2,0.22,0.16,0.38,0.95,1)
 local innerGap = 10
 local contentW = contentX2 - contentX
 local colW = math.floor((contentW - innerGap * 4) / 3)
@@ -15345,9 +15345,10 @@ local function picker_blocks_base(mx,my,cl)
 
         -- v97: VISUALS page background now matches the normal tabs.
         -- Do not paint it pure black; use the same purple pane colors as AIM/ESP/NOCLIP.
-        round(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.024,0.022,0.048,0.76,9)
-        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,0.76,8)
-        if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.62,1) end
+        -- v103: hard opaque VISUALS layer, so old Armor/ESP page cannot show through behind it.
+        round(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.018,0.016,0.038,0.995,9)
+        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.018,0.016,0.038,0.995,8)
+        if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.95,1) end
 
         local sections = {"Trail","World Effects","Target Effects","China Hat","Bullet Tracers","Aura"}
         local secY = L.sideY + 74
@@ -15390,7 +15391,7 @@ local function picker_blocks_base(mx,my,cl)
             color_button(mx,my,cl,c1+colW-42,sy+42,"squares")
             V.squares.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"World Effects",V.squares.enabled == true)
             V.squares.modes = multi_dropdown_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Type",{"Cubes","Stars","Circles"},V.squares.modes or {},"world_effect_stack",false)
-            V.squares.amount = safe_float(mx,my,visual_control_click(cl),c1+18,sy+162,colW-36,"Amount",V.squares.amount or 42,8,90)
+            V.squares.amount = safe_float(mx,my,visual_control_click(cl),c1+18,sy+162,colW-36,"Amount",V.squares.amount or 32,8,64)
             V.squares.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+222,colW-36,"Distance",V.squares.radius or 25.0,25.0,200.0)
             V.squares.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+282,colW-36,"Speed",V.squares.speed or 1.10,0.10,4.00)
             V.squares.size = safe_float(mx,my,visual_control_click(cl),c1+18,sy+342,colW-36,"Effect Size",V.squares.size or 0.75,0.20,1.60)
@@ -15811,7 +15812,7 @@ local function picker_blocks_base(mx,my,cl)
 
         local cr,cg,cb = get_target_color("squares")
         local worldAlpha = get_target_alpha("squares")
-        local drawAmount = math.min(amount,80)
+        local drawAmount = math.min(amount,56) -- v103 optimized cap
         local cache = build_world_fx_cache(drawAmount)
 
         -- vertical fall area around the player
@@ -15928,9 +15929,9 @@ local function picker_blocks_base(mx,my,cl)
         local alpha = 0.82
         local baseR,baseG,baseB = 1.00,0.00,0.55
 
-        local segments = 72       -- cached trig points, enough to look round
-        local rings = 9           -- inner fill bands
-        local spokeStep = 2       -- every 2nd point for cone fill
+        local segments = 48       -- v103 cached trig points, optimized
+        local rings = 5           -- v103 fewer inner fill bands
+        local spokeStep = 3       -- v103 fewer spokes, still looks filled
         local phase = tm * spinSpeed * 0.85
 
         V.china = V.china or {}
@@ -16003,9 +16004,8 @@ local function picker_blocks_base(mx,my,cl)
         local function screen_line(s1,s2,r,g,b,a,thick)
             if not (s1 and s2) then return end
             -- Big transparent core = fake surface fill, thin bright line = definition.
-            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.070,(thick or 1)*8.0)
-            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.145,(thick or 1)*4.4)
-            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.300,(thick or 1)*1.35)
+            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.120,(thick or 1)*6.2)
+            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.310,(thick or 1)*1.45)
         end
 
         -- Main cone surface. This is the "filled" part, but cached/low count.
@@ -16027,7 +16027,7 @@ local function picker_blocks_base(mx,my,cl)
         end
 
         -- A few diagonal chords fill the side view without massive line spam.
-        local chordStep = 12
+        local chordStep = 16
         for i=0,segments-1,chordStep do
             local u = i / segments
             local r,g,b = hat_color(u,0.05)
@@ -16040,7 +16040,7 @@ local function picker_blocks_base(mx,my,cl)
             local r,g,b = hat_color(u,0)
             china_hat_line(rimScr[i-1] and rotated_point(i-1,radius,0) or top, rotated_point(i,radius,0), r,g,b, alpha, 1.00)
         end
-        for i=0,segments-1,12 do
+        for i=0,segments-1,16 do
             local u = i / segments
             local r,g,b = hat_color(u,0)
             china_hat_line(top, rotated_point(i,radius,0), r,g,b, alpha*0.70, 0.72)
@@ -16597,9 +16597,10 @@ local function picker_blocks_base(mx,my,cl)
 
     if hooks and hooks.on_render then
         hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_china_hat); pcall(draw_target_effects) end)
-    elseif callbacks and callbacks.paint then
-        callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_china_hat); pcall(draw_target_effects) end)
-    end
+    else-- v103 optimization: callbacks.paint is legacy alias of hooks.on_render, so registering both doubles the draw cost.
+    -- if callbacks and callbacks.paint then
+    --     callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_china_hat); pcall(draw_target_effects) end)
+    -- end
 
     if notify and not __EC_V90_NOTIFIED then __EC_V90_NOTIFIED = true; notify("Eclipze v90 loaded", "success") end
 end
@@ -16688,3 +16689,9 @@ end)()
 
 
 -- ECLIPZE v100: China Hat clean UI + fake filled cone, only Rainbow setting remains.
+
+
+-- ECLIPZE v103 optimization note:
+-- Visuals page is now opaque to hide old tab content behind it.
+-- Duplicate callbacks.paint render registration disabled.
+-- China Hat / World Effects draw counts reduced and use cached geometry.
