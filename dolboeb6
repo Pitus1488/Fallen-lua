@@ -16948,7 +16948,7 @@ end)()
 
 -- ECLIPZE v111: real CONFIGS tab + hard Visuals background + flat overlay edge guard
 ;(function()
-    return -- disabled by v114: replaced with named configs integrated into the real tab bar
+    if true then return end -- disabled by v115: replaced with named configs integrated into the real tab bar
     if __EC_V111_CONFIGS_PATCH then return end
     __EC_V111_CONFIGS_PATCH = true
 
