@@ -15917,100 +15917,134 @@ local function picker_blocks_base(mx,my,cl)
         local head = get_head_pos_for_china()
         if not head then return end
 
+        -- v102: optimized cached "filled" china hat.
+        -- Real 3D filled triangles are not available here, so this uses
+        -- cached cone geometry + thick translucent strokes to look filled
+        -- without drawing thousands of uncached lines every frame.
         local tm = now()
-        -- v101: real dense filled look. The API has no 3D triangle fill,
-        -- so this draws many translucent cone surface strokes + inner chords.
         local radius = 2.35
         local height = 0.85
         local spinSpeed = 1.20
-        local segments = 128
-        local alpha = 0.86
+        local alpha = 0.82
         local baseR,baseG,baseB = 1.00,0.00,0.55
-        local spin = tm * spinSpeed * 0.85
+
+        local segments = 72       -- cached trig points, enough to look round
+        local rings = 9           -- inner fill bands
+        local spokeStep = 2       -- every 2nd point for cone fill
+        local phase = tm * spinSpeed * 0.85
+
+        V.china = V.china or {}
+        local cache = V.china.renderCache
+        if not cache or cache.segments ~= segments or cache.rings ~= rings then
+            cache = {
+                segments = segments,
+                rings = rings,
+                cos = {},
+                sin = {},
+                ringF = {}
+            }
+            for i=0,segments do
+                local a = (i / segments) * 6.28318530718
+                cache.cos[i] = math.cos(a)
+                cache.sin[i] = math.sin(a)
+            end
+            for r=1,rings do
+                -- More rings near the outer rim makes it look more filled from side view.
+                local f = r / rings
+                cache.ringF[r] = f * f * 0.18 + f * 0.82
+            end
+            V.china.renderCache = cache
+        end
+
+        local cp = math.cos(phase)
+        local sp = math.sin(phase)
 
         local baseCenter = head + Vector3(0,0.20,0)
         local top = head + Vector3(0,0.20 + height,0)
 
-        local function fill_line(p1,p2,r,g,b,a,th)
-            local s1 = world_to_screen(p1)
-            local s2 = world_to_screen(p2)
-            if not (s1 and s2) then return end
-            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.06,(th or 1.0)*10.0)
-            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.12,(th or 1.0)*6.2)
-            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.24,(th or 1.0)*2.4)
+        local top2 = world_to_screen(top)
+        if not top2 then return end
+
+        local function rotated_point(i, rr, yOff)
+            local c = cache.cos[i] or 1
+            local s = cache.sin[i] or 0
+            local x = (c * cp - s * sp) * rr
+            local z = (c * sp + s * cp) * rr
+            return baseCenter + Vector3(x,yOff,z)
         end
 
-        local function rim_point(u,rr,yOff)
-            local ang = spin + u * 6.283185
-            return baseCenter + Vector3(math.cos(ang)*rr,yOff,math.sin(ang)*rr)
-        end
+        local rimScr = {}
+        local ringScr = {}
 
-        -- Solid cone surface: many top -> rim strokes make the hat visually filled.
-        for i=0,segments-1 do
-            local u = i / segments
-            local p = rim_point(u,radius,0)
-            local r,g,b = baseR,baseG,baseB
-            if V.china.rainbow == true then
-                r,g,b = hsv_to_rgb((u + tm*0.08) % 1.0,1,1)
-            end
-            fill_line(top,p,r,g,b,alpha,0.95)
-        end
-
-        -- Extra inner bands/chords remove the empty wireframe look from side angles.
-        local rings = 24
-        local chordStep = 8
-        for layer=1,rings do
-            local f = layer / rings
-            local rr = radius * f
-            local yOff = height * (1.0 - f)
-            local layerA = alpha * (0.20 + 0.18 * (1.0 - f))
-            for i=0,segments-1,chordStep do
-                local u1 = i / segments
-                local u2 = ((i + segments/2) % segments) / segments
-                local p1 = rim_point(u1,rr,yOff)
-                local p2 = rim_point(u2,rr,yOff)
-                local r,g,b = baseR,baseG,baseB
-                if V.china.rainbow == true then
-                    r,g,b = hsv_to_rgb((u1 + tm*0.08 + f*0.09) % 1.0,1,1)
-                end
-                fill_line(p1,p2,r,g,b,layerA,0.62)
-            end
-        end
-
-        -- Subtle translucent rings across the cone for volume.
-        local fillRings = 18
-        for layer=1,fillRings do
-            local f = layer / fillRings
-            local yOff = height * (1.0 - f)
-            local rr = radius * f
-            local prev = nil
-            for i=0,segments do
-                local u = i / segments
-                local p = rim_point(u,rr,yOff)
-                local r,g,b = baseR,baseG,baseB
-                if V.china.rainbow == true then
-                    r,g,b = hsv_to_rgb((u + tm*0.08 + f*0.08) % 1.0,1,1)
-                end
-                if prev then fill_line(prev,p,r,g,b,alpha*0.34,0.46) end
-                prev = p
-            end
-        end
-
-        -- Bright outer rim and peak outline.
-        local first = nil
-        local prev = nil
+        -- Project outer rim once per frame.
         for i=0,segments do
-            local u = i / segments
-            local p = rim_point(u,radius,0)
-            local r,g,b = baseR,baseG,baseB
-            if V.china.rainbow == true then
-                r,g,b = hsv_to_rgb((u + tm*0.08) % 1.0,1,1)
-            end
-            if prev then china_hat_line(prev,p,r,g,b,alpha,1.05) end
-            if not first then first = p end
-            prev = p
+            local p = rotated_point(i, radius, 0)
+            rimScr[i] = world_to_screen(p)
         end
-        if first and prev then china_hat_line(prev,first,baseR,baseG,baseB,alpha,1.05) end
+
+        -- Project cached inner rings once per frame.
+        for r=1,rings do
+            local f = cache.ringF[r]
+            local rr = radius * f
+            local yOff = height * (1.0 - f)
+            ringScr[r] = {}
+            for i=0,segments do
+                ringScr[r][i] = world_to_screen(rotated_point(i, rr, yOff))
+            end
+        end
+
+        local function hat_color(u, extra)
+            if V.china.rainbow == true then
+                return hsv_to_rgb((u + tm*0.085 + (extra or 0)) % 1.0,1,1)
+            end
+            return baseR,baseG,baseB
+        end
+
+        local function screen_line(s1,s2,r,g,b,a,thick)
+            if not (s1 and s2) then return end
+            -- Big transparent core = fake surface fill, thin bright line = definition.
+            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.070,(thick or 1)*8.0)
+            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.145,(thick or 1)*4.4)
+            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.300,(thick or 1)*1.35)
+        end
+
+        -- Main cone surface. This is the "filled" part, but cached/low count.
+        for i=0,segments-1,spokeStep do
+            local u = i / segments
+            local r,g,b = hat_color(u,0)
+            screen_line(top2, rimScr[i], r,g,b, alpha, 1.05)
+        end
+
+        -- Rings across the cone make the transparent surface look solid.
+        for r=1,rings do
+            local f = cache.ringF[r]
+            local layerA = alpha * (0.16 + 0.18 * f)
+            for i=1,segments do
+                local u = i / segments
+                local rr,gg,bb = hat_color(u, f*0.08)
+                screen_line(ringScr[r][i-1], ringScr[r][i], rr,gg,bb, layerA, 0.62)
+            end
+        end
+
+        -- A few diagonal chords fill the side view without massive line spam.
+        local chordStep = 12
+        for i=0,segments-1,chordStep do
+            local u = i / segments
+            local r,g,b = hat_color(u,0.05)
+            screen_line(ringScr[math.floor(rings*0.55)][i], ringScr[rings][(i + math.floor(segments/2)) % segments], r,g,b, alpha*0.17, 0.72)
+        end
+
+        -- Bright outer rim and soft peak outlines.
+        for i=1,segments do
+            local u = i / segments
+            local r,g,b = hat_color(u,0)
+            china_hat_line(rimScr[i-1] and rotated_point(i-1,radius,0) or top, rotated_point(i,radius,0), r,g,b, alpha, 1.00)
+        end
+        for i=0,segments-1,12 do
+            local u = i / segments
+            local r,g,b = hat_color(u,0)
+            china_hat_line(top, rotated_point(i,radius,0), r,g,b, alpha*0.70, 0.72)
+        end
     end
 
     local function build_fog_ring_cache(steps)
