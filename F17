@@ -14407,14 +14407,21 @@ function __EC_V90_PATCH()
         radius = 2.35,
         height = 0.85,
         speed = 1.20,
-        segments = 40,
-        color = {1.00,0.00,0.55,0.88}
+        segments = 64,
+        fill = true,
+        color = {1.00,0.00,0.55,0.78}
     }
-    if V.china.color and V.china.color[4] == nil then V.china.color[4] = 0.88 end
-    if V.china.radius == nil then V.china.radius = 2.35 end
-    if V.china.height == nil then V.china.height = 0.85 end
-    if V.china.speed == nil then V.china.speed = 1.20 end
-    if V.china.segments == nil then V.china.segments = 40 end
+    -- v100: China Hat settings are fixed; menu only keeps Enable + Rainbow.
+    V.china.radius = 2.35
+    V.china.height = 0.85
+    V.china.speed = 1.20
+    V.china.segments = 64
+    V.china.fill = true
+    V.china.color = V.china.color or {1.00,0.00,0.55,0.78}
+    V.china.color[1] = V.china.color[1] or 1.00
+    V.china.color[2] = V.china.color[2] or 0.00
+    V.china.color[3] = V.china.color[3] or 0.55
+    V.china.color[4] = 0.78
 
     local function now()
         return (tick and tick()) or (os and os.clock and os.clock()) or 0
@@ -15403,14 +15410,15 @@ local function picker_blocks_base(mx,my,cl)
 
         elseif V.section == "China Hat" then
             V.china = V.china or {}
-            group(c1,sy,colW,354,"China Hat")
-            color_button(mx,my,cl,c1+colW-42,sy+42,"china")
+            group(c1,sy,colW,116,"China Hat")
             V.china.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"China Hat",V.china.enabled == true)
             V.china.rainbow = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+72,"Rainbow Hat",V.china.rainbow == true)
-            V.china.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+112,colW-36,"Hat Radius",V.china.radius or 2.35,1.00,6.00)
-            V.china.height = safe_float(mx,my,visual_control_click(cl),c1+18,sy+172,colW-36,"Hat Height",V.china.height or 0.85,0.15,3.00)
-            V.china.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+232,colW-36,"Spin Speed",V.china.speed or 1.20,0.00,5.00)
-            V.china.segments = safe_float(mx,my,visual_control_click(cl),c1+18,sy+292,colW-36,"Smoothness",V.china.segments or 40,12,72)
+            V.china.radius = 2.35
+            V.china.height = 0.85
+            V.china.speed = 1.20
+            V.china.segments = 64
+            V.china.fill = true
+            V.china.color = {1.00,0.00,0.55,0.78}
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
@@ -15910,21 +15918,56 @@ local function picker_blocks_base(mx,my,cl)
         if not head then return end
 
         local tm = now()
-        local radius = clamp(V.china.radius or 2.35,1.00,6.00)
-        local height = clamp(V.china.height or 0.85,0.15,3.00)
-        local spinSpeed = clamp(V.china.speed or 1.20,0.00,5.00)
-        local segments = math.floor(clamp(V.china.segments or 40,12,72)+0.5)
-        local alpha = get_target_alpha("china")
-        local baseR,baseG,baseB = get_target_color("china")
+        -- v100: fixed clean china hat. Only Rainbow remains in the menu.
+        local radius = 2.35
+        local height = 0.85
+        local spinSpeed = 1.20
+        local segments = 64
+        local alpha = 0.78
+        local baseR,baseG,baseB = 1.00,0.00,0.55
         local spin = tm * spinSpeed * 0.85
 
         -- base ring sits just above the head; cone point makes the classic China-hat shape
         local baseCenter = head + Vector3(0,0.20,0)
         local top = head + Vector3(0,0.20 + height,0)
+
+        -- filled look: the API has no real 3D filled triangle primitive,
+        -- so the cone is filled with many smooth translucent rings + radial ribs.
+        local fillRings = 12
+        for layer=1,fillRings do
+            local f = layer / fillRings
+            local yOff = height * (1.0 - f)
+            local rr = radius * f
+            local prev = nil
+            for i=0,segments do
+                local u = i / segments
+                local ang = spin + u * 6.283185
+                local p = baseCenter + Vector3(math.cos(ang)*rr,yOff,math.sin(ang)*rr)
+                local r,g,b = baseR,baseG,baseB
+                if V.china.rainbow == true then
+                    r,g,b = hsv_to_rgb((u + tm*0.08 + f*0.08) % 1.0,1,1)
+                end
+                if prev then china_hat_line(prev,p,r,g,b,alpha*0.18,0.55) end
+                prev = p
+            end
+        end
+
+        -- dense ribs from top to rim make it look like a filled cone instead of empty wireframe.
+        local ribStep = 2
+        for i=0,segments-1,ribStep do
+            local u = i / segments
+            local ang = spin + u * 6.283185
+            local p = baseCenter + Vector3(math.cos(ang)*radius,0,math.sin(ang)*radius)
+            local r,g,b = baseR,baseG,baseB
+            if V.china.rainbow == true then
+                r,g,b = hsv_to_rgb((u + tm*0.08) % 1.0,1,1)
+            end
+            china_hat_line(top,p,r,g,b,alpha*0.36,0.58)
+        end
+
+        -- bright outer rim
         local first = nil
         local prev = nil
-        local spokeStep = math.max(3, math.floor(segments / 10))
-
         for i=0,segments do
             local u = i / segments
             local ang = spin + u * 6.283185
@@ -15935,24 +15978,9 @@ local function picker_blocks_base(mx,my,cl)
             end
             if prev then china_hat_line(prev,p,r,g,b,alpha,1.05) end
             if not first then first = p end
-            if i < segments and (i % spokeStep == 0) then
-                china_hat_line(top,p,r,g,b,alpha*0.82,0.92)
-            end
             prev = p
         end
         if first and prev then china_hat_line(prev,first,baseR,baseG,baseB,alpha,1.05) end
-
-        -- small glow ring under the cone so it looks thicker and smoother
-        local innerPrev = nil
-        for i=0,segments do
-            local u = i / segments
-            local ang = spin + u * 6.283185 + 0.06
-            local p = baseCenter + Vector3(math.cos(ang)*(radius*0.72),-0.035,math.sin(ang)*(radius*0.72))
-            local r,g,b = baseR,baseG,baseB
-            if V.china.rainbow == true then r,g,b = hsv_to_rgb((u + tm*0.08 + 0.08) % 1.0,1,1) end
-            if innerPrev then china_hat_line(innerPrev,p,r,g,b,alpha*0.34,0.72) end
-            innerPrev = p
-        end
     end
 
     local function build_fog_ring_cache(steps)
@@ -16593,3 +16621,6 @@ end)()
 
 
 -- Eclipze v97: VISUALS background matches other tabs, no multi-select dots, Target Effects = Cubes only, World Effects still separated.
+
+
+-- ECLIPZE v100: China Hat clean UI + fake filled cone, only Rainbow setting remains.
