@@ -15311,10 +15311,10 @@ local function picker_blocks_base(mx,my,cl)
 
         V.section = __EC16.visualsSection or V.section or "Trail"
 
-        rect(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.008,0.008,0.014,1.00)
-        round(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.008,0.008,0.014,1.00,9)
-        rect(L.contentX,L.contentY,L.contentX2,L.contentY2,0.008,0.008,0.014,1.00)
-        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.008,0.008,0.014,1.00,8)
+        -- v97: VISUALS page background now matches the normal tabs.
+        -- Do not paint it pure black; use the same purple pane colors as AIM/ESP/NOCLIP.
+        round(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.024,0.022,0.048,0.76,9)
+        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,0.76,8)
         if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.62,1) end
 
         local sections = {"Trail","World Effects","Target Effects","Bullet Tracers","Aura"}
@@ -16445,8 +16445,278 @@ Eclipze v92 hard hotfix
         end
     end
 
-    if notify then pcall(function() notify("Eclipze v96 dense black effects fix loaded", "success") end) end
+    if notify then pcall(function() notify("Eclipze v97 visuals background match loaded", "success") end) end
 end)()
 
 
--- Eclipze v96: black dense blocks, no multi-select dots, Target Effects = Cubes only, World Effects still separated.
+-- Eclipze v97: VISUALS background matches other tabs, no multi-select dots, Target Effects = Cubes only, World Effects still separated.
+
+
+--[[
+Eclipze v98 Fatality-like menu skin
+- Keeps all current functions/controls from v97.
+- Adds a Fatality-style top bar, compact tab names and background F glow.
+- Top tabs are clickable in the new header and do not trigger menu dragging.
+]]
+;(function()
+    if __EC_FATALITY_V98_PATCHED then return end
+    __EC_FATALITY_V98_PATCHED = true
+
+    local old_menu = __ec16_menu
+    if type(old_menu) ~= "function" then return end
+
+    local ACC_R, ACC_G, ACC_B = 1.00, 0.00, 0.38
+    local BG_R, BG_G, BG_B = 0.018, 0.014, 0.045
+    local PANEL_R, PANEL_G, PANEL_B = 0.030, 0.023, 0.075
+    local CARD_R, CARD_G, CARD_B = 0.048, 0.038, 0.105
+    local DIM_R, DIM_G, DIM_B = 0.48, 0.45, 0.62
+    local TEXT_R, TEXT_G, TEXT_B = 0.94, 0.91, 1.00
+
+    local function tm()
+        if tick then return tick() end
+        if os and os.clock then return os.clock() end
+        return 0
+    end
+
+    local function ix(v)
+        return math.floor((tonumber(v) or 0) + 0.5)
+    end
+
+    local function clamp(v,a,b)
+        v = tonumber(v) or a
+        if v < a then return a end
+        if v > b then return b end
+        return v
+    end
+
+    local function tw(s)
+        s = tostring(s or "")
+        if __ec16_text_w then
+            local ok,res = pcall(__ec16_text_w,s)
+            if ok and res then return res end
+        end
+        return #s * 7
+    end
+
+    local function rect(x1,y1,x2,y2,r,g,b,a)
+        if Drawing and Drawing.DrawBoxFilled then
+            Drawing.DrawBoxFilled(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a or 1)
+        elseif __ec16_rect then
+            pcall(__ec16_rect,x1,y1,x2,y2,r,g,b,a or 1)
+        end
+    end
+
+    local function out(x1,y1,x2,y2,r,g,b,a,t)
+        if Drawing and Drawing.DrawBox then
+            Drawing.DrawBox(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a or 1,t or 1)
+        elseif __ec16_out then
+            pcall(__ec16_out,x1,y1,x2,y2,r,g,b,a or 1,t or 1)
+        end
+    end
+
+    local function round(x1,y1,x2,y2,r,g,b,a,rad)
+        rad = math.floor(math.min(rad or 7,(x2-x1)*0.5,(y2-y1)*0.5))
+        if rad < 1 then rect(x1,y1,x2,y2,r,g,b,a) return end
+        for yy=0,rad-1 do
+            local dy = rad - yy
+            local dx = math.floor(math.sqrt(math.max(0, rad*rad - dy*dy)) + 0.5)
+            rect(x1+rad-dx,y1+yy,x2-rad+dx,y1+yy+1,r,g,b,a)
+            rect(x1+rad-dx,y2-yy-1,x2-rad+dx,y2-yy,r,g,b,a)
+        end
+        rect(x1,y1+rad,x2,y2-rad,r,g,b,a)
+    end
+
+    local function txt_left(x,y,s,r,g,b,a)
+        s = tostring(s or "")
+        if Drawing and Drawing.DrawTextWithOutline then
+            Drawing.DrawTextWithOutline(ix(x + tw(s)*0.5),ix(y),s,r or TEXT_R,g or TEXT_G,b or TEXT_B,a or 1,0,0,0,(a or 1)*0.90)
+        elseif Drawing and Drawing.DrawText then
+            Drawing.DrawText(ix(x),ix(y),s,r or TEXT_R,g or TEXT_G,b or TEXT_B,a or 1)
+        end
+    end
+
+    local function txt_center(x,y,s,r,g,b,a)
+        s = tostring(s or "")
+        txt_left(x - tw(s)*0.5,y,s,r,g,b,a)
+    end
+
+    local function inside(mx,my,x1,y1,x2,y2)
+        if __ec16_in then
+            local ok,res = pcall(__ec16_in,mx,my,x1,y1,x2,y2)
+            if ok then return res == true end
+        end
+        return mx >= x1 and mx <= x2 and my >= y1 and my <= y2
+    end
+
+    local function get_name()
+        local name = "cyzara"
+        pcall(function()
+            if rbx and rbx.local_player then
+                local lp = rbx.local_player()
+                if lp and lp.get_name then
+                    local n = lp:get_name()
+                    if n and n ~= "" then name = tostring(n) end
+                end
+            end
+        end)
+        pcall(function()
+            if name == "cyzara" and GetLocalPlayer then
+                local lp = GetLocalPlayer()
+                if lp and lp.Name then name = tostring(lp.Name) end
+            end
+        end)
+        if #name > 13 then name = string.sub(name,1,13) .. "..." end
+        return name
+    end
+
+    local function set_tab(id)
+        if not __EC16 then return end
+        __EC16.mainTab = id
+        if id == "aim" then __EC16.aimSection = __EC16.aimSection or "General" end
+        if id == "esp" then __EC16.espSection = __EC16.espSection or "Armor" end
+        if id == "visuals" then __EC16.visualsSection = __EC16.visualsSection or "Trail" end
+        if id == "noclip" then __EC16.noclipSection = __EC16.noclipSection or "Noclip" end
+    end
+
+    local function nav_tabs()
+        return {
+            {id="aim",     label="RAGE",    icon="✹", w=74},
+            {id="esp",     label="VISUALS", icon="◉", w=98},
+            {id="visuals", label="MISC",    icon="✿", w=78},
+            {id="noclip",  label="LUA",     icon="<>" , w=66},
+        }
+    end
+
+    local function draw_f_symbols(w,h)
+        local t = tm()
+        local count = 18
+        for i=1,count do
+            local seed = i * 37
+            local x = ((seed * 41) % math.max(w,1)) + math.sin(t*0.20+i) * 12
+            local y = ((seed * 67) % math.max(h,1)) + math.cos(t*0.17+i*0.3) * 10
+            local a = 0.030 + ((i % 4) * 0.010)
+            -- soft fake blur: draw bigger offset shadows behind the letter
+            txt_center(x-2,y-2,"F",ACC_R,ACC_G,ACC_B,a*0.40)
+            txt_center(x+2,y+2,"F",ACC_R,ACC_G,ACC_B,a*0.35)
+            txt_center(x,y,"F",ACC_R,ACC_G,ACC_B,a)
+        end
+    end
+
+    local function draw_screen_dim(w,h)
+        if not (__EC16 and __EC16.open and __EC16.phase == "menu") then return end
+        rect(0,0,w,h,0.005,0.004,0.014,0.30)
+        rect(0,0,w,h,ACC_R,0.0,ACC_B,0.020)
+        draw_f_symbols(w,h)
+    end
+
+    local function handle_fatality_tabs(mx,my,cl)
+        if not (__EC16 and __EC16.open and __EC16.phase == "menu") then return false end
+        local x = __EC16.x or 95
+        local y = __EC16.y or 70
+        local newClick = cl and not (__EC16.lastClick == true)
+        if not newClick then return false end
+        local tx = x + 124
+        local ty = y + 17
+        for _,tb in ipairs(nav_tabs()) do
+            if inside(mx,my,tx,ty,tx+tb.w,ty+22) then
+                set_tab(tb.id)
+                return true
+            end
+            tx = tx + tb.w + 8
+        end
+        return false
+    end
+
+    local function draw_top_skin(mx,my)
+        if not (__EC16 and __EC16.open and __EC16.phase == "menu") then return end
+        local x = __EC16.x or 95
+        local y = __EC16.y or 70
+        local ww = __EC16.w or 960
+        local hh = __EC16.h or 640
+        local x2 = x + ww
+        local y2 = y + hh
+        local reveal = 1
+        if __ec16_sm then
+            local ok,res = pcall(__ec16_sm,__EC16.anim or 1)
+            if ok and res then reveal = res end
+        end
+        local topA = clamp(reveal,0,1)
+
+        -- external shell, closer to Fatality style: thin, square-ish, purple glass
+        round(x-1,y-1,x2+1,y2+1,ACC_R,ACC_G,ACC_B,0.18*topA,13)
+        out(x,y,x2,y2,0.25,0.17,0.55,0.58*topA,1)
+
+        -- cover old header and tabs with the new Fatality-like topbar
+        round(x+7,y+7,x2-7,y+78,BG_R,BG_G,BG_B,0.995*topA,9)
+        round(x+8,y+8,x2-8,y+37,PANEL_R,PANEL_G,PANEL_B,0.995*topA,8)
+        rect(x+10,y+36,x2-10,y+38,ACC_R,ACC_G,ACC_B,0.72*topA)
+        rect(x+10,y+77,x2-10,y+79,ACC_R,ACC_G,ACC_B,0.46*topA)
+
+        -- logo
+        txt_left(x+18,y+18,"FATALITY",1,1,1,0.98*topA)
+        txt_left(x+18+tw("FATALITY")+8,y+18,"•",ACC_R,ACC_G,ACC_B,0.90*topA)
+
+        -- top tabs
+        local tx = x + 124
+        local ty = y + 17
+        for _,tb in ipairs(nav_tabs()) do
+            local active = (__EC16.mainTab == tb.id)
+            local hov = inside(mx,my,tx,ty,tx+tb.w,ty+22)
+            if active then
+                round(tx-2,ty-2,tx+tb.w+2,ty+24,ACC_R,ACC_G,ACC_B,0.13*topA,5)
+                round(tx,ty,tx+tb.w,ty+22,CARD_R,CARD_G,CARD_B,0.98*topA,4)
+                rect(tx+8,ty+20,tx+tb.w-8,ty+22,ACC_R,ACC_G,ACC_B,0.95*topA)
+                txt_left(tx+8,ty+6,tb.icon,ACC_R,ACC_G,ACC_B,0.95*topA)
+                txt_left(tx+24,ty+6,tb.label,1.00,0.93,1.00,0.96*topA)
+            else
+                round(tx,ty,tx+tb.w,ty+22,0.022,0.018,0.052,hov and 0.82 or 0.34,4)
+                txt_left(tx+8,ty+6,tb.icon,DIM_R,DIM_G,DIM_B,hov and 0.88*topA or 0.58*topA)
+                txt_left(tx+24,ty+6,tb.label,DIM_R,DIM_G,DIM_B,hov and 0.90*topA or 0.64*topA)
+            end
+            tx = tx + tb.w + 8
+        end
+
+        -- right profile / expiry block like the reference
+        local uname = get_name()
+        local right = x2 - 28
+        txt_left(right-96,y+18,"exp res:",0.62,0.57,0.76,0.76*topA)
+        txt_left(right-48,y+18,"20 days",ACC_R,0.26,0.52,0.92*topA)
+        txt_left(right-96,y+8,uname,1.00,0.86,0.96,0.88*topA)
+        if Drawing and Drawing.DrawCircleFilled then
+            Drawing.DrawCircleFilled(ix(right),ix(y+20),10,ACC_R,ACC_G,ACC_B,0.18*topA)
+            Drawing.DrawCircleFilled(ix(right),ix(y+17),3,1,0.86,0.96,0.92*topA)
+            Drawing.DrawCircleFilled(ix(right),ix(y+24),5,1,0.86,0.96,0.70*topA)
+        else
+            round(right-10,y+10,right+10,y+30,ACC_R,ACC_G,ACC_B,0.25*topA,8)
+        end
+    end
+
+    -- Small section badges under the new topbar; the old side list still works,
+    -- this only makes the layout feel closer to the reference.
+    local function draw_section_hint()
+        if not (__EC16 and __EC16.open and __EC16.phase == "menu") then return end
+        local x = __EC16.x or 95
+        local y = __EC16.y or 70
+        local label = "GENERAL"
+        if __EC16.mainTab == "aim" then label = tostring(__EC16.aimSection or "General") end
+        if __EC16.mainTab == "esp" then label = tostring(__EC16.espSection or "Armor") end
+        if __EC16.mainTab == "visuals" then label = tostring(__EC16.visualsSection or "Trail") end
+        if __EC16.mainTab == "noclip" then label = "Noclip" end
+        txt_left(x+20,y+52,string.upper(label),0.88,0.84,1.00,0.70)
+        rect(x+20,y+70,x+20+math.min(130,tw(label)+24),y+72,ACC_R,ACC_G,ACC_B,0.60)
+    end
+
+    __ec16_menu = function(mx,my,cl,w,h)
+        if __EC16 and __EC16.open and __EC16.phase == "menu" then
+            local consumedTab = handle_fatality_tabs(mx,my,cl)
+            draw_screen_dim(w or 1920,h or 1080)
+            old_menu(mx,my,consumedTab and false or cl,w,h)
+            draw_top_skin(mx,my)
+            draw_section_hint()
+            return
+        end
+        return old_menu(mx,my,cl,w,h)
+    end
+
+    if notify then pcall(function() notify("Eclipze v98 Fatality style loaded", "success") end) end
+end)()
