@@ -15346,15 +15346,18 @@ local function picker_blocks_base(mx,my,cl)
 
         V.section = __EC16.visualsSection or V.section or "Trail"
 
-        -- v97: VISUALS page background now matches the normal tabs.
-        -- Do not paint it pure black; use the same purple pane colors as AIM/ESP/NOCLIP.
-        -- v103: hard opaque VISUALS layer, so old Armor/ESP page cannot show through behind it.
-        round(L.sideX+1,L.sideY+60,L.sideX+L.sideW-1,L.sideY2-1,0.018,0.016,0.038,0.995,9)
-        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.018,0.016,0.038,0.995,8)
+        -- v116: hard clear the whole tab body first. VISUALS is not allowed to be
+        -- a transparent overlay over FALLEN ESP / local player card anymore.
+        rect(L.paneX,L.paneY,L.paneX2,L.paneY2,0.010,0.010,0.016,1)
+        rect(L.sideX,L.sideY,L.sideX+L.sideW,L.sideY2,0.018,0.016,0.038,1)
+        rect(L.contentX,L.contentY,L.contentX2,L.contentY2,0.018,0.016,0.038,1)
+        round(L.sideX,L.sideY,L.sideX+L.sideW,L.sideY2,0.018,0.016,0.038,1,9)
+        if __ec16_out then __ec16_out(L.sideX,L.sideY,L.sideX+L.sideW,L.sideY2,0.22,0.16,0.38,0.95,1) end
+        round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.018,0.016,0.038,1,8)
         if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.95,1) end
 
         local sections = {"Trail","World Effects","Target Effects","China Hat","Bullet Tracers","Aura"}
-        local secY = L.sideY + 74
+        local secY = L.sideY + 18
         for _,name in ipairs(sections) do
             local ix1 = L.sideX + 10
             local ix2 = L.sideX + L.sideW - 10
@@ -17814,8 +17817,7 @@ ECLIPZE v113 named config system
         round_rect(sx,sy,sx+L.sideW-20,sy+28,0.075,0.058,0.145,0.95,6)
         rect(sx,sy,sx+3,sy+28,1,0,0.55,1)
         text_left(sx+14,sy+8,"Configs",0.94,0.90,1,1)
-        text_left(sx+4,sy+52,"Named config system",0.58,0.52,0.74,0.95)
-        text_left(sx+4,sy+72,"Save / Load / Delete",0.58,0.52,0.74,0.95)
+        -- v116: no extra descriptions in the Configs sidebar.
 
         local cx = L.contentX + 18
         local cy = L.contentY + 18
@@ -17859,8 +17861,7 @@ ECLIPZE v113 named config system
         elseif #S.config_list > maxRows then
             text_left(listX+14,listY+(maxRows*rowH)-5,"...more configs saved",0.62,0.56,0.70,0.95)
         end
-        text_left(bx,listY+(maxRows*rowH)+28,"Click a config name, then Save / Load / Delete.",0.65,0.58,0.72,0.95)
-        text_left(bx,listY+(maxRows*rowH)+48,"Ctrl+V works in config name input.",0.65,0.58,0.72,0.95)
+        -- v116: footer hints removed.
     end
 
     local function type_config_input()
@@ -17976,7 +17977,14 @@ ECLIPZE v113 named config system
                 end
             end
             local passClick = cl
-            if switchedTop or clickedTop or (menuVisible and __EC16 and __EC16.mainTab == "configs") then passClick = false end
+            if switchedTop or clickedTop then passClick = false end
+            if menuVisible and __EC16 and __EC16.mainTab == "configs" then
+                local hx = __EC16.x or 95
+                local hy = __EC16.y or 70
+                local hw = __EC16.w or 960
+                local headerDrag = inside(mx,my,hx,hy,hx+hw,hy+36)
+                if not headerDrag then passClick = false end
+            end
             local ok,ret = pcall(old_menu,mx,my,passClick,w,h)
             if not ok and notify then pcall(function() notify("menu safe skip: "..tostring(ret),"warning") end) end
             menuVisible = (__EC16 and __EC16.open and __EC16.phase == "menu" and (__EC16.animDir ~= -1) and ((__EC16.anim or 1) > 0.02))
@@ -18065,11 +18073,64 @@ end)()
         round(sx,sy,sx+sideW-20,sy+28,0.075,0.058,0.145,0.98,6)
         rect(sx,sy,sx+3,sy+28,1,0,0.55,1)
         text(sx+14,sy+8,"Configs",0.94,0.90,1,1)
-        text(sx+4,sy+52,"Named config system",0.58,0.52,0.74,0.95)
-        text(sx+4,sy+72,"Save / Load / Delete",0.58,0.52,0.74,0.95)
+        -- v116: no extra descriptions in the Configs sidebar.
     end
     if hooks and hooks.on_render then
         hooks.on_render(function() pcall(draw_sidebar_clean) end)
     end
     if notify then pcall(function() notify("ECLIPZE v114 configs integrated", "success") end) end
+end)()
+
+-- ECLIPZE v116: clean integrated Configs + opaque Visuals safety patch
+;(function()
+    if __EC_V116_FINAL_UI_FIX then return end
+    __EC_V116_FINAL_UI_FIX = true
+
+    local drag = {on=false, dx=0, dy=0}
+    local function in_rect(mx,my,x1,y1,x2,y2)
+        if __ec16_in then
+            local ok,res = pcall(__ec16_in,mx,my,x1,y1,x2,y2)
+            if ok then return res == true end
+        end
+        return mx >= x1 and mx <= x2 and my >= y1 and my <= y2
+    end
+
+    if type(__ec16_menu) == "function" then
+        local old_menu = __ec16_menu
+        __ec16_menu = function(mx,my,cl,w,h)
+            mx = mx or 0
+            my = my or 0
+            if __EC16 and __EC16.open and __EC16.phase == "menu" and (__EC16.mainTab == "configs" or __EC16.mainTab == "visuals") then
+                local x = __EC16.x or 95
+                local y = __EC16.y or 70
+                local ww = __EC16.w or 960
+                local overHeader = in_rect(mx,my,x,y,x+ww,y+36)
+                if cl == true and overHeader and not drag.on then
+                    drag.on = true
+                    drag.dx = mx - x
+                    drag.dy = my - y
+                    __EC16.dragging = true
+                    __EC16.dragX = drag.dx
+                    __EC16.dragY = drag.dy
+                elseif cl ~= true then
+                    drag.on = false
+                    __EC16.dragging = false
+                end
+                if drag.on then
+                    __EC16.x = mx - (drag.dx or 0)
+                    __EC16.y = my - (drag.dy or 0)
+                end
+            elseif cl ~= true then
+                drag.on = false
+            end
+            local ret = old_menu(mx,my,cl,w,h)
+            if __EC16 and drag.on then
+                __EC16.x = mx - (drag.dx or 0)
+                __EC16.y = my - (drag.dy or 0)
+            end
+            return ret
+        end
+    end
+
+    if notify then pcall(function() notify("ECLIPZE v116 configs/visuals fixed", "success") end) end
 end)()
