@@ -15407,7 +15407,7 @@ local function picker_blocks_base(mx,my,cl)
             V.targetFx.styles["Aura Swirl"] = nil
             V.targetFx.styles["Helix"] = nil
             V.targetFx.styles["Pulse Rings"] = nil
-            V.targetFx.styles = multi_dropdown_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Stack",{"Cubes"},V.targetFx.styles,"target_effect_stack",false)
+            V.targetFx.styles = multi_dropdown_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Stack",{"Cubes","Souls"},V.targetFx.styles,"target_effect_stack",false)
 
         elseif V.section == "China Hat" then
             V.china = V.china or {}
@@ -16451,6 +16451,71 @@ local function picker_blocks_base(mx,my,cl)
         ec_v90_ring(hrp,0.56+pulse*0.08,bottom+span*0.86,r,g,bc,0.18*alpha,1.10,38,tm*0.55)
     end
 
+
+    local function ec_v90_draw_souls(hrp,bottom,top,r,g,bc,tm,alpha)
+        -- ECLIPZE v104: "Souls" target effect.
+        -- Looks like two glowing soul orbs with a dotted curved trail around the target.
+        local span = top - bottom
+        if span < 2.0 then span = 4.0 end
+        local steps = 24
+        local baseRad = 1.18
+        local yMid = bottom + span * 0.56
+
+        for side=-1,1,2 do
+            local prev = nil
+            local phase = tm * 2.35 + side * 1.72
+            for k=steps,0,-1 do
+                local u = k / steps
+                local fade = 1.0 - u
+                local a = phase - u * 3.65 * side
+                local wave = math.sin(a * 0.88 + side * 0.7)
+                local rad = baseRad + math.sin(a * 1.10) * 0.20
+                local y = yMid + wave * span * 0.22
+                local pos = hrp + Vector3(math.cos(a) * rad, y, math.sin(a) * rad)
+                local sp = world_to_screen(pos)
+                if sp then
+                    if prev then
+                        line(prev.X,prev.Y,sp.X,sp.Y,r,g,bc,alpha*(0.08+fade*0.32),2.4)
+                        line(prev.X,prev.Y,sp.X,sp.Y,1.0,0.88,0.95,alpha*(0.04+fade*0.14),0.9)
+                    end
+                    local dot = 1.6 + fade * 2.9
+                    circle(sp.X,sp.Y,dot + 4.5,r,g,bc,alpha*(0.020+fade*0.055))
+                    circle(sp.X,sp.Y,dot,r,g,bc,alpha*(0.16+fade*0.50))
+                    circle(sp.X,sp.Y,math.max(1.0,dot*0.45),1.0,0.92,0.98,alpha*(0.12+fade*0.35))
+                    prev = sp
+                end
+            end
+
+            -- bright soul core/orb at the leading point
+            local a = phase
+            local rad = baseRad + math.sin(a * 1.10) * 0.20
+            local y = yMid + math.sin(a * 0.88 + side * 0.7) * span * 0.22
+            local core = world_to_screen(hrp + Vector3(math.cos(a) * rad, y, math.sin(a) * rad))
+            if core then
+                circle(core.X,core.Y,24,r,g,bc,alpha*0.10)
+                circle(core.X,core.Y,15,r,g,bc,alpha*0.16)
+                circle(core.X,core.Y,8.0,r,g,bc,alpha*0.76)
+                circle(core.X,core.Y,4.2,1.0,0.96,0.92,alpha*0.86)
+            end
+        end
+
+        -- soft body glow lines so the effect wraps around the full character, not only one point.
+        local prev1=nil
+        local prev2=nil
+        for i=0,44 do
+            local u=i/44
+            local y=bottom+span*(0.18+u*0.68)
+            local a=tm*1.35+u*6.283185
+            local rad=0.78+0.22*math.sin(u*3.14159)
+            local p1=hrp+Vector3(math.cos(a)*rad,y,math.sin(a)*rad)
+            local p2=hrp+Vector3(math.cos(a+3.14159)*rad,y,math.sin(a+3.14159)*rad)
+            if prev1 then ec_v90_line_world(prev1,p1,r,g,bc,0.13*alpha,0.85) end
+            if prev2 then ec_v90_line_world(prev2,p2,1.0,0.86,0.96,0.08*alpha,0.75) end
+            prev1=p1
+            prev2=p2
+        end
+    end
+
     local function draw_target_effects()
         if not (V.targetFx and V.targetFx.enabled == true) then return end
 
@@ -16463,10 +16528,12 @@ local function picker_blocks_base(mx,my,cl)
         local alpha=get_target_alpha("targetfx")
         local targetStyles = (V.targetFx and V.targetFx.styles) or {}
         local cubesOn = (targetStyles["Cubes"] == true) or (targetStyles["Small Cubes"] == true)
-        if not cubesOn then return end
+        local soulsOn = (targetStyles["Souls"] == true) or (targetStyles["Soul"] == true)
+        if (not cubesOn) and (not soulsOn) then return end
 
-        -- v96: target effects are only Cubes and are not shifted. Offsets are only used for World Effects.
-        ec_v90_draw_small_cubes(hrp,bottom,top,r,g,bc,tm,alpha)
+        -- Target effects are stackable again: Cubes + Souls can render together.
+        if cubesOn then ec_v90_draw_small_cubes(hrp,bottom,top,r,g,bc,tm,alpha) end
+        if soulsOn then ec_v90_draw_souls(hrp,bottom,top,r,g,bc,tm,alpha) end
     end
 
     -- Safe aura cache only. Original aura styles are NOT replaced.
@@ -16695,3 +16762,6 @@ end)()
 -- Visuals page is now opaque to hide old tab content behind it.
 -- Duplicate callbacks.paint render registration disabled.
 -- China Hat / World Effects draw counts reduced and use cached geometry.
+
+
+-- ECLIPZE v104: Target Effects now include stackable "Souls" effect.
