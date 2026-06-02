@@ -14346,7 +14346,7 @@ function __EC_V90_PATCH()
         enabled = false,
         mode = "Mixed",
         amount = 42,
-        radius = 15.0,
+        radius = 25.0,
         speed = 1.10,
         size = 0.75,
         color = {0.92, 0.70, 1.00, 1}
@@ -15391,7 +15391,7 @@ local function picker_blocks_base(mx,my,cl)
             V.squares.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"World Effects",V.squares.enabled == true)
             V.squares.modes = multi_dropdown_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Type",{"Cubes","Stars","Circles"},V.squares.modes or {},"world_effect_stack",false)
             V.squares.amount = safe_float(mx,my,visual_control_click(cl),c1+18,sy+162,colW-36,"Amount",V.squares.amount or 42,8,90)
-            V.squares.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+222,colW-36,"Distance",V.squares.radius or 15.0,15.0,80.0)
+            V.squares.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+222,colW-36,"Distance",V.squares.radius or 25.0,25.0,200.0)
             V.squares.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+282,colW-36,"Speed",V.squares.speed or 1.10,0.10,4.00)
             V.squares.size = safe_float(mx,my,visual_control_click(cl),c1+18,sy+342,colW-36,"Effect Size",V.squares.size or 0.75,0.20,1.60)
 
@@ -15798,7 +15798,7 @@ local function picker_blocks_base(mx,my,cl)
 
         local tm = now()
         local amount = math.floor(clamp(V.squares.amount or 42,8,90)+0.5)
-        local radius = clamp(V.squares.radius or 15.0,15.0,80.0)
+        local radius = clamp(V.squares.radius or 25.0,25.0,200.0)
         local speed = clamp(V.squares.speed or 1.10,0.05,4.0)
         local baseSize = clamp(V.squares.size or 0.75,0.15,1.8)
 
@@ -15918,22 +15918,67 @@ local function picker_blocks_base(mx,my,cl)
         if not head then return end
 
         local tm = now()
-        -- v100: fixed clean china hat. Only Rainbow remains in the menu.
+        -- v101: real dense filled look. The API has no 3D triangle fill,
+        -- so this draws many translucent cone surface strokes + inner chords.
         local radius = 2.35
         local height = 0.85
         local spinSpeed = 1.20
-        local segments = 64
-        local alpha = 0.78
+        local segments = 128
+        local alpha = 0.86
         local baseR,baseG,baseB = 1.00,0.00,0.55
         local spin = tm * spinSpeed * 0.85
 
-        -- base ring sits just above the head; cone point makes the classic China-hat shape
         local baseCenter = head + Vector3(0,0.20,0)
         local top = head + Vector3(0,0.20 + height,0)
 
-        -- filled look: the API has no real 3D filled triangle primitive,
-        -- so the cone is filled with many smooth translucent rings + radial ribs.
-        local fillRings = 12
+        local function fill_line(p1,p2,r,g,b,a,th)
+            local s1 = world_to_screen(p1)
+            local s2 = world_to_screen(p2)
+            if not (s1 and s2) then return end
+            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.06,(th or 1.0)*10.0)
+            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.12,(th or 1.0)*6.2)
+            line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.24,(th or 1.0)*2.4)
+        end
+
+        local function rim_point(u,rr,yOff)
+            local ang = spin + u * 6.283185
+            return baseCenter + Vector3(math.cos(ang)*rr,yOff,math.sin(ang)*rr)
+        end
+
+        -- Solid cone surface: many top -> rim strokes make the hat visually filled.
+        for i=0,segments-1 do
+            local u = i / segments
+            local p = rim_point(u,radius,0)
+            local r,g,b = baseR,baseG,baseB
+            if V.china.rainbow == true then
+                r,g,b = hsv_to_rgb((u + tm*0.08) % 1.0,1,1)
+            end
+            fill_line(top,p,r,g,b,alpha,0.95)
+        end
+
+        -- Extra inner bands/chords remove the empty wireframe look from side angles.
+        local rings = 24
+        local chordStep = 8
+        for layer=1,rings do
+            local f = layer / rings
+            local rr = radius * f
+            local yOff = height * (1.0 - f)
+            local layerA = alpha * (0.20 + 0.18 * (1.0 - f))
+            for i=0,segments-1,chordStep do
+                local u1 = i / segments
+                local u2 = ((i + segments/2) % segments) / segments
+                local p1 = rim_point(u1,rr,yOff)
+                local p2 = rim_point(u2,rr,yOff)
+                local r,g,b = baseR,baseG,baseB
+                if V.china.rainbow == true then
+                    r,g,b = hsv_to_rgb((u1 + tm*0.08 + f*0.09) % 1.0,1,1)
+                end
+                fill_line(p1,p2,r,g,b,layerA,0.62)
+            end
+        end
+
+        -- Subtle translucent rings across the cone for volume.
+        local fillRings = 18
         for layer=1,fillRings do
             local f = layer / fillRings
             local yOff = height * (1.0 - f)
@@ -15941,37 +15986,22 @@ local function picker_blocks_base(mx,my,cl)
             local prev = nil
             for i=0,segments do
                 local u = i / segments
-                local ang = spin + u * 6.283185
-                local p = baseCenter + Vector3(math.cos(ang)*rr,yOff,math.sin(ang)*rr)
+                local p = rim_point(u,rr,yOff)
                 local r,g,b = baseR,baseG,baseB
                 if V.china.rainbow == true then
                     r,g,b = hsv_to_rgb((u + tm*0.08 + f*0.08) % 1.0,1,1)
                 end
-                if prev then china_hat_line(prev,p,r,g,b,alpha*0.18,0.55) end
+                if prev then fill_line(prev,p,r,g,b,alpha*0.34,0.46) end
                 prev = p
             end
         end
 
-        -- dense ribs from top to rim make it look like a filled cone instead of empty wireframe.
-        local ribStep = 2
-        for i=0,segments-1,ribStep do
-            local u = i / segments
-            local ang = spin + u * 6.283185
-            local p = baseCenter + Vector3(math.cos(ang)*radius,0,math.sin(ang)*radius)
-            local r,g,b = baseR,baseG,baseB
-            if V.china.rainbow == true then
-                r,g,b = hsv_to_rgb((u + tm*0.08) % 1.0,1,1)
-            end
-            china_hat_line(top,p,r,g,b,alpha*0.36,0.58)
-        end
-
-        -- bright outer rim
+        -- Bright outer rim and peak outline.
         local first = nil
         local prev = nil
         for i=0,segments do
             local u = i / segments
-            local ang = spin + u * 6.283185
-            local p = baseCenter + Vector3(math.cos(ang)*radius,0,math.sin(ang)*radius)
+            local p = rim_point(u,radius,0)
             local r,g,b = baseR,baseG,baseB
             if V.china.rainbow == true then
                 r,g,b = hsv_to_rgb((u + tm*0.08) % 1.0,1,1)
