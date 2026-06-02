@@ -16453,103 +16453,145 @@ end)()
 
 
 --[[
-Eclipze v98 Fatality-like menu skin
-- Keeps all current functions/controls from v97.
-- Adds a Fatality-style top bar, compact tab names and background F glow.
-- Top tabs are clickable in the new header and do not trigger menu dragging.
+ECLIPZE v100 exact fatality-style menu overlay
+- Standalone-style menu injected into the full old script.
+- Small background F letters removed.
+- FATALITY text replaced with ECLIPZE.
+- Old sidebar menu/top HUD are hidden; all existing features stay loaded.
 ]]
-;(function()
-    if __EC_FATALITY_V98_PATCHED then return end
-    __EC_FATALITY_V98_PATCHED = true
+(function()
+    if __EC_ECLIPZE_V100_MENU_PATCHED then return end
+    __EC_ECLIPZE_V100_MENU_PATCHED = true
 
-    local old_menu = __ec16_menu
-    if type(old_menu) ~= "function" then return end
+    __EC_FT100 = __EC_FT100 or {}
+    local FT = __EC_FT100
+    FT.x = FT.x or 320
+    FT.y = FT.y or 86
+    FT.w = FT.w or 640
+    FT.h = FT.h or 440
+    FT.tab = FT.tab or "RAGE"
+    FT.open_dropdown = FT.open_dropdown or nil
+    FT.active_slider = FT.active_slider or nil
+    FT.dragging = false
+    FT.drag_dx = 0
+    FT.drag_dy = 0
+    FT.mouse_x = 0
+    FT.mouse_y = 0
+    FT.lmb = false
+    FT.lmb_pressed = false
+    FT.status = FT.status or "ready"
+    FT.values = FT.values or {}
+    FT.drop_values = FT.drop_values or {}
+    FT.colors = FT.colors or {}
 
-    local ACC_R, ACC_G, ACC_B = 1.00, 0.00, 0.38
-    local BG_R, BG_G, BG_B = 0.018, 0.014, 0.045
-    local PANEL_R, PANEL_G, PANEL_B = 0.030, 0.023, 0.075
-    local CARD_R, CARD_G, CARD_B = 0.048, 0.038, 0.105
-    local DIM_R, DIM_G, DIM_B = 0.48, 0.45, 0.62
-    local TEXT_R, TEXT_G, TEXT_B = 0.94, 0.91, 1.00
-
-    local function tm()
-        if tick then return tick() end
-        if os and os.clock then return os.clock() end
-        return 0
-    end
-
-    local function ix(v)
-        return math.floor((tonumber(v) or 0) + 0.5)
-    end
+    local ACC_R, ACC_G, ACC_B = 0.92, 0.00, 0.31
+    local BG_R, BG_G, BG_B = 0.045, 0.040, 0.085
+    local BG2_R, BG2_G, BG2_B = 0.070, 0.060, 0.135
+    local BG3_R, BG3_G, BG3_B = 0.030, 0.027, 0.060
+    local LINE_R, LINE_G, LINE_B = 0.155, 0.135, 0.255
+    local TXT_R, TXT_G, TXT_B = 0.92, 0.90, 0.98
+    local DIM_R, DIM_G, DIM_B = 0.46, 0.43, 0.58
 
     local function clamp(v,a,b)
-        v = tonumber(v) or a
+        v = tonumber(v or 0) or 0
         if v < a then return a end
         if v > b then return b end
         return v
     end
-
-    local function tw(s)
-        s = tostring(s or "")
-        if __ec16_text_w then
-            local ok,res = pcall(__ec16_text_w,s)
-            if ok and res then return res end
-        end
-        return #s * 7
+    local function rect(x,y,w,h,r,g,b,a)
+        if Drawing and Drawing.DrawBoxFilled then Drawing.DrawBoxFilled(x,y,x+w,y+h,r,g,b,a or 1) end
     end
-
-    local function rect(x1,y1,x2,y2,r,g,b,a)
-        if Drawing and Drawing.DrawBoxFilled then
-            Drawing.DrawBoxFilled(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a or 1)
-        elseif __ec16_rect then
-            pcall(__ec16_rect,x1,y1,x2,y2,r,g,b,a or 1)
-        end
+    local function border(x,y,w,h,r,g,b,a,t)
+        if Drawing and Drawing.DrawBox then Drawing.DrawBox(x,y,x+w,y+h,r,g,b,a or 1,t or 1) end
     end
-
-    local function out(x1,y1,x2,y2,r,g,b,a,t)
-        if Drawing and Drawing.DrawBox then
-            Drawing.DrawBox(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a or 1,t or 1)
-        elseif __ec16_out then
-            pcall(__ec16_out,x1,y1,x2,y2,r,g,b,a or 1,t or 1)
-        end
+    local function text(x,y,s,r,g,b,a)
+        if Drawing and Drawing.DrawText then Drawing.DrawText(x,y,tostring(s or ""),r or TXT_R,g or TXT_G,b or TXT_B,a or 1) end
     end
-
-    local function round(x1,y1,x2,y2,r,g,b,a,rad)
-        rad = math.floor(math.min(rad or 7,(x2-x1)*0.5,(y2-y1)*0.5))
-        if rad < 1 then rect(x1,y1,x2,y2,r,g,b,a) return end
-        for yy=0,rad-1 do
-            local dy = rad - yy
-            local dx = math.floor(math.sqrt(math.max(0, rad*rad - dy*dy)) + 0.5)
-            rect(x1+rad-dx,y1+yy,x2-rad+dx,y1+yy+1,r,g,b,a)
-            rect(x1+rad-dx,y2-yy-1,x2-rad+dx,y2-yy,r,g,b,a)
-        end
-        rect(x1,y1+rad,x2,y2-rad,r,g,b,a)
-    end
-
-    local function txt_left(x,y,s,r,g,b,a)
-        s = tostring(s or "")
+    local function outline_text(cx,y,s,r,g,b,a)
         if Drawing and Drawing.DrawTextWithOutline then
-            Drawing.DrawTextWithOutline(ix(x + tw(s)*0.5),ix(y),s,r or TEXT_R,g or TEXT_G,b or TEXT_B,a or 1,0,0,0,(a or 1)*0.90)
-        elseif Drawing and Drawing.DrawText then
-            Drawing.DrawText(ix(x),ix(y),s,r or TEXT_R,g or TEXT_G,b or TEXT_B,a or 1)
+            Drawing.DrawTextWithOutline(cx,y,tostring(s or ""),r or TXT_R,g or TXT_G,b or TXT_B,a or 1,0,0,0,0.95)
+        else
+            text(cx,y,s,r,g,b,a)
         end
     end
-
-    local function txt_center(x,y,s,r,g,b,a)
-        s = tostring(s or "")
-        txt_left(x - tw(s)*0.5,y,s,r,g,b,a)
+    local function shadow_rect(x,y,w,h)
+        rect(x+3,y+4,w,h,0,0,0,0.27)
+        rect(x+1,y+2,w,h,0,0,0,0.18)
+    end
+    local function in_rect(mx,my,x,y,w,h)
+        return mx >= x and mx <= x+w and my >= y and my <= y+h
+    end
+    local function screen_size(fw,fh)
+        if fw and fh then return fw,fh end
+        local ok,d = pcall(function() return ScreenSize and ScreenSize() end)
+        if ok and d then return d.Width or d.X or 1280, d.Height or d.Y or 720 end
+        ok,d = pcall(function() return rbx and rbx.screen_dim and rbx.screen_dim() end)
+        if ok and d then return d.Width or d.X or 1280, d.Height or d.Y or 720 end
+        return 1280,720
     end
 
-    local function inside(mx,my,x1,y1,x2,y2)
-        if __ec16_in then
-            local ok,res = pcall(__ec16_in,mx,my,x1,y1,x2,y2)
-            if ok then return res == true end
+    local GLYPH = {
+        E={"11111","10000","10000","11110","10000","10000","11111"},
+        C={"01111","10000","10000","10000","10000","10000","01111"},
+        L={"10000","10000","10000","10000","10000","10000","11111"},
+        I={"11111","00100","00100","00100","00100","00100","11111"},
+        P={"11110","10001","10001","11110","10000","10000","10000"},
+        Z={"11111","00001","00010","00100","01000","10000","11111"},
+        R={"11110","10001","10001","11110","10100","10010","10001"},
+        A={"01110","10001","10001","11111","10001","10001","10001"},
+        G={"01111","10000","10000","10011","10001","10001","01111"},
+        V={"10001","10001","10001","10001","01010","01010","00100"},
+        S={"01111","10000","10000","01110","00001","00001","11110"},
+        M={"10001","11011","10101","10101","10001","10001","10001"},
+        U={"10001","10001","10001","10001","10001","10001","01110"},
+        N={"10001","11001","10101","10011","10001","10001","10001"},
+        O={"01110","10001","10001","10001","10001","10001","01110"},
+        H={"10001","10001","10001","11111","10001","10001","10001"},
+        D={"11110","10001","10001","10001","10001","10001","11110"},
+        T={"11111","00100","00100","00100","00100","00100","00100"},
+        Y={"10001","10001","01010","00100","00100","00100","00100"},
+    }
+    local function big_char(ch,x,y,scale,r,g,b,a)
+        local gph = GLYPH[ch]
+        if not gph then return 0 end
+        for row=1,#gph do
+            local line = gph[row]
+            for i=1,#line do
+                if string.sub(line,i,i) == "1" then
+                    rect(x+(i-1)*scale,y+(row-1)*scale,scale-1,scale-1,r,g,b,a)
+                end
+            end
         end
-        return mx >= x1 and mx <= x2 and my >= y1 and my <= y2
+        return 6*scale
+    end
+    local function big_word(word,x,y,scale,r,g,b,a,shadow)
+        local cx = x
+        if shadow then
+            local sx = x + scale*0.55
+            for i=1,#word do
+                local ch = string.upper(string.sub(word,i,i))
+                sx = sx + big_char(ch,sx,y+scale*0.55,scale,0,0,0,a*0.60)
+            end
+        end
+        for i=1,#word do
+            local ch = string.upper(string.sub(word,i,i))
+            cx = cx + big_char(ch,cx,y,scale,r,g,b,a)
+        end
+        return cx-x
     end
 
-    local function get_name()
-        local name = "cyzara"
+    local function draw_background(sw,sh)
+        rect(0,0,sw,sh,0.015,0.012,0.045,0.72)
+        rect(0,0,sw,sh,0.050,0.035,0.105,0.48)
+        -- v100: the small floating F letters are intentionally removed.
+        local scale = math.max(9, math.floor(sw/115))
+        local word = "ECLIPZE"
+        local width = #word * 6 * scale
+        big_word(word,(sw-width)*0.50,sh-scale*9.2,scale,ACC_R,ACC_G,ACC_B,0.92,true)
+    end
+
+    local function username()
+        local name = "user"
         pcall(function()
             if rbx and rbx.local_player then
                 local lp = rbx.local_player()
@@ -16560,648 +16602,523 @@ Eclipze v98 Fatality-like menu skin
             end
         end)
         pcall(function()
-            if name == "cyzara" and GetLocalPlayer then
+            if name == "user" and GetLocalPlayer then
                 local lp = GetLocalPlayer()
                 if lp and lp.Name then name = tostring(lp.Name) end
             end
-        end)
-        if #name > 13 then name = string.sub(name,1,13) .. "..." end
-        return name
-    end
-
-    local function set_tab(id)
-        if not __EC16 then return end
-        __EC16.mainTab = id
-        if id == "aim" then __EC16.aimSection = __EC16.aimSection or "General" end
-        if id == "esp" then __EC16.espSection = __EC16.espSection or "Armor" end
-        if id == "visuals" then __EC16.visualsSection = __EC16.visualsSection or "Trail" end
-        if id == "noclip" then __EC16.noclipSection = __EC16.noclipSection or "Noclip" end
-    end
-
-    local function nav_tabs()
-        return {
-            {id="aim",     label="RAGE",    icon="✹", w=74},
-            {id="esp",     label="VISUALS", icon="◉", w=98},
-            {id="visuals", label="MISC",    icon="✿", w=78},
-            {id="noclip",  label="LUA",     icon="<>" , w=66},
-        }
-    end
-
-    local function draw_f_symbols(w,h)
-        local t = tm()
-        local count = 18
-        for i=1,count do
-            local seed = i * 37
-            local x = ((seed * 41) % math.max(w,1)) + math.sin(t*0.20+i) * 12
-            local y = ((seed * 67) % math.max(h,1)) + math.cos(t*0.17+i*0.3) * 10
-            local a = 0.030 + ((i % 4) * 0.010)
-            -- soft fake blur: draw bigger offset shadows behind the letter
-            txt_center(x-2,y-2,"F",ACC_R,ACC_G,ACC_B,a*0.40)
-            txt_center(x+2,y+2,"F",ACC_R,ACC_G,ACC_B,a*0.35)
-            txt_center(x,y,"F",ACC_R,ACC_G,ACC_B,a)
-        end
-    end
-
-    local function draw_screen_dim(w,h)
-        if not (__EC16 and __EC16.open and __EC16.phase == "menu") then return end
-        rect(0,0,w,h,0.005,0.004,0.014,0.30)
-        rect(0,0,w,h,ACC_R,0.0,ACC_B,0.020)
-        draw_f_symbols(w,h)
-    end
-
-    local function handle_fatality_tabs(mx,my,cl)
-        if not (__EC16 and __EC16.open and __EC16.phase == "menu") then return false end
-        local x = __EC16.x or 95
-        local y = __EC16.y or 70
-        local newClick = cl and not (__EC16.lastClick == true)
-        if not newClick then return false end
-        local tx = x + 124
-        local ty = y + 17
-        for _,tb in ipairs(nav_tabs()) do
-            if inside(mx,my,tx,ty,tx+tb.w,ty+22) then
-                set_tab(tb.id)
-                return true
-            end
-            tx = tx + tb.w + 8
-        end
-        return false
-    end
-
-    local function draw_top_skin(mx,my)
-        if not (__EC16 and __EC16.open and __EC16.phase == "menu") then return end
-        local x = __EC16.x or 95
-        local y = __EC16.y or 70
-        local ww = __EC16.w or 960
-        local hh = __EC16.h or 640
-        local x2 = x + ww
-        local y2 = y + hh
-        local reveal = 1
-        if __ec16_sm then
-            local ok,res = pcall(__ec16_sm,__EC16.anim or 1)
-            if ok and res then reveal = res end
-        end
-        local topA = clamp(reveal,0,1)
-
-        -- external shell, closer to Fatality style: thin, square-ish, purple glass
-        round(x-1,y-1,x2+1,y2+1,ACC_R,ACC_G,ACC_B,0.18*topA,13)
-        out(x,y,x2,y2,0.25,0.17,0.55,0.58*topA,1)
-
-        -- cover old header and tabs with the new Fatality-like topbar
-        round(x+7,y+7,x2-7,y+78,BG_R,BG_G,BG_B,0.995*topA,9)
-        round(x+8,y+8,x2-8,y+37,PANEL_R,PANEL_G,PANEL_B,0.995*topA,8)
-        rect(x+10,y+36,x2-10,y+38,ACC_R,ACC_G,ACC_B,0.72*topA)
-        rect(x+10,y+77,x2-10,y+79,ACC_R,ACC_G,ACC_B,0.46*topA)
-
-        -- logo
-        txt_left(x+18,y+18,"FATALITY",1,1,1,0.98*topA)
-        txt_left(x+18+tw("FATALITY")+8,y+18,"•",ACC_R,ACC_G,ACC_B,0.90*topA)
-
-        -- top tabs
-        local tx = x + 124
-        local ty = y + 17
-        for _,tb in ipairs(nav_tabs()) do
-            local active = (__EC16.mainTab == tb.id)
-            local hov = inside(mx,my,tx,ty,tx+tb.w,ty+22)
-            if active then
-                round(tx-2,ty-2,tx+tb.w+2,ty+24,ACC_R,ACC_G,ACC_B,0.13*topA,5)
-                round(tx,ty,tx+tb.w,ty+22,CARD_R,CARD_G,CARD_B,0.98*topA,4)
-                rect(tx+8,ty+20,tx+tb.w-8,ty+22,ACC_R,ACC_G,ACC_B,0.95*topA)
-                txt_left(tx+8,ty+6,tb.icon,ACC_R,ACC_G,ACC_B,0.95*topA)
-                txt_left(tx+24,ty+6,tb.label,1.00,0.93,1.00,0.96*topA)
-            else
-                round(tx,ty,tx+tb.w,ty+22,0.022,0.018,0.052,hov and 0.82 or 0.34,4)
-                txt_left(tx+8,ty+6,tb.icon,DIM_R,DIM_G,DIM_B,hov and 0.88*topA or 0.58*topA)
-                txt_left(tx+24,ty+6,tb.label,DIM_R,DIM_G,DIM_B,hov and 0.90*topA or 0.64*topA)
-            end
-            tx = tx + tb.w + 8
-        end
-
-        -- right profile / expiry block like the reference
-        local uname = get_name()
-        local right = x2 - 28
-        txt_left(right-96,y+18,"exp res:",0.62,0.57,0.76,0.76*topA)
-        txt_left(right-48,y+18,"20 days",ACC_R,0.26,0.52,0.92*topA)
-        txt_left(right-96,y+8,uname,1.00,0.86,0.96,0.88*topA)
-        if Drawing and Drawing.DrawCircleFilled then
-            Drawing.DrawCircleFilled(ix(right),ix(y+20),10,ACC_R,ACC_G,ACC_B,0.18*topA)
-            Drawing.DrawCircleFilled(ix(right),ix(y+17),3,1,0.86,0.96,0.92*topA)
-            Drawing.DrawCircleFilled(ix(right),ix(y+24),5,1,0.86,0.96,0.70*topA)
-        else
-            round(right-10,y+10,right+10,y+30,ACC_R,ACC_G,ACC_B,0.25*topA,8)
-        end
-    end
-
-    -- Small section badges under the new topbar; the old side list still works,
-    -- this only makes the layout feel closer to the reference.
-    local function draw_section_hint()
-        if not (__EC16 and __EC16.open and __EC16.phase == "menu") then return end
-        local x = __EC16.x or 95
-        local y = __EC16.y or 70
-        local label = "GENERAL"
-        if __EC16.mainTab == "aim" then label = tostring(__EC16.aimSection or "General") end
-        if __EC16.mainTab == "esp" then label = tostring(__EC16.espSection or "Armor") end
-        if __EC16.mainTab == "visuals" then label = tostring(__EC16.visualsSection or "Trail") end
-        if __EC16.mainTab == "noclip" then label = "Noclip" end
-        txt_left(x+20,y+52,string.upper(label),0.88,0.84,1.00,0.70)
-        rect(x+20,y+70,x+20+math.min(130,tw(label)+24),y+72,ACC_R,ACC_G,ACC_B,0.60)
-    end
-
-    __ec16_menu = function(mx,my,cl,w,h)
-        if __EC16 and __EC16.open and __EC16.phase == "menu" then
-            local consumedTab = handle_fatality_tabs(mx,my,cl)
-            draw_screen_dim(w or 1920,h or 1080)
-            old_menu(mx,my,consumedTab and false or cl,w,h)
-            draw_top_skin(mx,my)
-            draw_section_hint()
-            return
-        end
-        return old_menu(mx,my,cl,w,h)
-    end
-
-    if notify then pcall(function() notify("Eclipze v98 Fatality style loaded", "success") end) end
-end)()
-
---[[
-Eclipze v99 REAL Fatality-style menu rebuild
-- Replaces the old sidebar layout with a compact Fatality-like top bar and 3-column panels.
-- Does not just draw a skin over the old menu: the old menu body is no longer called while menu is open.
-- Keeps the same UIManager IDs / feature states, so existing functions still work.
-]]
-;(function()
-    if __EC_FATALITY_V99_REAL_PATCHED then return end
-    __EC_FATALITY_V99_REAL_PATCHED = true
-
-    local old_menu = __ec16_menu
-
-    __EC_FATALITY_V99 = __EC_FATALITY_V99 or {
-        tab = "RAGE",
-        activeSlider = nil,
-        postReady = false
-    }
-    local F = __EC_FATALITY_V99
-
-    local ACC_R, ACC_G, ACC_B = 1.00, 0.00, 0.36
-    local BG_R,  BG_G,  BG_B  = 0.012, 0.010, 0.033
-    local TOP_R, TOP_G, TOP_B = 0.028, 0.022, 0.070
-    local BOX_R, BOX_G, BOX_B = 0.043, 0.034, 0.100
-    local IN_R,  IN_G,  IN_B  = 0.026, 0.022, 0.060
-    local LINE_R,LINE_G,LINE_B= 0.145, 0.105, 0.280
-    local TXT_R, TXT_G, TXT_B = 0.94, 0.91, 1.00
-    local DIM_R, DIM_G, DIM_B = 0.52, 0.49, 0.66
-
-    local function tm()
-        if tick then return tick() end
-        if os and os.clock then return os.clock() end
-        return 0
-    end
-    local function ix(v) return math.floor((tonumber(v) or 0) + 0.5) end
-    local function clamp(v,a,b)
-        v = tonumber(v) or a
-        if v < a then return a end
-        if v > b then return b end
-        return v
-    end
-    local function lerp(a,b,t) return a + (b-a)*clamp(t,0,1) end
-    local function in_box(mx,my,x1,y1,x2,y2)
-        if __ec16_in then
-            local ok,res = pcall(__ec16_in,mx,my,x1,y1,x2,y2)
-            if ok then return res == true end
-        end
-        return mx >= x1 and mx <= x2 and my >= y1 and my <= y2
-    end
-    local function tw(s)
-        s = tostring(s or "")
-        if __ec16_text_w then
-            local ok,res = pcall(__ec16_text_w,s)
-            if ok and res then return tonumber(res) or (#s*7) end
-        end
-        return #s * 7
-    end
-    local function rect(x1,y1,x2,y2,r,g,b,a)
-        if Drawing and Drawing.DrawBoxFilled then
-            Drawing.DrawBoxFilled(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a or 1)
-        elseif __ec16_rect then
-            pcall(__ec16_rect,x1,y1,x2,y2,r,g,b,a or 1)
-        end
-    end
-    local function out(x1,y1,x2,y2,r,g,b,a,t)
-        if Drawing and Drawing.DrawBox then
-            Drawing.DrawBox(ix(x1),ix(y1),ix(x2),ix(y2),r,g,b,a or 1,t or 1)
-        elseif __ec16_out then
-            pcall(__ec16_out,x1,y1,x2,y2,r,g,b,a or 1,t or 1)
-        end
-    end
-    local function rr(x1,y1,x2,y2,r,g,b,a,rad)
-        rad = math.floor(math.min(rad or 5,(x2-x1)*0.5,(y2-y1)*0.5))
-        if rad < 1 then rect(x1,y1,x2,y2,r,g,b,a) return end
-        for yy=0,rad-1 do
-            local dy = rad - yy
-            local dx = math.floor(math.sqrt(math.max(0,rad*rad-dy*dy)) + 0.5)
-            rect(x1+rad-dx,y1+yy,x2-rad+dx,y1+yy+1,r,g,b,a)
-            rect(x1+rad-dx,y2-yy-1,x2-rad+dx,y2-yy,r,g,b,a)
-        end
-        rect(x1,y1+rad,x2,y2-rad,r,g,b,a)
-    end
-    local function txt_l(x,y,s,r,g,b,a)
-        s = tostring(s or "")
-        if Drawing and Drawing.DrawTextWithOutline then
-            Drawing.DrawTextWithOutline(ix(x + tw(s)*0.5),ix(y),s,r or TXT_R,g or TXT_G,b or TXT_B,a or 1,0,0,0,(a or 1)*0.88)
-        elseif Drawing and Drawing.DrawText then
-            Drawing.DrawText(ix(x),ix(y),s,r or TXT_R,g or TXT_G,b or TXT_B,a or 1)
-        end
-    end
-    local function txt_c(x,y,s,r,g,b,a)
-        s = tostring(s or "")
-        txt_l(x - tw(s)*0.5,y,s,r,g,b,a)
-    end
-
-    local function get_check(id)
-        local v = false
-        pcall(function() v = UIManager.GetCheckboxValue(id) == true end)
-        return v
-    end
-    local function set_check(id,v) pcall(function() UIManager.SetCheckboxValue(id,v == true) end) end
-    local function get_int(id,def)
-        local v = def or 0
-        pcall(function() v = UIManager.GetSliderIntValue(id) or v end)
-        return tonumber(v) or def or 0
-    end
-    local function set_int(id,v) pcall(function() UIManager.SetSliderIntValue(id,math.floor(v+0.5)) end) end
-    local function set_float_id(id,v) pcall(function() UIManager.SetSliderFloatValue(id,v) end) end
-
-    local function f_check(mx,my,cl,newClick,x,y,w,label,id,interactive)
-        local on = get_check(id)
-        local h = in_box(mx,my,x,y,x+w,y+19)
-        if interactive and newClick and h then
-            on = not on
-            set_check(id,on)
-        end
-        txt_l(x,y+3,label,h and 1 or TXT_R,h and 0.86 or TXT_G,h and 0.96 or TXT_B,0.95)
-        local bx = x + w - 18
-        rr(bx,y+3,bx+14,y+17,on and ACC_R or 0.020,on and ACC_G or 0.018,on and ACC_B or 0.040,1,2)
-        out(bx,y+3,bx+14,y+17,on and ACC_R or LINE_R,on and 0.12 or LINE_G,on and 0.50 or LINE_B,on and 0.80 or 0.55,1)
-        if on then rect(bx+4,y+7,bx+10,y+13,1,0.72,0.90,0.92) end
-        return on
-    end
-
-    local function f_bool(mx,my,cl,newClick,x,y,w,label,on,interactive)
-        on = on == true
-        local h = in_box(mx,my,x,y,x+w,y+19)
-        if interactive and newClick and h then on = not on end
-        txt_l(x,y+3,label,h and 1 or TXT_R,h and 0.86 or TXT_G,h and 0.96 or TXT_B,0.95)
-        local bx = x + w - 18
-        rr(bx,y+3,bx+14,y+17,on and ACC_R or 0.020,on and ACC_G or 0.018,on and ACC_B or 0.040,1,2)
-        out(bx,y+3,bx+14,y+17,on and ACC_R or LINE_R,on and 0.12 or LINE_G,on and 0.50 or LINE_B,on and 0.80 or 0.55,1)
-        if on then rect(bx+4,y+7,bx+10,y+13,1,0.72,0.90,0.92) end
-        return on
-    end
-
-    local function slider_core(mx,my,cl,newClick,x,y,w,label,value,minv,maxv,decimals,key,interactive)
-        value = tonumber(value) or minv
-        minv = tonumber(minv) or 0
-        maxv = tonumber(maxv) or 1
-        local barY = y + 22
-        local h = in_box(mx,my,x,barY-8,x+w,barY+11)
-        if interactive and newClick and h then F.activeSlider = key end
-        if interactive and (not cl) and F.activeSlider == key then F.activeSlider = nil end
-        if interactive and cl and F.activeSlider == key then
-            value = minv + (maxv-minv) * clamp((mx-x)/math.max(w,1),0,1)
-            if decimals == 0 then value = math.floor(value + 0.5) end
-        end
-        local pct = clamp((value-minv)/math.max(maxv-minv,0.0001),0,1)
-        local valText = decimals == 0 and tostring(math.floor(value+0.5)) or string.format("%.2f",value)
-        txt_l(x,y,label,TXT_R,TXT_G,TXT_B,0.92)
-        txt_l(x+w-tw(valText),y,valText,DIM_R,DIM_G,DIM_B,0.86)
-        rect(x,barY,x+w,barY+4,0.020,0.017,0.044,1)
-        rect(x,barY,x+w*pct,barY+4,ACC_R,ACC_G,ACC_B,0.98)
-        rr(x+w*pct-4,barY-4,x+w*pct+4,barY+8,1,0.74,0.92,0.95,4)
-        return value
-    end
-    local function f_slider_int(mx,my,cl,newClick,x,y,w,label,id,minv,maxv,interactive)
-        local v = get_int(id,minv)
-        v = slider_core(mx,my,cl,newClick,x,y,w,label,v,minv,maxv,0,"ui_"..id,interactive)
-        if interactive and F.activeSlider == "ui_"..id then set_int(id,v) end
-        return v
-    end
-    local function f_slider_float(mx,my,cl,newClick,x,y,w,label,value,minv,maxv,key,interactive)
-        return slider_core(mx,my,cl,newClick,x,y,w,label,value,minv,maxv,2,key,interactive)
-    end
-
-    local function group(x,y,w,h,title)
-        rr(x-1,y-1,x+w+1,y+h+1,ACC_R,ACC_G,ACC_B,0.055,3)
-        rr(x,y,x+w,y+h,BOX_R,BOX_G,BOX_B,0.96,3)
-        rr(x+1,y+1,x+w-1,y+h-1,IN_R,IN_G,IN_B,0.92,2)
-        txt_l(x+10,y+8,string.upper(title),1,0.94,1,0.96)
-        rect(x+9,y+27,x+w-9,y+29,ACC_R,ACC_G,ACC_B,0.75)
-    end
-
-    local function color_square(x,y,c)
-        c = c or {ACC_R,ACC_G,ACC_B,1}
-        local r = c.r or c[1] or ACC_R
-        local g = c.g or c[2] or ACC_G
-        local b = c.b or c[3] or ACC_B
-        local a = c.a or c[4] or 1
-        rr(x,y,x+18,y+18,r,g,b,a,2)
-        out(x,y,x+18,y+18,1,1,1,0.20,1)
-        rect(x+9,y,x+18,y+9,1,1,1,0.13)
-    end
-    local function cycle_hue_color(tblName,fieldName)
-        __EC16 = __EC16 or {}
-        local hkey = tblName .. "_hue_" .. fieldName
-        __EC16[hkey] = ((__EC16[hkey] or 0.83) + 0.08) % 1
-        local h = __EC16[hkey]
-        local r,g,b = 1,0,0.55
-        if __ec16_hsv_to_rgb then
-            local ok,c = pcall(__ec16_hsv_to_rgb,h)
-            if ok and c then r,g,b = c[1] or c.r or r,c[2] or c.g or g,c[3] or c.b or b end
-        end
-        return {r,g,b,1}
-    end
-
-    local function draw_f_symbols(w,h)
-        local t = tm()
-        for i=1,15 do
-            local x = ((i*147) % math.max(w,1)) + math.sin(t*0.2+i)*10
-            local y = ((i*91) % math.max(h,1)) + math.cos(t*0.16+i)*8
-            txt_c(x,y,"F",ACC_R,ACC_G,ACC_B,0.025 + (i%4)*0.010)
-            txt_c(x+2,y+2,"F",ACC_R,ACC_G,ACC_B,0.010)
-        end
-    end
-
-    local function username()
-        local name = "user"
-        pcall(function()
-            if rbx and rbx.local_player then
-                local lp = rbx.local_player()
-                if lp and lp.get_name then local n = lp:get_name(); if n and n ~= "" then name = tostring(n) end end
-            end
-        end)
-        pcall(function()
-            if name == "user" and GetLocalPlayer then local lp = GetLocalPlayer(); if lp and lp.Name then name = tostring(lp.Name) end end
         end)
         if #name > 12 then name = string.sub(name,1,12).."..." end
         return name
     end
 
-    local function draw_tabs(mx,my,cl,newClick,x,y,ww,interactive)
-        local tabs = {
-            {"RAGE",72},{"LEGIT",70},{"VISUALS",92},{"MISC",70},{"SKINS",70},{"LUA",54}
-        }
-        local tx = x + 122
-        for _,tb in ipairs(tabs) do
-            local name,wid = tb[1],tb[2]
-            local h = in_box(mx,my,tx,y+12,tx+wid,y+34)
-            if interactive and newClick and h then F.tab = name end
-            local active = F.tab == name
-            if active then
-                rr(tx-1,y+11,tx+wid+1,y+35,ACC_R,ACC_G,ACC_B,0.11,3)
-                rr(tx,y+12,tx+wid,y+34,0.060,0.046,0.122,0.98,2)
-                rect(tx+8,y+32,tx+wid-8,y+34,ACC_R,ACC_G,ACC_B,0.95)
-                txt_l(tx+9,y+18,name,1,0.92,1,0.98)
-            else
-                rr(tx,y+12,tx+wid,y+34,h and 0.040 or 0.026,h and 0.032 or 0.024,h and 0.080 or 0.058,h and 0.84 or 0.52,2)
-                txt_l(tx+9,y+18,name,DIM_R,DIM_G,DIM_B,h and 0.92 or 0.68)
-            end
-            tx = tx + wid + 8
+    local function split_path(path)
+        local t = {}
+        for p in string.gmatch(path or "","[^%.]+") do t[#t+1]=p end
+        return t
+    end
+    local function get_path(path, fallback)
+        local parts = split_path(path)
+        local cur = _G
+        for i=1,#parts do
+            if cur == nil then return fallback end
+            cur = cur[parts[i]]
         end
+        if cur == nil then return fallback end
+        return cur
+    end
+    local function set_path(path, value)
+        local parts = split_path(path)
+        if #parts == 0 then return end
+        local cur = _G
+        for i=1,#parts-1 do
+            local k = parts[i]
+            if type(cur[k]) ~= "table" then cur[k] = {} end
+            cur = cur[k]
+        end
+        cur[parts[#parts]] = value
+    end
+    local function id_kind(id)
+        id = tostring(id or "")
+        if string.sub(id,1,5) == "path:" then return "path", string.sub(id,6) end
+        if string.sub(id,1,3) == "ui:" then return "ui", string.sub(id,4) end
+        if string.sub(id,1,4) == "var:" then return "path", string.sub(id,5) end
+        return "ui", id
+    end
+    local function get_bool(id)
+        local kind,key = id_kind(id)
+        if kind == "path" then return get_path(key,false) == true end
+        local ok,v = pcall(function() return UIManager and UIManager.GetCheckboxValue and UIManager.GetCheckboxValue(key) end)
+        if ok and v ~= nil then return v == true end
+        return FT.values[id] == true
+    end
+    local function set_bool(id,v)
+        local kind,key = id_kind(id)
+        if kind == "path" then set_path(key,v == true); return end
+        local ok = pcall(function() if UIManager and UIManager.SetCheckboxValue then UIManager.SetCheckboxValue(key,v == true) end end)
+        if not ok then FT.values[id] = v == true end
+    end
+    local function get_num(id, fallback)
+        local kind,key = id_kind(id)
+        if kind == "path" then return tonumber(get_path(key,fallback)) or fallback end
+        local ok,v = pcall(function()
+            if UIManager and UIManager.GetSliderFloatValue then
+                local f = UIManager.GetSliderFloatValue(key)
+                if f ~= nil and tonumber(f) ~= nil then return f end
+            end
+            if UIManager and UIManager.GetSliderIntValue then return UIManager.GetSliderIntValue(key) end
+        end)
+        if ok and tonumber(v) ~= nil then return tonumber(v) end
+        return tonumber(FT.values[id]) or fallback
+    end
+    local function set_num(id,v,is_int)
+        local kind,key = id_kind(id)
+        if kind == "path" then set_path(key,v); return end
+        local ok = pcall(function()
+            if is_int and UIManager and UIManager.SetSliderIntValue then UIManager.SetSliderIntValue(key,math.floor(v+0.5))
+            elseif UIManager and UIManager.SetSliderFloatValue then UIManager.SetSliderFloatValue(key,v)
+            elseif UIManager and UIManager.SetSliderIntValue then UIManager.SetSliderIntValue(key,math.floor(v+0.5)) end
+        end)
+        if not ok then FT.values[id] = v end
+    end
+    local function hsv_to_rgb(h,s,v)
+        h=(tonumber(h or 0) or 0)%1; s=clamp(s or 1,0,1); v=clamp(v or 1,0,1)
+        local i=math.floor(h*6); local f=h*6-i; local p=v*(1-s); local q=v*(1-f*s); local t=v*(1-(1-f)*s); i=i%6
+        if i==0 then return v,t,p elseif i==1 then return q,v,p elseif i==2 then return p,v,t elseif i==3 then return p,q,v elseif i==4 then return t,p,v end
+        return v,p,q
+    end
+    local function get_color(id, fallback)
+        local kind,key = id_kind(id)
+        local c = nil
+        if kind == "path" then c = get_path(key,nil) else pcall(function() c = UIManager and UIManager.GetColorPickerValue and UIManager.GetColorPickerValue(key) end) end
+        c = c or fallback or {ACC_R,ACC_G,ACC_B,1}
+        return {c.r or c[1] or ACC_R, c.g or c[2] or ACC_G, c.b or c[3] or ACC_B, c.a or c[4] or 1}
+    end
+    local function set_color(id,c)
+        local kind,key = id_kind(id)
+        if kind == "path" then set_path(key,c); return end
+        pcall(function() if UIManager and UIManager.SetColorPickerValue then UIManager.SetColorPickerValue(key,c[1],c[2],c[3],c[4] or 1) end end)
     end
 
-    local function init_visuals()
+    local pages = {
+        RAGE = {
+            {title="AIMBOT", controls={
+                {"check","ap_aim_enable_fixed_click","Enable"},
+                {"check","ap_prediction_main","Prediction"},
+                {"check","ap_team_main","Team check"},
+                {"check","ap_sticky_main","Sticky aim"},
+                {"check","ec_silent_enabled","Silent aim"},
+                {"slider","ap_maxdist_main","Max distance",50,3000,1200,"%d"},
+            }},
+            {title="FOV", controls={
+                {"check","ap_fov_show_main","Enable"},
+                {"color","ap_fov_color_main","FOV color"},
+                {"slider","ap_fov_main","FOV size",30,600,250,"%d"},
+                {"slider","ap_fov_alpha_main","Transparency",0,100,60,"%d%%"},
+                {"select","ft_fov_style","Style",{"Default","Circle","Corners"}},
+            }},
+            {title="TARGET", controls={
+                {"check","ap_target_strafe_main","Target strafe"},
+                {"check","ap_tp_target_main","Teleport target"},
+                {"check","ap_left_tp_enabled","Left TP"},
+                {"check","ap_right_tp_enabled","Right TP"},
+                {"slider","ap_side_tp_distance","TP distance",1,80,20,"%d"},
+            }},
+            {title="SILENT", controls={
+                {"check","ec36_silent_pred_bridge","Use prediction"},
+                {"select","ft_silent_part","Target",{"Head","Torso","Feet"}},
+                {"slider","ft_silent_fov","Silent FOV",30,500,220,"%d"},
+            }},
+            {title="PANELS", controls={
+                {"check","path:__EC16.keybindsPanel","Keybind list"},
+                {"check","path:__EC16.moderatorPanel","Moderator list"},
+            }},
+        },
+        LEGIT = {
+            {title="LEGIT AIM", controls={
+                {"check","ap_aim_enable_fixed_click","Enable"},
+                {"check","ap_fov_show_main","FOV only"},
+                {"slider","ap_fov_main","FOV",10,280,80,"%d"},
+                {"check","ap_prediction_main","Prediction"},
+                {"select","ft_legit_target","Target",{"Head","Chest","Nearest"}},
+            }},
+            {title="CHECKS", controls={
+                {"check","ap_team_main","Team check"},
+                {"check","ap_sticky_main","Sticky target"},
+                {"slider","ap_maxdist_main","Max distance",50,2500,900,"%d"},
+            }},
+            {title="EXTRA", controls={
+                {"check","path:__EC16.keybindsPanel","Keybind list"},
+                {"check","ec_fullbright_enabled","Fullbright"},
+            }},
+        },
+        VISUALS = {
+            {title="PLAYER ESP", controls={
+                {"check","armoriso_target_enabled","Armor ESP"},
+                {"check","armoriso_show_weapon","Weapon slot"},
+                {"check","k1_show_distance","Show distance"},
+                {"slider","armoriso_max_distance","ESP range",50,3000,1200,"%d"},
+                {"slider","armoriso_target_size","Icon size",6,80,28,"%d"},
+            }},
+            {title="WORLD / LOOT", controls={
+                {"check","k1_dropped_item_show_icon","Dropped icons"},
+                {"check","k1_ore_show_icon","Ore icons"},
+                {"check","k1_loot_show_icon","Loot icons"},
+                {"slider","k1_world_range","World range",25,2000,800,"%d"},
+                {"slider","k1_loot_range","Loot range",25,2000,800,"%d"},
+            }},
+            {title="WORLD EFFECTS", controls={
+                {"check","path:__EC_VISUALS.squares.enabled","Enable"},
+                {"multi","path:__EC_VISUALS.squares.modes","Effect stack",{"Cubes","Stars","Circles"}},
+                {"slider","path:__EC_VISUALS.squares.radius","Radius",5,25,9.5,"%.1f"},
+                {"slider","path:__EC_VISUALS.squares.size","Size",0.2,2.5,0.75,"%.2f"},
+                {"slider","path:__EC_VISUALS.squares.speed","Speed",0.1,5,1.1,"%.2f"},
+            }},
+            {title="TARGET EFFECTS", controls={
+                {"check","path:__EC_VISUALS.targetFx.enabled","Enable"},
+                {"select","ft_target_effect_type","Type",{"Cubes"}},
+                {"color","path:__EC_VISUALS.targetFx.color","Color"},
+            }},
+            {title="TRAIL / AURA", controls={
+                {"check","path:__EC_PLAYER_TRAIL.enabled","Player trail"},
+                {"check","path:__EC_PLAYER_TRAIL.rainbow","Rainbow trail"},
+                {"slider","path:__EC_PLAYER_TRAIL.length","Trail length",8,220,46,"%.0f"},
+                {"check","path:__EC16.selfAura","Self aura"},
+                {"color","path:__EC16.selfAuraTopColor","Aura top"},
+                {"color","path:__EC16.selfAuraBottomColor","Aura bottom"},
+            }},
+            {title="BULLET / HIT", controls={
+                {"check","path:EC_BT.enabled","Bullet tracers"},
+                {"check","path:EC_BT.hitfx","Hit effects"},
+                {"slider","path:EC_BT.life","Tracer life",0.1,8,4,"%.1f"},
+                {"slider","path:EC_BT.hitSize","Hit size",18,96,38,"%.0f"},
+            }},
+        },
+        MISC = {
+            {title="MOVEMENT", controls={
+                {"check","ap_left_tp_enabled","Left TP"},
+                {"check","ap_right_tp_enabled","Right TP"},
+                {"check","ap_90_left_tp_enabled","90 Left TP"},
+                {"check","ap_90_right_tp_enabled","90 Right TP"},
+                {"slider","ap_side_tp_distance","TP distance",1,80,20,"%d"},
+            }},
+            {title="MENU", controls={
+                {"check","path:__EC16.keybindsPanel","Keybind panel"},
+                {"check","path:__EC16.moderatorPanel","Moderator list"},
+                {"check","ec_fullbright_enabled","Fullbright"},
+                {"slider","ec_fullbright_opacity","Brightness",0,80,20,"%d%%"},
+                {"color","ec_fullbright_color","Light color"},
+            }},
+            {title="NOCLIP", controls={
+                {"button","ft_noclip_bind","Noclip key: B"},
+                {"button","ft_menu_bind","Menu: Right Shift"},
+            }},
+        },
+        SKINS = {
+            {title="SKINS", controls={
+                {"select","ft_skin_slot","Weapon",{"Default","Pink","Purple","Dark"}},
+                {"select","ft_hand_skin","Hands",{"Default","Black","White","Neon"}},
+                {"button","ft_apply_skin","Apply skin"},
+            }},
+            {title="INFO", controls={
+                {"button","ft_skin_info","Only visual menu"},
+                {"button","ft_skin_loaded","Old script loaded"},
+            }},
+        },
+        LUA = {
+            {title="SCRIPTS", controls={
+                {"button","ft_load_script","Load script"},
+                {"button","ft_reload","Reload"},
+                {"button","ft_unload","Unload"},
+                {"select","ft_script_slot","Slot",{"main.lua","rage.lua","visuals.lua"}},
+            }},
+            {title="CONFIG", controls={
+                {"button","ft_save_cfg","Save config"},
+                {"button","ft_load_cfg","Load config"},
+                {"button","ft_delete_cfg","Delete config"},
+                {"select","ft_cfg_slot","Config",{"default","rage","visuals"}},
+            }},
+            {title="STATUS", controls={
+                {"button","ft_status_loaded","ECLIPZE loaded"},
+                {"button","ft_status_menu","Fatality style"},
+            }},
+        },
+    }
+    local tab_order = {"RAGE","LEGIT","VISUALS","MISC","SKINS","LUA"}
+
+    local function checkbox(id,x,y,w,label)
+        local v = get_bool(id)
+        local sq = 10
+        local bx,by = x+w-sq-2,y+3
+        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,16)
+        if FT.lmb_pressed and hover then
+            v = not v
+            set_bool(id,v)
+            FT.status = label .. ": " .. (v and "on" or "off")
+        end
+        text(x,y+3,label,TXT_R,TXT_G,TXT_B,hover and 1 or 0.92)
+        rect(bx,by,sq,sq,0.045,0.040,0.080,1)
+        border(bx,by,sq,sq,0.080,0.075,0.135,1,1)
+        if v then rect(bx+2,by+2,sq-4,sq-4,ACC_R,ACC_G,ACC_B,1) end
+        return y+20
+    end
+    local function button(id,x,y,w,label)
+        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,19)
+        rect(x,y,w,18,hover and 0.105 or 0.075,hover and 0.080 or 0.065,hover and 0.150 or 0.120,1)
+        border(x,y,w,18,hover and ACC_R or 0.13,hover and ACC_G or 0.11,hover and ACC_B or 0.20,1,1)
+        outline_text(x+w*0.5,y+4,label,TXT_R,TXT_G,TXT_B,1)
+        if FT.lmb_pressed and hover then FT.status = label .. " clicked" end
+        return y+23
+    end
+    local function slider(id,x,y,w,label,minv,maxv,def,fmt)
+        local is_int = not tostring(fmt or "%d"):find("%%%.")
+        local val = get_num(id,def or minv)
+        if val == nil then val = def or minv end
+        val = clamp(val,minv,maxv)
+        local t = clamp((val-minv)/math.max(maxv-minv,0.0001),0,1)
+        local bar_y = y+18
+        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,bar_y-6,w,18)
+        if FT.lmb_pressed and hover then FT.active_slider = id end
+        if FT.active_slider == id and FT.lmb then
+            t = clamp((FT.mouse_x-x)/math.max(w,1),0,1)
+            val = minv + (maxv-minv)*t
+            if is_int then val = math.floor(val+0.5) end
+            set_num(id,val,is_int)
+            FT.status = label .. " = " .. string.format(fmt or "%d",val)
+        end
+        local shown = string.format(fmt or "%d",val)
+        text(x,y+2,label,TXT_R,TXT_G,TXT_B,1)
+        text(x+w-42,y+2,shown,DIM_R,DIM_G,DIM_B,1)
+        rect(x,bar_y,w,5,0.045,0.040,0.080,1)
+        rect(x,bar_y,w*t,5,ACC_R,ACC_G,ACC_B,1)
+        rect(x+w*t-3,bar_y-3,7,11,0.95,0.72,0.88,1)
+        return y+34
+    end
+    local function color_control(id,x,y,w,label)
+        local c = get_color(id,{ACC_R,ACC_G,ACC_B,1})
+        local hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,20)
+        text(x,y+4,label,TXT_R,TXT_G,TXT_B,1)
+        local bx = x+w-18
+        rect(bx,y+1,18,18,c[1],c[2],c[3],c[4] or 1)
+        rect(bx+9,y+1,9,9,1,1,1,0.15)
+        border(bx,y+1,18,18,1,1,1,0.22,1)
+        if FT.lmb_pressed and hover then
+            local h = ((FT.colors[id] or 0.90) + 0.08) % 1
+            FT.colors[id] = h
+            local r,g,b = hsv_to_rgb(h,0.78,1)
+            set_color(id,{r,g,b,c[4] or 1})
+            FT.status = label .. " color"
+        end
+        return y+23
+    end
+    local function selected_text_for_multi(id,items)
+        local kind,key = id_kind(id)
+        local tbl = kind == "path" and get_path(key,nil) or FT.values[id]
+        if type(tbl) ~= "table" then tbl = {}; if kind == "path" then set_path(key,tbl) else FT.values[id]=tbl end end
+        local out = {}
+        for _,it in ipairs(items) do if tbl[it] == true then out[#out+1]=it end end
+        if #out == 0 then return "None" end
+        return table.concat(out, ", ")
+    end
+    local deferred_dropdowns = {}
+    local function select_box(id,x,y,w,label,items,is_multi)
+        if not is_multi and FT.drop_values[id] == nil then FT.drop_values[id] = items[1] end
+        local box_w = 100
+        local bx,by = x+w-box_w,y+1
+        local hover = in_rect(FT.mouse_x,FT.mouse_y,bx,by,box_w,18)
+        local shown = is_multi and selected_text_for_multi(id,items) or tostring(FT.drop_values[id] or items[1])
+        if #shown > 16 then shown = string.sub(shown,1,15).."..." end
+        text(x,y+4,label,TXT_R,TXT_G,TXT_B,1)
+        rect(bx,by,box_w,18,hover and 0.095 or 0.060,hover and 0.073 or 0.052,hover and 0.140 or 0.105,1)
+        border(bx,by,box_w,18,0.115,0.100,0.175,1,1)
+        text(bx+5,by+4,shown,DIM_R,DIM_G,DIM_B,1)
+        text(bx+box_w-10,by+4,"v",ACC_R,ACC_G,ACC_B,1)
+        if FT.lmb_pressed and hover then
+            FT.open_dropdown = (FT.open_dropdown == id) and nil or id
+        end
+        if FT.open_dropdown == id then
+            deferred_dropdowns[#deferred_dropdowns+1] = {id=id,x=bx,y=by+19,w=box_w,items=items,multi=is_multi}
+        end
+        return y+23
+    end
+    local function draw_dropdowns()
+        for _,d in ipairs(deferred_dropdowns) do
+            local h = #d.items*18+2
+            shadow_rect(d.x,d.y,d.w,h)
+            rect(d.x,d.y,d.w,h,0.045,0.040,0.085,1)
+            border(d.x,d.y,d.w,h,ACC_R,ACC_G,ACC_B,0.75,1)
+            local kind,key = id_kind(d.id)
+            local mt = nil
+            if d.multi then
+                mt = kind == "path" and get_path(key,nil) or FT.values[d.id]
+                if type(mt) ~= "table" then mt = {}; if kind == "path" then set_path(key,mt) else FT.values[d.id]=mt end end
+            end
+            for i,item in ipairs(d.items) do
+                local iy = d.y+1+(i-1)*18
+                local hover = in_rect(FT.mouse_x,FT.mouse_y,d.x,iy,d.w,18)
+                if hover then rect(d.x+1,iy,d.w-2,18,0.105,0.078,0.150,1) end
+                local active = d.multi and (mt[item] == true) or (FT.drop_values[d.id] == item)
+                text(d.x+6,iy+4,item,active and ACC_R or TXT_R,active and ACC_G or TXT_G,active and ACC_B or TXT_B,1)
+                if FT.lmb_pressed and hover then
+                    if d.multi then
+                        mt[item] = not (mt[item] == true)
+                        FT.status = selected_text_for_multi(d.id,d.items)
+                    else
+                        FT.drop_values[d.id] = item
+                        FT.open_dropdown = nil
+                        FT.status = item .. " selected"
+                    end
+                end
+            end
+        end
+        deferred_dropdowns = {}
+    end
+    local function section(sec,x,y,w)
+        local h = 26
+        for _,c in ipairs(sec.controls) do
+            if c[1]=="check" then h=h+20 elseif c[1]=="slider" then h=h+34 elseif c[1]=="select" or c[1]=="multi" or c[1]=="color" or c[1]=="button" then h=h+23 end
+        end
+        shadow_rect(x,y,w,h)
+        rect(x,y,w,h,BG2_R,BG2_G,BG2_B,0.96)
+        border(x,y,w,h,LINE_R,LINE_G,LINE_B,1,1)
+        text(x+10,y-1,sec.title,TXT_R,TXT_G,TXT_B,1)
+        rect(x+10,y+18,w-20,2,ACC_R,ACC_G,ACC_B,1)
+        local cy = y+31
+        for _,c in ipairs(sec.controls) do
+            local typ = c[1]
+            if typ == "check" then cy = checkbox(c[2],x+12,cy,w-24,c[3])
+            elseif typ == "slider" then cy = slider(c[2],x+12,cy,w-24,c[3],c[4],c[5],c[6],c[7])
+            elseif typ == "select" then cy = select_box(c[2],x+12,cy,w-24,c[3],c[4],false)
+            elseif typ == "multi" then cy = select_box(c[2],x+12,cy,w-24,c[3],c[4],true)
+            elseif typ == "color" then cy = color_control(c[2],x+12,cy,w-24,c[3])
+            elseif typ == "button" then cy = button(c[2],x+12,cy,w-24,c[3]) end
+        end
+        return h
+    end
+    local function draw_topbar(x,y,w)
+        rect(x,y,w,38,BG_R,BG_G,BG_B,1)
+        rect(x,y+37,w,1,LINE_R,LINE_G,LINE_B,1)
+        text(x+15,y+13,"ECLIPZE",1,1,1,1)
+        local tx = x+105
+        for _,tab in ipairs(tab_order) do
+            local tw = 54
+            local hover = in_rect(FT.mouse_x,FT.mouse_y,tx,y+8,tw,22)
+            local active = FT.tab == tab
+            if hover or active then rect(tx,y+8,tw,22,active and 0.105 or 0.070,active and 0.075 or 0.060,active and 0.160 or 0.120,1) end
+            if active then rect(tx+1,y+29,tw-2,2,ACC_R,ACC_G,ACC_B,1) end
+            local tr,tg,tb = DIM_R,DIM_G,DIM_B
+            if active or hover then tr,tg,tb = TXT_R,TXT_G,TXT_B end
+            text(tx+10,y+14,tab,tr,tg,tb,1)
+            if FT.lmb_pressed and hover then
+                FT.tab = tab
+                FT.open_dropdown = nil
+                if __EC16 then
+                    if tab == "VISUALS" or tab == "SKINS" then __EC16.mainTab = "visuals"
+                    elseif tab == "MISC" or tab == "LUA" then __EC16.mainTab = "noclip"
+                    else __EC16.mainTab = "aim" end
+                end
+            end
+            tx = tx+tw+5
+        end
+        local un = username()
+        text(x+w-112,y+10,un,TXT_R,TXT_G,TXT_B,1)
+        text(x+w-80,y+22,"exp: 20 days",DIM_R,DIM_G,DIM_B,1)
+        rect(x+w-30,y+10,18,18,0.11,0.10,0.16,1)
+        rect(x+w-26,y+14,10,10,ACC_R,ACC_G,ACC_B,1)
+    end
+    local function draw_footer(x,y,w,h)
+        local fy = y+h-24
+        rect(x,fy,w,24,0.045,0.040,0.090,1)
+        rect(x,fy,w,1,LINE_R,LINE_G,LINE_B,1)
+        text(x+12,fy+8,"Q",DIM_R,DIM_G,DIM_B,1)
+        rect(x+32,fy+7,10,10,DIM_R,DIM_G,DIM_B,0.65)
+        border(x+52,fy+7,14,10,DIM_R,DIM_G,DIM_B,0.75,1)
+        text(x+78,fy+8,FT.status,DIM_R,DIM_G,DIM_B,1)
+        text(x+w-28,fy+8,"i",DIM_R,DIM_G,DIM_B,1)
+    end
+    local function update_drag(sw,sh)
+        local x,y,w = FT.x,FT.y,FT.w
+        local top_hover = in_rect(FT.mouse_x,FT.mouse_y,x,y,w,38)
+        local tab_area = in_rect(FT.mouse_x,FT.mouse_y,x+100,y+6,380,28)
+        local user_area = in_rect(FT.mouse_x,FT.mouse_y,x+w-125,y+4,120,30)
+        if FT.lmb_pressed and top_hover and not tab_area and not user_area then
+            FT.dragging = true
+            FT.drag_dx = FT.mouse_x-FT.x
+            FT.drag_dy = FT.mouse_y-FT.y
+            FT.open_dropdown = nil
+        end
+        if not FT.lmb then FT.dragging = false; FT.active_slider = nil end
+        if FT.dragging and FT.lmb then
+            FT.x = clamp(FT.mouse_x-FT.drag_dx,8,sw-FT.w-8)
+            FT.y = clamp(FT.mouse_y-FT.drag_dy,8,sh-FT.h-8)
+        end
+    end
+    local function draw_page(x,y,w,h)
+        local page = pages[FT.tab] or pages.RAGE
+        local body_x, body_y = x+12, y+50
+        local col_w = math.floor((w-44)/3)
+        local gap = 10
+        local col_y = {body_y,body_y,body_y}
+        for i,sec in ipairs(page) do
+            local col_i = ((i-1)%3)+1
+            local sx = body_x+(col_i-1)*(col_w+gap)
+            local sy = col_y[col_i]
+            local sh = section(sec,sx,sy,col_w)
+            col_y[col_i] = sy+sh+10
+        end
+    end
+    local function draw_menu(mx,my,cl,sw,sh)
         __EC_VISUALS = __EC_VISUALS or {}
-        __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {}
-        local V = __EC_VISUALS
-        V.squares = V.squares or {enabled=false,modes={Cubes=true},amount=42,radius=9.5,speed=1.1,size=0.75,color={0.92,0.70,1.00,1}}
-        V.squares.modes = V.squares.modes or {Cubes=true}
-        V.targetFx = V.targetFx or {enabled=false,styles={Cubes=true},color={0.72,0.42,1.00,0.72}}
-        V.targetFx.styles = V.targetFx.styles or {Cubes=true}
-        V.targetFx.styles.Cubes = (V.targetFx.styles.Cubes ~= false)
-        V.targetFx.styles["Small Cubes"] = nil
-        V.targetFx.styles["Aura Swirl"] = nil
-        V.targetFx.styles["Helix"] = nil
-        V.targetFx.styles["Pulse Rings"] = nil
+        __EC_VISUALS.squares = __EC_VISUALS.squares or {enabled=false,modes={Cubes=true},radius=9.5,size=0.75,speed=1.1}
+        __EC_VISUALS.squares.modes = __EC_VISUALS.squares.modes or {Cubes=true}
+        __EC_VISUALS.targetFx = __EC_VISUALS.targetFx or {enabled=false,styles={Cubes=true},color={0.72,0.42,1,0.72}}
+        __EC_VISUALS.targetFx.styles = {Cubes=true}
+        __EC_PLAYER_TRAIL = __EC_PLAYER_TRAIL or {enabled=false,rainbow=false,length=46}
+        EC_BT = EC_BT or {enabled=false,hitfx=false,life=4,hitSize=38}
+        __EC16 = __EC16 or {}
+
+        FT.mouse_x, FT.mouse_y = mx or 0, my or 0
+        FT.lmb_pressed = (cl == true) and not (FT.lmb == true)
+        FT.lmb = cl == true
+        if not FT.lmb then FT.active_slider = nil end
+
+        update_drag(sw,sh)
+        local x,y,w,h = FT.x,FT.y,FT.w,FT.h
+        shadow_rect(x,y,w,h)
+        rect(x,y,w,h,BG3_R,BG3_G,BG3_B,0.96)
+        border(x,y,w,h,ACC_R,ACC_G,ACC_B,0.75,1)
+        border(x+1,y+1,w-2,h-2,LINE_R,LINE_G,LINE_B,0.95,1)
+        draw_topbar(x,y,w)
+        draw_page(x,y,w,h)
+        draw_footer(x,y,w,h)
+        draw_dropdowns()
     end
 
-    local function draw_rage(mx,my,cl,newClick,x,y,colW,gap,interactive)
-        local c1,c2,c3 = x, x+colW+gap, x+(colW+gap)*2
-        group(c1,y,colW,178,"Aimbot")
-        f_check(mx,my,cl,newClick,c1+12,y+42,colW-24,"Enable","ap_aim_enable_fixed_click",interactive)
-        f_check(mx,my,cl,newClick,c1+12,y+68,colW-24,"Prediction","ap_prediction_main",interactive)
-        f_check(mx,my,cl,newClick,c1+12,y+94,colW-24,"Team check","ap_team_main",interactive)
-        f_check(mx,my,cl,newClick,c1+12,y+120,colW-24,"Sticky aim","ap_sticky_main",interactive)
-        f_check(mx,my,cl,newClick,c1+12,y+146,colW-24,"Silent aim","ec_silent_enabled",interactive)
-
-        group(c2,y,colW,246,"FOV")
-        f_check(mx,my,cl,newClick,c2+12,y+42,colW-24,"Show FOV","ap_fov_show_main",interactive)
-        __EC16.rainbowFov = f_bool(mx,my,cl,newClick,c2+12,y+68,colW-24,"Rainbow FOV",__EC16.rainbowFov,interactive)
-        local fc = __EC16.fovColor or {ACC_R,ACC_G,ACC_B,1}
-        txt_l(c2+12,y+99,"FOV color",DIM_R,DIM_G,DIM_B,0.86)
-        color_square(c2+colW-34,y+94,fc)
-        if interactive and newClick and in_box(mx,my,c2+colW-38,y+90,c2+colW-10,y+120) then
-            __EC16.fovColor = cycle_hue_color("fov","main")
-        end
-        f_slider_int(mx,my,cl,newClick,c2+12,y+132,colW-24,"FOV size","ap_fov_main",50,600,interactive)
-        __EC16.rainbowFovSpeed = f_slider_float(mx,my,cl,newClick,c2+12,y+188,colW-24,"Rainbow speed",__EC16.rainbowFovSpeed or 2,0.2,8,"rainbow_speed",interactive)
-
-        group(c3,y,colW,246,"Target")
-        f_slider_int(mx,my,cl,newClick,c3+12,y+42,colW-24,"Max distance","ap_maxdist_main",50,3000,interactive)
-        local ts = f_check(mx,my,cl,newClick,c3+12,y+98,colW-24,"Target strafe","ap_target_strafe_main",interactive)
-        ap_target_strafe_radius = f_slider_float(mx,my,cl,newClick,c3+12,y+132,colW-24,"Strafe radius",ap_target_strafe_radius or 4,1,50,"strafe_radius",interactive)
-        ap_target_strafe_speed = f_slider_float(mx,my,cl,newClick,c3+12,y+188,colW-24,"Strafe speed",ap_target_strafe_speed or 280,50,700,"strafe_speed",interactive)
-
-        group(c1,y+192,colW,116,"Keybind")
-        if __ec16_keybind then pcall(__ec16_keybind,mx,my,interactive and cl or false,c1+12,y+232,"Aimbot key") end
-        __EC16.keybindsPanel = f_bool(mx,my,cl,newClick,c2+12,y+274,colW-24,"Keybind panel",__EC16.keybindsPanel,interactive)
-    end
-
-    local function draw_visuals(mx,my,cl,newClick,x,y,colW,gap,interactive)
-        init_visuals()
-        local V = __EC_VISUALS
-        local T = __EC_PLAYER_TRAIL
-        local c1,c2,c3 = x, x+colW+gap, x+(colW+gap)*2
-        group(c1,y,colW,222,"ESP")
-        f_check(mx,my,cl,newClick,c1+12,y+42,colW-24,"Armor ESP","armoriso_target_enabled",interactive)
-        f_check(mx,my,cl,newClick,c1+12,y+68,colW-24,"Weapon slot","armoriso_show_weapon",interactive)
-        __EC16.armorEspPlayers = f_bool(mx,my,cl,newClick,c1+12,y+94,colW-24,"Armor on player",__EC16.armorEspPlayers,interactive)
-        f_check(mx,my,cl,newClick,c1+12,y+120,colW-24,"Show distance","k1_show_distance",interactive)
-        f_slider_int(mx,my,cl,newClick,c1+12,y+154,colW-24,"ESP range","armoriso_max_distance",50,3000,interactive)
-
-        group(c2,y,colW,222,"World / Loot")
-        f_slider_int(mx,my,cl,newClick,c2+12,y+42,colW-24,"World range","k1_world_range",25,2000,interactive)
-        f_check(mx,my,cl,newClick,c2+12,y+98,colW-24,"World icons","k1_dropped_item_show_icon",interactive)
-        f_check(mx,my,cl,newClick,c2+12,y+124,colW-24,"Ore icons","k1_ore_show_icon",interactive)
-        f_slider_int(mx,my,cl,newClick,c2+12,y+158,colW-24,"Loot range","k1_loot_range",25,2000,interactive)
-
-        group(c3,y,colW,222,"Visual effects")
-        T.enabled = f_bool(mx,my,cl,newClick,c3+12,y+42,colW-24,"Player trail",T.enabled,interactive)
-        T.rainbow = f_bool(mx,my,cl,newClick,c3+12,y+68,colW-24,"Rainbow trail",T.rainbow,interactive)
-        T.length = f_slider_float(mx,my,cl,newClick,c3+12,y+102,colW-24,"Trail length",T.length or 46,8,220,"trail_len",interactive)
-        V.targetFx.enabled = f_bool(mx,my,cl,newClick,c3+12,y+158,colW-24,"Target cubes",V.targetFx.enabled,interactive)
-        V.targetFx.styles.Cubes = true
-
-        group(c1,y+238,colW,220,"World effects")
-        V.squares.enabled = f_bool(mx,my,cl,newClick,c1+12,y+280,colW-24,"Enable",V.squares.enabled,interactive)
-        V.squares.modes.Cubes = f_bool(mx,my,cl,newClick,c1+12,y+306,colW-24,"Cubes",V.squares.modes.Cubes,interactive)
-        V.squares.modes.Stars = f_bool(mx,my,cl,newClick,c1+12,y+332,colW-24,"Stars",V.squares.modes.Stars,interactive)
-        V.squares.modes.Circles = f_bool(mx,my,cl,newClick,c1+12,y+358,colW-24,"Circles",V.squares.modes.Circles,interactive)
-        V.squares.radius = f_slider_float(mx,my,cl,newClick,c1+12,y+392,colW-24,"Radius",V.squares.radius or 9.5,5.5,24,"world_radius",interactive)
-
-        group(c2,y+238,colW,220,"Bullet / hit")
-        EC_BT = EC_BT or {}
-        EC_BT.enabled = f_bool(mx,my,cl,newClick,c2+12,y+280,colW-24,"Bullet tracers",EC_BT.enabled,interactive)
-        EC_BT.instant = f_bool(mx,my,cl,newClick,c2+12,y+306,colW-24,"Instant tracer",EC_BT.instant ~= false,interactive)
-        EC_BT.hitfx = f_bool(mx,my,cl,newClick,c2+12,y+332,colW-24,"Hit effects",EC_BT.hitfx,interactive)
-        EC_BT.life = f_slider_float(mx,my,cl,newClick,c2+12,y+366,colW-24,"Tracer life",EC_BT.life or 4,0.1,8,"tracer_life",interactive)
-        EC_BT.hitSize = f_slider_float(mx,my,cl,newClick,c2+12,y+420,colW-24,"Hit size",EC_BT.hitSize or 38,18,96,"hit_size",interactive)
-
-        group(c3,y+238,colW,168,"Aura")
-        __EC16.selfAura = f_bool(mx,my,cl,newClick,c3+12,y+280,colW-24,"Self aura",__EC16.selfAura,interactive)
-        txt_l(c3+12,y+314,"Aura colors",DIM_R,DIM_G,DIM_B,0.86)
-        color_square(c3+colW-58,y+309,__EC16.selfAuraTopColor or {0.55,0.90,1,1})
-        color_square(c3+colW-34,y+309,__EC16.selfAuraBottomColor or {1,0.45,0.75,1})
-        if interactive and newClick and in_box(mx,my,c3+colW-62,y+304,c3+colW-10,y+334) then
-            __EC16.selfAuraTopColor = cycle_hue_color("aura","top")
-            __EC16.selfAuraBottomColor = cycle_hue_color("aura","bottom")
-        end
-    end
-
-    local function draw_misc(mx,my,cl,newClick,x,y,colW,gap,interactive)
-        local c1,c2,c3 = x, x+colW+gap, x+(colW+gap)*2
-        group(c1,y,colW,166,"Movement")
-        if __ec16_noclip_keybind then pcall(__ec16_noclip_keybind,mx,my,interactive and cl or false,c1+12,y+42,"Noclip key") end
-        f_check(mx,my,cl,newClick,c1+12,y+104,colW-24,"Left TP","ap_left_tp_enabled",interactive)
-        f_check(mx,my,cl,newClick,c1+12,y+130,colW-24,"Right TP","ap_right_tp_enabled",interactive)
-
-        group(c2,y,colW,166,"Menu")
-        txt_l(c2+12,y+44,"Menu bind",DIM_R,DIM_G,DIM_B,0.86)
-        if __ec16_menu_bind_button then pcall(__ec16_menu_bind_button,mx,my,interactive and cl or false,c2+12,y+64) end
-        __EC16.keybindsPanel = f_bool(mx,my,cl,newClick,c2+12,y+124,colW-24,"Keybind panel",__EC16.keybindsPanel,interactive)
-
-        group(c3,y,colW,166,"HUD")
-        __EC16.moderatorPanel = f_bool(mx,my,cl,newClick,c3+12,y+42,colW-24,"Moderator list",__EC16.moderatorPanel,interactive)
-        f_check(mx,my,cl,newClick,c3+12,y+68,colW-24,"Fullbright","ec_fullbright_enabled",interactive)
-        f_slider_int(mx,my,cl,newClick,c3+12,y+104,colW-24,"Brightness","ec_fullbright_opacity",0,80,interactive)
-    end
-
-    local function draw_lua(mx,my,cl,newClick,x,y,colW,gap,interactive)
-        local c1,c2,c3 = x, x+colW+gap, x+(colW+gap)*2
-        group(c1,y,colW,156,"Script")
-        txt_l(c1+12,y+44,"Eclipze.lua",TXT_R,TXT_G,TXT_B,0.96)
-        txt_l(c1+12,y+70,"Fatality rebuild v99",DIM_R,DIM_G,DIM_B,0.88)
-        txt_l(c1+12,y+96,"Right Shift menu",DIM_R,DIM_G,DIM_B,0.88)
-        group(c2,y,colW,156,"Status")
-        txt_l(c2+12,y+44,"Loaded",0.30,1.00,0.58,0.95)
-        txt_l(c2+12,y+70,"All old sections hidden",DIM_R,DIM_G,DIM_B,0.88)
-        group(c3,y,colW,156,"Info")
-        txt_l(c3+12,y+44,"Theme: Fatality",TXT_R,TXT_G,TXT_B,0.95)
-        txt_l(c3+12,y+70,"Accent: pink",DIM_R,DIM_G,DIM_B,0.88)
-    end
-
-    local function draw_menu(mx,my,cl,w,h,interactive)
-        if not (__EC16 and __EC16.open and __EC16.phase == "menu") then return end
-        local speed = 0.075
-        if interactive then
-            if __EC16.animDir == -1 then
-                __EC16.anim = clamp((__EC16.anim or 1) - speed,0,1)
-                if __EC16.anim <= 0.01 then __EC16.open = false; __EC16.anim = 0; return end
-            else
-                __EC16.anim = clamp((__EC16.anim or 0) + speed,0,1)
-            end
-        end
-        local reveal = __ec16_sm and __ec16_sm(__EC16.anim or 1) or (__EC16.anim or 1)
-        if reveal <= 0.02 then return end
-
-        __EC16.w = 640
-        __EC16.h = 444
-        local ww = __EC16.w
-        local hh = __EC16.h * reveal
-        local x = __EC16.x or 95
-        local y = __EC16.y or 70
-        local x2,y2 = x+ww,y+hh
-        local newClick = cl and not (__EC16.lastClick == true)
-
-        if interactive then
-            local inHeader = in_box(mx,my,x,y,x+ww,y+42)
-            if newClick and inHeader and not in_box(mx,my,x+112,y+8,x+520,y+38) then
-                __EC16.dragging = true
-                __EC16.dragX = mx - x
-                __EC16.dragY = my - y
-            end
-            if not cl then __EC16.dragging = false end
-            if __EC16.dragging then
-                __EC16.x = mx - (__EC16.dragX or 0)
-                __EC16.y = my - (__EC16.dragY or 0)
-                x = __EC16.x; y = __EC16.y; x2 = x + ww; y2 = y + hh
-            end
-        end
-
-        rect(0,0,w or 1920,h or 1080,0.006,0.005,0.016,0.34*reveal)
-        draw_f_symbols(w or 1920,h or 1080)
-
-        rr(x-2,y-2,x2+2,y2+2,ACC_R,ACC_G,ACC_B,0.14*reveal,7)
-        rr(x,y,x2,y2,BG_R,BG_G,BG_B,0.995*reveal,6)
-        out(x,y,x2,y2,0.210,0.160,0.420,0.70*reveal,1)
-        rr(x+8,y+8,x2-8,y+42,TOP_R,TOP_G,TOP_B,0.98*reveal,4)
-        rect(x+10,y+41,x2-10,y+43,ACC_R,ACC_G,ACC_B,0.75*reveal)
-
-        txt_l(x+18,y+20,"FATALITY",1,1,1,0.98*reveal)
-        draw_tabs(mx,my,cl,newClick,x,y,ww,interactive)
-        txt_l(x2-102,y+13,username(),1,0.86,0.96,0.90*reveal)
-        txt_l(x2-102,y+27,"expires: 20 days",DIM_R,DIM_G,DIM_B,0.72*reveal)
-        if Drawing and Drawing.DrawCircleFilled then
-            Drawing.DrawCircleFilled(ix(x2-24),ix(y+25),9,ACC_R,ACC_G,ACC_B,0.18*reveal)
-            Drawing.DrawCircleFilled(ix(x2-24),ix(y+23),3,1,0.82,0.92,0.95*reveal)
-            Drawing.DrawCircleFilled(ix(x2-24),ix(y+29),5,1,0.82,0.92,0.58*reveal)
-        end
-
-        local cx = x + 12
-        local cy = y + 56
-        local cw = ww - 24
-        local ch = hh - 68
-        rr(cx,cy,cx+cw,cy+ch,0.022,0.018,0.052,0.96*reveal,4)
-        out(cx,cy,cx+cw,cy+ch,0.145,0.105,0.280,0.62*reveal,1)
-
-        local gap = 8
-        local colW = math.floor((cw - gap*4)/3)
-        local contentX = cx + gap
-        local contentY = cy + 10
-        if F.tab == "RAGE" or F.tab == "LEGIT" then
-            draw_rage(mx,my,cl,newClick,contentX,contentY,colW,gap,interactive)
-        elseif F.tab == "VISUALS" or F.tab == "SKINS" then
-            draw_visuals(mx,my,cl,newClick,contentX,contentY,colW,gap,interactive)
-        elseif F.tab == "MISC" then
-            draw_misc(mx,my,cl,newClick,contentX,contentY,colW,gap,interactive)
-        else
-            draw_lua(mx,my,cl,newClick,contentX,contentY,colW,gap,interactive)
-        end
-
-        F.postReady = true
-    end
-
-    if type(__ec16_draw_top_hud) == "function" then
-        __EC_FATALITY_OLD_TOP_HUD = __ec16_draw_top_hud
-        __ec16_draw_top_hud = function(mx,my,cl) end
-    end
-
+    -- kill the old avatar/top HUD and old sidebar menu, then draw the new exact ECLIPZE menu.
+    __ec16_draw_top_hud = function(mx,my,cl) end
+    local old_menu = __ec16_menu
     __ec16_menu = function(mx,my,cl,w,h)
-        if __EC16 and __EC16.open and __EC16.phase == "menu" then
-            return draw_menu(mx,my,cl,w,h,true)
-        end
-        if old_menu then return old_menu(mx,my,cl,w,h) end
+        local sw,sh = screen_size(w,h)
+        draw_background(sw,sh)
+        draw_menu(mx,my,cl,sw,sh)
+        return true
     end
 
-    if hooks and hooks.on_render then
+    -- If some loader calls the patch before the original render loop exists, fallback render keeps the menu visible.
+    if hooks and hooks.on_render and not __EC_FT100_FALLBACK_HOOK then
+        __EC_FT100_FALLBACK_HOOK = true
         hooks.on_render(function()
             if not (__EC16 and __EC16.open and __EC16.phase == "menu") then return end
-            local mx,my = 0,0
-            pcall(function() if __ec16_mouse then mx,my = __ec16_mouse() end end)
-            local s = nil
-            pcall(function() if ScreenSize then s = ScreenSize() end end)
-            local w = (s and (s.Width or s.X)) or 1920
-            local h = (s and (s.Height or s.Y)) or 1080
-            -- final pass covers any old overlay/avatar that older hooks still draw
-            pcall(draw_menu,mx,my,false,w,h,false)
+            -- The original render loop already calls __ec16_menu, so this fallback only runs if old_menu was missing.
+            if type(old_menu) ~= "function" then
+                local sw,sh = screen_size()
+                local mx,my,cl = 0,0,false
+                pcall(function() if __ec16_mouse then mx,my = __ec16_mouse() end end)
+                pcall(function() if __ec16_click then cl = __ec16_click() end end)
+                draw_background(sw,sh)
+                draw_menu(mx,my,cl,sw,sh)
+            end
         end)
     end
 
-    if notify then pcall(function() notify("Eclipze v99 real Fatality menu loaded", "success") end) end
+    if notify then pcall(function() notify("ECLIPZE v100 menu loaded", "success") end) end
 end)()
