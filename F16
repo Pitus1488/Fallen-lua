@@ -14346,7 +14346,7 @@ function __EC_V90_PATCH()
         enabled = false,
         mode = "Mixed",
         amount = 42,
-        radius = 9.5,
+        radius = 15.0,
         speed = 1.10,
         size = 0.75,
         color = {0.92, 0.70, 1.00, 1}
@@ -14400,6 +14400,21 @@ function __EC_V90_PATCH()
         V.targetFx.style = "Stack"
     end
     if V.targetFx.color and V.targetFx.color[4] == nil then V.targetFx.color[4] = 0.72 end
+
+    V.china = V.china or {
+        enabled = false,
+        rainbow = false,
+        radius = 2.35,
+        height = 0.85,
+        speed = 1.20,
+        segments = 40,
+        color = {1.00,0.00,0.55,0.88}
+    }
+    if V.china.color and V.china.color[4] == nil then V.china.color[4] = 0.88 end
+    if V.china.radius == nil then V.china.radius = 2.35 end
+    if V.china.height == nil then V.china.height = 0.85 end
+    if V.china.speed == nil then V.china.speed = 1.20 end
+    if V.china.segments == nil then V.china.segments = 40 end
 
     local function now()
         return (tick and tick()) or (os and os.clock and os.clock()) or 0
@@ -14646,6 +14661,9 @@ function __EC_V90_PATCH()
         elseif id == "squares" then
             local c = (V.squares and V.squares.color) or {0.92,0.70,1.00,1}
             return c[1] or 0.92,c[2] or 0.70,c[3] or 1.00
+        elseif id == "china" then
+            local c = (V.china and V.china.color) or {1.00,0.00,0.55,0.88}
+            return c[1] or 1.00,c[2] or 0.00,c[3] or 0.55
         elseif id == "targetfx" then
             local c = (V.targetFx and V.targetFx.color) or {0.72,0.42,1.00,0.72}
             return c[1] or 0.72,c[2] or 0.42,c[3] or 1.00
@@ -14692,6 +14710,9 @@ function __EC_V90_PATCH()
         elseif id == "squares" then
             local c = (V.squares and V.squares.color) or {}
             return clamp(c[4] or 1.00,0.02,1.00)
+        elseif id == "china" then
+            local c = (V.china and V.china.color) or {}
+            return clamp(c[4] or 0.88,0.02,1.00)
         elseif id == "targetfx" then
             local c = (V.targetFx and V.targetFx.color) or {}
             return clamp(c[4] or 0.72,0.02,1.00)
@@ -14743,6 +14764,10 @@ function __EC_V90_PATCH()
             V.squares = V.squares or {}
             V.squares.color = {r,g,b,a}
             V.squares.hue = h or V.squares.hue or 0.78
+        elseif id == "china" then
+            V.china = V.china or {}
+            V.china.color = {r,g,b,a}
+            V.china.hue = h or V.china.hue or 0.92
         elseif id == "targetfx" then
             V.targetFx = V.targetFx or {}
             V.targetFx.color = {r,g,b,a}
@@ -15317,7 +15342,7 @@ local function picker_blocks_base(mx,my,cl)
         round(L.contentX,L.contentY,L.contentX2,L.contentY2,0.040,0.032,0.085,0.76,8)
         if __ec16_out then __ec16_out(L.contentX,L.contentY,L.contentX2,L.contentY2,0.22,0.16,0.38,0.62,1) end
 
-        local sections = {"Trail","World Effects","Target Effects","Bullet Tracers","Aura"}
+        local sections = {"Trail","World Effects","Target Effects","China Hat","Bullet Tracers","Aura"}
         local secY = L.sideY + 74
         for _,name in ipairs(sections) do
             local ix1 = L.sideX + 10
@@ -15359,7 +15384,7 @@ local function picker_blocks_base(mx,my,cl)
             V.squares.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"World Effects",V.squares.enabled == true)
             V.squares.modes = multi_dropdown_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Type",{"Cubes","Stars","Circles"},V.squares.modes or {},"world_effect_stack",false)
             V.squares.amount = safe_float(mx,my,visual_control_click(cl),c1+18,sy+162,colW-36,"Amount",V.squares.amount or 42,8,90)
-            V.squares.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+222,colW-36,"Radius",V.squares.radius or 9.5,5.5,24.0)
+            V.squares.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+222,colW-36,"Distance",V.squares.radius or 15.0,15.0,80.0)
             V.squares.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+282,colW-36,"Speed",V.squares.speed or 1.10,0.10,4.00)
             V.squares.size = safe_float(mx,my,visual_control_click(cl),c1+18,sy+342,colW-36,"Effect Size",V.squares.size or 0.75,0.20,1.60)
 
@@ -15375,6 +15400,17 @@ local function picker_blocks_base(mx,my,cl)
             V.targetFx.styles["Helix"] = nil
             V.targetFx.styles["Pulse Rings"] = nil
             V.targetFx.styles = multi_dropdown_select(mx,my,visual_control_click(cl),c1+18,sy+82,colW-36,"Effect Stack",{"Cubes"},V.targetFx.styles,"target_effect_stack",false)
+
+        elseif V.section == "China Hat" then
+            V.china = V.china or {}
+            group(c1,sy,colW,354,"China Hat")
+            color_button(mx,my,cl,c1+colW-42,sy+42,"china")
+            V.china.enabled = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+42,"China Hat",V.china.enabled == true)
+            V.china.rainbow = safe_bool(mx,my,visual_control_click(cl),c1+18,sy+72,"Rainbow Hat",V.china.rainbow == true)
+            V.china.radius = safe_float(mx,my,visual_control_click(cl),c1+18,sy+112,colW-36,"Hat Radius",V.china.radius or 2.35,1.00,6.00)
+            V.china.height = safe_float(mx,my,visual_control_click(cl),c1+18,sy+172,colW-36,"Hat Height",V.china.height or 0.85,0.15,3.00)
+            V.china.speed = safe_float(mx,my,visual_control_click(cl),c1+18,sy+232,colW-36,"Spin Speed",V.china.speed or 1.20,0.00,5.00)
+            V.china.segments = safe_float(mx,my,visual_control_click(cl),c1+18,sy+292,colW-36,"Smoothness",V.china.segments or 40,12,72)
 
         elseif V.section == "Bullet Tracers" then
             ensure_ecbt()
@@ -15754,7 +15790,7 @@ local function picker_blocks_base(mx,my,cl)
 
         local tm = now()
         local amount = math.floor(clamp(V.squares.amount or 42,8,90)+0.5)
-        local radius = clamp(V.squares.radius or 9.5,5.5,24.0)
+        local radius = clamp(V.squares.radius or 15.0,15.0,80.0)
         local speed = clamp(V.squares.speed or 1.10,0.05,4.0)
         local baseSize = clamp(V.squares.size or 0.75,0.15,1.8)
 
@@ -15836,6 +15872,86 @@ local function picker_blocks_base(mx,my,cl)
                 local pos = center + Vector3(baseX + swayX + modeOffsetX, lift + modeOffsetY, baseZ + swayZ + modeOffsetZ)
                 draw_world_effect_item(drawMode,pos,size2,rx,ry,rz,cr,cg,cb,alpha,i + mi * 13,tm)
             end
+        end
+    end
+
+    local function get_head_pos_for_china()
+        local pos = nil
+        pcall(function()
+            if rbx and rbx.local_head then
+                local head = rbx.local_head()
+                if head and head.get_position then pos = head:get_position() end
+            end
+        end)
+        if not pos then
+            local hrp = get_hrp_pos()
+            if hrp then pos = hrp + Vector3(0,2.65,0) end
+        end
+        if not pos then return nil end
+        local x = __EC_NUM(pos.X or pos[1], nil)
+        local y = __EC_NUM(pos.Y or pos[2], nil)
+        local z = __EC_NUM(pos.Z or pos[3], nil)
+        if not x or not y or not z then return nil end
+        return Vector3(x,y,z)
+    end
+
+    local function china_hat_line(p1,p2,r,g,b,a,th)
+        local s1 = world_to_screen(p1)
+        local s2 = world_to_screen(p2)
+        if not (s1 and s2) then return end
+        line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.20,(th or 1.0)*5.0)
+        line(s1.X,s1.Y,s2.X,s2.Y,r,g,b,a*0.52,(th or 1.0)*2.5)
+        line(s1.X,s1.Y,s2.X,s2.Y,1.00,0.92,1.00,a*0.92,th or 1.0)
+    end
+
+    local function draw_china_hat()
+        if not (V.china and V.china.enabled == true) then return end
+        local head = get_head_pos_for_china()
+        if not head then return end
+
+        local tm = now()
+        local radius = clamp(V.china.radius or 2.35,1.00,6.00)
+        local height = clamp(V.china.height or 0.85,0.15,3.00)
+        local spinSpeed = clamp(V.china.speed or 1.20,0.00,5.00)
+        local segments = math.floor(clamp(V.china.segments or 40,12,72)+0.5)
+        local alpha = get_target_alpha("china")
+        local baseR,baseG,baseB = get_target_color("china")
+        local spin = tm * spinSpeed * 0.85
+
+        -- base ring sits just above the head; cone point makes the classic China-hat shape
+        local baseCenter = head + Vector3(0,0.20,0)
+        local top = head + Vector3(0,0.20 + height,0)
+        local first = nil
+        local prev = nil
+        local spokeStep = math.max(3, math.floor(segments / 10))
+
+        for i=0,segments do
+            local u = i / segments
+            local ang = spin + u * 6.283185
+            local p = baseCenter + Vector3(math.cos(ang)*radius,0,math.sin(ang)*radius)
+            local r,g,b = baseR,baseG,baseB
+            if V.china.rainbow == true then
+                r,g,b = hsv_to_rgb((u + tm*0.08) % 1.0,1,1)
+            end
+            if prev then china_hat_line(prev,p,r,g,b,alpha,1.05) end
+            if not first then first = p end
+            if i < segments and (i % spokeStep == 0) then
+                china_hat_line(top,p,r,g,b,alpha*0.82,0.92)
+            end
+            prev = p
+        end
+        if first and prev then china_hat_line(prev,first,baseR,baseG,baseB,alpha,1.05) end
+
+        -- small glow ring under the cone so it looks thicker and smoother
+        local innerPrev = nil
+        for i=0,segments do
+            local u = i / segments
+            local ang = spin + u * 6.283185 + 0.06
+            local p = baseCenter + Vector3(math.cos(ang)*(radius*0.72),-0.035,math.sin(ang)*(radius*0.72))
+            local r,g,b = baseR,baseG,baseB
+            if V.china.rainbow == true then r,g,b = hsv_to_rgb((u + tm*0.08 + 0.08) % 1.0,1,1) end
+            if innerPrev then china_hat_line(innerPrev,p,r,g,b,alpha*0.34,0.72) end
+            innerPrev = p
         end
     end
 
@@ -16388,9 +16504,9 @@ local function picker_blocks_base(mx,my,cl)
     end
 
     if hooks and hooks.on_render then
-        hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
+        hooks.on_render(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_china_hat); pcall(draw_target_effects) end)
     elseif callbacks and callbacks.paint then
-        callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_target_effects) end)
+        callbacks.paint(function() pcall(draw_player_trail); pcall(draw_orbit_squares); pcall(draw_china_hat); pcall(draw_target_effects) end)
     end
 
     if notify and not __EC_V90_NOTIFIED then __EC_V90_NOTIFIED = true; notify("Eclipze v90 loaded", "success") end
