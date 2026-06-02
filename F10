@@ -17122,3 +17122,34 @@ ECLIPZE v100 exact fatality-style menu overlay
 
     if notify then pcall(function() notify("ECLIPZE v100 menu loaded", "success") end) end
 end)()
+
+-- ECLIPZE v101: hard-disable legacy menu / legacy HUD draws
+(function()
+    if __EC_ECLIPZE_V101_LEGACY_KILL then return end
+    __EC_ECLIPZE_V101_LEGACY_KILL = true
+
+    local function noop() end
+
+    __ec16_draw_top_hud = noop
+    __ec16_draw_keybinds_panel = noop
+    __ec16_draw_moderator_panel = noop
+    __ec16_draw_local_card_v16 = noop
+    __ec16_draw_local_card_v18 = noop
+    __ec16_draw_player_info_checker_v16 = noop
+
+    -- In case older patches recreate those functions later in the frame,
+    -- kill them again every render before anything can draw.
+    if hooks and hooks.on_render and not __EC_ECLIPZE_V101_KILL_HOOK then
+        __EC_ECLIPZE_V101_KILL_HOOK = true
+        hooks.on_render(function()
+            __ec16_draw_top_hud = noop
+            __ec16_draw_keybinds_panel = noop
+            __ec16_draw_moderator_panel = noop
+            __ec16_draw_local_card_v16 = noop
+            __ec16_draw_local_card_v18 = noop
+            __ec16_draw_player_info_checker_v16 = noop
+        end)
+    end
+
+    if notify then pcall(function() notify("ECLIPZE v101 legacy menu removed", "success") end) end
+end)()
