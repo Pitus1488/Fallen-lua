@@ -4190,69 +4190,360 @@ if bestScore > 220 then return nil,nil end
 return bestTarget,bestHit
 end
 
-function EC_BT_TRACK_HIT()
-if EC_BT then
-EC_BT.realHitOnly = false -- simple mode
-EC_BT.onlyOnHit = false -- simple mode
-EC_BT.life = EC_BT.life or 4.0
-EC_BT.alpha = EC_BT.alpha or 1.0
-EC_BT.maxDist = EC_BT.maxDist or 1000
-if EC_BT.instant == nil then EC_BT.instant = true end
--- From Weapon 3D offset was unreliable in this API, so use stable screen-space lower offset.
-EC_BT.weaponOrigin = false
-EC_BT.screenStraight = true
-EC_BT.revealTime = EC_BT.revealTime or 0.55
-EC_BT.weaponSide = EC_BT.weaponSide or 0.72
-EC_BT.weaponDown = EC_BT.weaponDown or 0.45
-EC_BT.weaponForward = EC_BT.weaponForward or 0.55
-EC_BT.thick = EC_BT.thick or 2.0
-EC_BT.segments = EC_BT.segments or 24
-EC_BT.delay = EC_BT.delay or 0.13
+-- // ===== VFX HOLE + BLOODPART TRACER DETECTOR =====
+-- A shot only saves the exact camera/crosshair view. The tracer itself is
+-- created later, only when a NEW direct child named Hole or BloodPart appears
+-- in Workspace > VFX and that impact is inside the SAVED shot FOV.
+-- This keeps recoil from invalidating the check after the shot.
+if EC_BT_VFX == nil then
+EC_BT_VFX = {
+seen = {},
+initialized = false,
+shot_views = {},
+last_capture = 0,
+recent_impacts = {},
+}
 end
-if not EC_BT then return end
-if (not EC_BT.enabled) and (not EC_BT.hitfx) then return end
-if EC_BT_HAS_WEAPON() ~= true then return end
 
--- Safe mode: do not touch prediction / real hit hooks.
--- Uses the same fallback targeting as before.
-if EC_BT.realHitOnly == true then
-EC_BT_REGISTER_HIT_HOOKS()
+function EC_BT_VFX_RMB_DOWN()
+local down = false
+pcall(function()
+if input and input.is_key_down then down = input.is_key_down(0x02) == true end
+end)
+pcall(function()
+if (not down) and Windows and Windows.IsKeyPressed then down = Windows.IsKeyPressed(0x02) == true end
+end)
+return down == true
+end
+
+function EC_BT_VFX_FOV_RADIUS()
+if EC_BT_VFX_RMB_DOWN() then return 20 end
+return 40
+end
+
+function EC_BT_VFX_CROSSHAIR()
+local cx,cy = nil,nil
+pcall(function()
+if crosshair_pos then
+local c = crosshair_pos()
+if c then cx = tonumber(c.X or c.x or c[1]); cy = tonumber(c.Y or c.y or c[2]) end
+end
+end)
+
+if cx and cy then return cx,cy end
+
+local d = nil
+pcall(function()
+if rbx and rbx.screen_dim then d = rbx.screen_dim() end
+end)
+pcall(function()
+if (not d) and ScreenSize then d = ScreenSize() end
+end)
+if d then
+local w = tonumber(d.Width or d.width or d.X or d.x)
+local h = tonumber(d.Height or d.height or d.Y or d.y)
+if w and h then return w*0.5,h*0.5 end
+end
+return nil,nil
+end
+
+function EC_BT_VFX_CAPTURE_SHOT_VIEW(force)
+local now = EC_BT_NOW()
+if force ~= true and now - (EC_BT_VFX.last_capture or 0) < 0.028 then return end
+EC_BT_VFX.last_capture = now
+
+local cam = nil
+local camPos = nil
+local rot = nil
+local fov = nil
+
+pcall(function()
+if rbx and rbx.camera then
+cam = rbx.camera()
+if cam then
+if cam.camera_pos then camPos = cam:camera_pos() end
+if cam.camera_rotation then rot = cam:camera_rotation() end
+if cam.camera_fov then fov = cam:camera_fov() end
+end
+end
+end)
+
+pcall(function()
+if (not camPos) and aim and aim.get_camera_position then camPos = aim.get_camera_position() end
+end)
+pcall(function()
+if (not rot) and aim and aim.get_camera_rotation then rot = aim.get_camera_rotation() end
+end)
+
+if not camPos or type(rot) ~= 'table' or #rot < 9 then return end
+
+local dims = nil
+pcall(function() if rbx and rbx.screen_dim then dims = rbx.screen_dim() end end)
+pcall(function() if (not dims) and ScreenSize then dims = ScreenSize() end end)
+if not dims then return end
+
+local vw = tonumber(dims.Width or dims.width or dims.X or dims.x)
+local vh = tonumber(dims.Height or dims.height or dims.Y or dims.y)
+if not vw or not vh or vw <= 0 or vh <= 0 then return end
+
+local cx,cy = EC_BT_VFX_CROSSHAIR()
+if not cx or not cy then cx=vw*0.5; cy=vh*0.5 end
+
+fov = tonumber(fov) or math.rad(70)
+if fov > math.pi * 1.25 then fov = math.rad(fov) end
+if fov < math.rad(20) then fov = math.rad(20) end
+if fov > math.rad(150) then fov = math.rad(150) end
+
+local snap = {
+time=now,
+px=tonumber(camPos.X), py=tonumber(camPos.Y), pz=tonumber(camPos.Z),
+rx=tonumber(rot[1]), ry=tonumber(rot[4]), rz=tonumber(rot[7]),
+ux=tonumber(rot[2]), uy=tonumber(rot[5]), uz=tonumber(rot[8]),
+fx=-tonumber(rot[3]), fy=-tonumber(rot[6]), fz=-tonumber(rot[9]),
+vw=vw, vh=vh, cx=cx, cy=cy, fov=fov,
+radius=EC_BT_VFX_FOV_RADIUS(),
+}
+
+for _,k in ipairs({'px','py','pz','rx','ry','rz','ux','uy','uz','fx','fy','fz','vw','vh','cx','cy','fov','radius'}) do
+if snap[k] == nil then return end
+end
+
+EC_BT_VFX.shot_views[#EC_BT_VFX.shot_views+1] = snap
+
+for i=#EC_BT_VFX.shot_views,1,-1 do
+if now - (EC_BT_VFX.shot_views[i].time or 0) > 1.10 then
+table.remove(EC_BT_VFX.shot_views,i)
+end
+end
+while #EC_BT_VFX.shot_views > 40 do table.remove(EC_BT_VFX.shot_views,1) end
+end
+
+function EC_BT_VFX_CHECK_SNAPSHOT(pos,s)
+if not pos or not s then return false,nil end
+local dx = tonumber(pos.X) - tonumber(s.px)
+local dy = tonumber(pos.Y) - tonumber(s.py)
+local dz = tonumber(pos.Z) - tonumber(s.pz)
+if not dx or not dy or not dz then return false,nil end
+
+local lx = dx*s.rx + dy*s.ry + dz*s.rz
+local ly = dx*s.ux + dy*s.uy + dz*s.uz
+local lz = dx*s.fx + dy*s.fy + dz*s.fz
+if lz <= 0.001 then return false,nil end
+
+local focal = s.vh / (2 * math.tan(s.fov * 0.5))
+if not focal or focal <= 0 then return false,nil end
+local sx = s.vw*0.5 + (lx/lz)*focal
+local sy = s.vh*0.5 - (ly/lz)*focal
+local qx = sx - s.cx
+local qy = sy - s.cy
+local dist2 = qx*qx + qy*qy
+local radius = tonumber(s.radius) or 40
+return dist2 <= radius*radius, dist2
+end
+
+function EC_BT_VFX_MATCH_SHOT(pos,maxAge)
+local now = EC_BT_NOW()
+local best = nil
+local bestDist = nil
+for i=#EC_BT_VFX.shot_views,1,-1 do
+local s = EC_BT_VFX.shot_views[i]
+local age = now - (s.time or 0)
+if age <= (maxAge or 1.0) then
+local ok,d2 = EC_BT_VFX_CHECK_SNAPSHOT(pos,s)
+if ok and (bestDist == nil or (d2 or 999999) < bestDist) then
+best=s
+bestDist=d2 or 999999
+end
+end
+end
+return best,bestDist
+end
+
+function EC_BT_VFX_FOLDER()
+local vfx = nil
+pcall(function()
+if rbx and rbx.workspace then
+local ws = rbx.workspace()
+if ws and ws.find_first_child then vfx = ws:find_first_child('VFX') end
+if (not vfx) and ws and ws.get_child then vfx = ws:get_child('VFX') end
+end
+end)
+return vfx
+end
+
+function EC_BT_VFX_CHILDREN()
+local vfx = EC_BT_VFX_FOLDER()
+if not vfx then return {} end
+local ch = {}
+pcall(function() if vfx.get_children then ch = vfx:get_children() end end)
+pcall(function() if (#ch == 0) and vfx.GetChildren then ch = vfx:GetChildren() end end)
+return ch or {}
+end
+
+function EC_BT_VFX_KEY(inst)
+if not inst then return nil end
+local key = nil
+pcall(function() key = tostring(inst) end)
+if not key or key == '' then return inst end
+return key
+end
+
+function EC_BT_VFX_NAME(inst)
+local n = ''
+pcall(function() if inst.get_name then n = inst:get_name() end end)
+pcall(function() if n == '' then n = inst.Name or inst.name or '' end end)
+return string.lower(tostring(n or ''))
+end
+
+function EC_BT_VFX_KIND(inst)
+local n = EC_BT_VFX_NAME(inst)
+if n == 'hole' then return 'hole' end
+if n == 'bloodpart' then return 'bloodpart' end
+return nil
+end
+
+function EC_BT_VFX_POSITION(inst)
+if not inst then return nil end
+local p = nil
+pcall(function() if inst.get_position then p = inst:get_position() end end)
+pcall(function() if (not p) and inst.Position then p = inst.Position end end)
+if p and p.X ~= nil and p.Y ~= nil and p.Z ~= nil then
+return {X=p.X,Y=p.Y,Z=p.Z}
+end
+
+local ch = {}
+pcall(function() if inst.get_children then ch = inst:get_children() end end)
+pcall(function() if (#ch == 0) and inst.GetChildren then ch = inst:GetChildren() end end)
+for _,c in ipairs(ch or {}) do
+local cp=nil
+pcall(function() if c.get_position then cp=c:get_position() end end)
+pcall(function() if (not cp) and c.Position then cp=c.Position end end)
+if cp and cp.X ~= nil and cp.Y ~= nil and cp.Z ~= nil then
+return {X=cp.X,Y=cp.Y,Z=cp.Z}
+end
+end
+return nil
+end
+
+function EC_BT_VFX_IS_DUPLICATE(pos)
+local now=EC_BT_NOW()
+for i=#EC_BT_VFX.recent_impacts,1,-1 do
+local r=EC_BT_VFX.recent_impacts[i]
+if now-(r.time or 0)>0.12 then
+table.remove(EC_BT_VFX.recent_impacts,i)
+else
+local dx=(pos.X or 0)-(r.x or 0)
+local dy=(pos.Y or 0)-(r.y or 0)
+local dz=(pos.Z or 0)-(r.z or 0)
+if dx*dx+dy*dy+dz*dz <= 0.36 then return true end
+end
+end
+EC_BT_VFX.recent_impacts[#EC_BT_VFX.recent_impacts+1]={x=pos.X,y=pos.Y,z=pos.Z,time=now}
+return false
+end
+
+function EC_BT_VFX_SPAWN(kind,pos,snap)
+if not pos or not snap then return end
+if EC_BT_VFX_IS_DUPLICATE(pos) then return end
+
+local origin={X=snap.px,Y=snap.py,Z=snap.pz}
+local spd = AP_BULLET_SPEED or 800
+local grav = AP_GRAVITY or 20
+if spd < 1 then spd=800 end
+local dx=(pos.X or 0)-(origin.X or 0)
+local dy=(pos.Y or 0)-(origin.Y or 0)
+local dz=(pos.Z or 0)-(origin.Z or 0)
+local dist=math.sqrt(dx*dx+dy*dy+dz*dz)
+local maxDist=tonumber(EC_BT.maxDist or 1000) or 1000
+if maxDist>0 and dist>maxDist then return end
+local flight=dist/spd
+if flight<0.02 then flight=0.02 end
+if flight>3.0 then flight=3.0 end
+
+-- Tracers: BOTH Hole and BloodPart.
+if EC_BT.enabled then EC_BT_ADD(origin,pos,grav,flight) end
+
+-- Hit Effects: BloodPart only. Hole never triggers HitFX.
+if kind == 'bloodpart' and EC_BT.hitfx then EC_BT_ADD_HIT(pos) end
+end
+
+function EC_BT_VFX_SCAN_TICK()
+if not EC_BT then return end
+
+local active = EC_BT.enabled == true or EC_BT.hitfx == true
+if not active then
+EC_BT_VFX.initialized=false
+EC_BT_VFX.seen={}
+EC_BT_VFX.shot_views={}
+EC_BT_VFX.recent_impacts={}
 return
 end
 
--- Working fallback: draw on your own LMB shot, independent from aimbot.
-if EC_BT_DOWN() ~= true then return end
-local now = EC_BT_NOW()
-local delay = tonumber(EC_BT.delay or 0.13) or 0.13
-if now - (EC_BT.last or 0) < delay then return end
-EC_BT.last = now
+if EC_BT_HAS_WEAPON() ~= true then
+EC_BT_VFX.shot_views={}
+return
+end
 
-local target, hitPos = EC_BT_PICK_HIT_TARGET()
-if not target or not hitPos then return end
-if EC_BT_IS_DEAD_TARGET(target) then return end
-local camPos = EC_BT_CURRENT_CAMERA()
-if not camPos then return end
-local traceOrigin = camPos
+-- Save exact shot/recoil-independent views while LMB is firing.
+if EC_BT_DOWN() == true then
+EC_BT_VFX_CAPTURE_SHOT_VIEW(false)
+end
 
-local grav = AP_GRAVITY or 20
-local spd = AP_BULLET_SPEED or 800
-if spd < 1 then spd = 800 end
-local dx = (hitPos.X or 0) - (traceOrigin.X or camPos.X or 0)
-local dy = (hitPos.Y or 0) - (traceOrigin.Y or camPos.Y or 0)
-local dz = (hitPos.Z or 0) - (traceOrigin.Z or camPos.Z or 0)
-local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
-local maxDist = tonumber(EC_BT.maxDist or 1000) or 1000
-if maxDist > 0 and dist > maxDist then return end
-local flight = dist / spd
-if flight < 0.02 then flight = 0.02 end
-if flight > 3.0 then flight = 3.0 end
+local children=EC_BT_VFX_CHILDREN()
+local current={}
+for _,inst in ipairs(children) do
+local key=EC_BT_VFX_KEY(inst)
+if key then current[key]=inst end
+end
 
-if EC_BT.enabled then EC_BT_ADD(traceOrigin, hitPos, grav, flight) end
-if EC_BT.hitfx then
-local hp = target.head_pos or hitPos
-EC_BT_ADD_HIT(hp)
+-- First scan is only a baseline: never treat old VFX as our shot.
+if EC_BT_VFX.initialized ~= true then
+EC_BT_VFX.seen=current
+EC_BT_VFX.initialized=true
+return
+end
+
+for key,inst in pairs(current) do
+if EC_BT_VFX.seen[key] == nil then
+local kind=EC_BT_VFX_KIND(inst)
+if kind == 'hole' or kind == 'bloodpart' then
+local pos=EC_BT_VFX_POSITION(inst)
+if pos then
+local maxAge=(kind=='bloodpart') and 1.00 or 0.70
+local snap=EC_BT_VFX_MATCH_SHOT(pos,maxAge)
+if snap then EC_BT_VFX_SPAWN(kind,pos,snap) end
 end
 end
+end
+end
+
+EC_BT_VFX.seen=current
+
+local now=EC_BT_NOW()
+for i=#EC_BT_VFX.shot_views,1,-1 do
+if now-(EC_BT_VFX.shot_views[i].time or 0)>1.10 then table.remove(EC_BT_VFX.shot_views,i) end
+end
+end
+
+function EC_BT_TRACK_HIT()
+-- Kept under the old function name because the render hook already calls it.
+-- It no longer uses target HP / hit callbacks / nearest-target fallback.
+if EC_BT then
+EC_BT.realHitOnly=false
+EC_BT.onlyOnHit=false
+EC_BT.life=EC_BT.life or 4.0
+EC_BT.alpha=EC_BT.alpha or 1.0
+EC_BT.maxDist=EC_BT.maxDist or 1000
+if EC_BT.instant == nil then EC_BT.instant=true end
+EC_BT.weaponOrigin=false
+EC_BT.screenStraight=true
+EC_BT.revealTime=EC_BT.revealTime or 0.55
+EC_BT.thick=EC_BT.thick or 2.0
+EC_BT.segments=EC_BT.segments or 24
+end
+EC_BT_VFX_SCAN_TICK()
+end
+-- // ===== END VFX HOLE + BLOODPART TRACER DETECTOR =====
 
 function EC_BT_BASE_COLOR()
 if __EC16 and __EC16.tracerColor then
